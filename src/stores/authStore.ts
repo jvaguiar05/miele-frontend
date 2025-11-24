@@ -53,6 +53,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   initialize: () => void;
   refreshToken: () => Promise<string>;
 }
@@ -309,6 +310,29 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({ isLoading: false });
           throw error;
+        }
+      },
+
+      changePassword: async (oldPassword: string, newPassword: string) => {
+        const { user } = get();
+        if (!user) throw new Error("No user logged in");
+
+        try {
+          await api.patch("/users/password/", {
+            old_password: oldPassword,
+            new_password: newPassword,
+          });
+        } catch (error: any) {
+          if (error.response?.status === 400) {
+            const errorData = error.response.data;
+            if (errorData.old_password) {
+              throw new Error("Senha atual incorreta");
+            }
+            if (errorData.new_password) {
+              throw new Error("Nova senha inválida");
+            }
+          }
+          throw new Error("Erro ao alterar a senha");
         }
       },
 

@@ -46,6 +46,7 @@ export default function Profile() {
     profile,
     signOut,
     updateProfile: updateAuthProfile,
+    changePassword,
     isLoading: authLoading,
   } = useAuthStore();
   const navigate = useNavigate();
@@ -143,7 +144,7 @@ export default function Profile() {
     setIsPasswordLoading(true);
     setShowPasswordConfirmation(false);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await changePassword(currentPassword, newPassword);
 
       toast({
         title: "Senha alterada",
@@ -153,10 +154,10 @@ export default function Profile() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro ao alterar senha",
-        description: "Não foi possível alterar a senha.",
+        description: error.message || "Não foi possível alterar a senha.",
         variant: "destructive",
       });
     } finally {
