@@ -6,122 +6,176 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useClientStore } from "@/stores/clientStore";
+import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MaskedInput } from "@/components/ui/input-mask";
-
-interface Client {
-  id?: string;
-  // Dados principais
-  cnpj: string;
-  razao_social: string;
-  nome_fantasia?: string;
-  inscricao_estadual?: string;
-  inscricao_municipal?: string;
-  tipo_empresa: string;
-  recuperacao_judicial?: boolean;
-  
-  // Contatos comerciais
-  telefone_comercial?: string;
-  email_comercial?: string;
-  website?: string;
-  
-  // Contatos diretos
-  telefone_contato?: string;
-  email_contato?: string;
-  
-  // Dados societários
-  quadro_societario?: string;
-  cargos?: string;
-  responsavel_financeiro?: string;
-  contador_responsavel?: string;
-  
-  // Dados fiscais
-  cnaes?: string;
-  regime_tributacao?: string;
-  
-  // Documentos
-  contrato_social?: string;
-  ultima_alteracao_contratual?: string;
-  rg_cpf_socios?: string;
-  certificado_digital?: string;
-  
-  // Controles
-  autorizado_para_envio?: boolean;
-  atividades?: string;
-  client_status?: string;
-  is_active?: boolean;
-  
-  // Endereço
-  logradouro?: string;
-  numero?: string;
-  complemento?: string;
-  bairro?: string;
-  municipio?: string;
-  uf?: string;
-  cep?: string;
-  
-  // Legacy
-  anotacoes_anteriores?: string;
-  nova_anotacao?: string;
-}
 
 const clientSchema = z.object({
   // Dados principais
   cnpj: z.string().min(14, "CNPJ inválido"),
   razao_social: z.string().min(3, "Razão social é obrigatória"),
-  nome_fantasia: z.string().optional().nullable().transform(val => val || undefined),
-  inscricao_estadual: z.string().optional().nullable().transform(val => val || undefined),
-  inscricao_municipal: z.string().optional().nullable().transform(val => val || undefined),
+  nome_fantasia: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  inscricao_estadual: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  inscricao_municipal: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
   tipo_empresa: z.string().min(1, "Tipo de empresa é obrigatório"),
   recuperacao_judicial: z.boolean().default(false),
-  
+
   // Contatos comerciais
-  telefone_comercial: z.string().optional().nullable().transform(val => val || undefined),
-  email_comercial: z.string().optional().nullable().transform(val => val || undefined),
-  website: z.string().optional().nullable().transform(val => val || undefined),
-  
+  telefone_comercial: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  email_comercial: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  website: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+
   // Contatos diretos
   telefone_contato: z.string().min(10, "Telefone é obrigatório"),
   email_contato: z.string().email("Email inválido"),
-  
+
   // Dados societários
-  quadro_societario: z.string().optional().nullable().transform(val => val || undefined),
-  cargos: z.string().optional().nullable().transform(val => val || undefined),
-  responsavel_financeiro: z.string().optional().nullable().transform(val => val || undefined),
-  contador_responsavel: z.string().optional().nullable().transform(val => val || undefined),
-  
+  quadro_societario: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  cargos: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  responsavel_financeiro: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  contador_responsavel: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+
   // Dados fiscais
-  cnaes: z.string().optional().nullable().transform(val => val || undefined),
-  regime_tributacao: z.string().optional().nullable().transform(val => val || undefined),
-  
+  cnaes: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  regime_tributacao: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+
   // Documentos
-  contrato_social: z.string().optional().nullable().transform(val => val || undefined),
-  ultima_alteracao_contratual: z.string().optional().nullable().transform(val => val || undefined),
-  rg_cpf_socios: z.string().optional().nullable().transform(val => val || undefined),
-  certificado_digital: z.string().optional().nullable().transform(val => val || undefined),
-  
+  contrato_social: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  ultima_alteracao_contratual: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  rg_cpf_socios: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  certificado_digital: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+
   // Controles
   autorizado_para_envio: z.boolean().default(false),
-  atividades: z.string().optional().nullable().transform(val => val || undefined),
+  atividades: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
   client_status: z.string().optional(),
   is_active: z.boolean().default(true),
-  
+
   // Endereço
-  logradouro: z.string().optional().nullable().transform(val => val || undefined),
-  numero: z.string().optional().nullable().transform(val => val || undefined),
-  complemento: z.string().optional().nullable().transform(val => val || undefined),
-  bairro: z.string().optional().nullable().transform(val => val || undefined),
-  municipio: z.string().optional().nullable().transform(val => val || undefined),
-  uf: z.string().optional().nullable().transform(val => val || undefined),
-  cep: z.string().optional().nullable().transform(val => val || undefined),
-  
+  logradouro: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  numero: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  complemento: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  bairro: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  municipio: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  uf: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  cep: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+
   // Legacy
-  anotacoes_anteriores: z.string().optional().nullable().transform(val => val || undefined),
-  nova_anotacao: z.string().optional().nullable().transform(val => val || undefined),
+  anotacoes_anteriores: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
+  nova_anotacao: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
@@ -132,7 +186,79 @@ interface ClientFormProps {
   onCancel: () => void;
 }
 
-export default function ClientForm({ client, onSuccess, onCancel }: ClientFormProps) {
+// Helper functions to convert between form data and API data
+const convertClientToForm = (client: Client): ClientFormData => {
+  return {
+    ...client,
+    quadro_societario: Array.isArray(client.quadro_societario)
+      ? JSON.stringify(client.quadro_societario)
+      : typeof client.quadro_societario === "object"
+      ? JSON.stringify(client.quadro_societario)
+      : client.quadro_societario || "",
+    cargos:
+      typeof client.cargos === "object" && client.cargos
+        ? JSON.stringify(client.cargos)
+        : client.cargos || "",
+    atividades:
+      typeof client.atividades === "object" && client.atividades
+        ? JSON.stringify(client.atividades)
+        : client.atividades || "",
+    cnaes: Array.isArray(client.cnaes)
+      ? client.cnaes.join(", ")
+      : client.cnaes || "",
+  } as ClientFormData;
+};
+
+const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
+  const clientData: any = { ...formData };
+
+  // Convert string fields back to objects/arrays for API
+  if (
+    clientData.quadro_societario &&
+    typeof clientData.quadro_societario === "string"
+  ) {
+    try {
+      clientData.quadro_societario = JSON.parse(clientData.quadro_societario);
+    } catch {
+      // If not valid JSON, convert to array
+      clientData.quadro_societario = clientData.quadro_societario
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
+  }
+
+  if (clientData.cargos && typeof clientData.cargos === "string") {
+    try {
+      clientData.cargos = JSON.parse(clientData.cargos);
+    } catch {
+      clientData.cargos = { principal: clientData.cargos };
+    }
+  }
+
+  if (clientData.atividades && typeof clientData.atividades === "string") {
+    try {
+      clientData.atividades = JSON.parse(clientData.atividades);
+    } catch {
+      clientData.atividades = { principal: clientData.atividades };
+    }
+  }
+
+  if (clientData.cnaes && typeof clientData.cnaes === "string") {
+    clientData.cnaes = clientData.cnaes
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+  }
+
+  return clientData;
+};
+
+export default function ClientForm({
+  client,
+  onSuccess,
+  onCancel,
+}: ClientFormProps) {
   const { createClient, updateClient } = useClientStore();
   const { toast } = useToast();
 
@@ -149,20 +275,20 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
       recuperacao_judicial: false,
       autorizado_para_envio: false,
       is_active: true,
-      client_status: 'pending',
+      client_status: "pending",
     },
   });
 
   // Reset form when client changes
   useEffect(() => {
     if (client) {
-      reset(client);
+      reset(convertClientToForm(client));
     } else {
       reset({
         recuperacao_judicial: false,
         autorizado_para_envio: false,
         is_active: true,
-        client_status: 'pending',
+        client_status: "pending",
       });
     }
   }, [client, reset]);
@@ -170,16 +296,19 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
   const onSubmit = async (data: ClientFormData) => {
     console.log("Form submitted with data:", data);
     console.log("Client ID:", client?.id);
-    
+
     try {
+      const clientData = convertFormToClient(data);
+
       if (client?.id) {
-        await updateClient(client.id, data);
+        await updateClient(client.id, clientData);
         toast({
           title: "Cliente atualizado",
-          description: "As informações do cliente foram atualizadas com sucesso.",
+          description:
+            "As informações do cliente foram atualizadas com sucesso.",
         });
       } else {
-        await createClient(data);
+        await createClient(clientData);
         toast({
           title: "Cliente criado",
           description: "O cliente foi cadastrado com sucesso.",
@@ -200,7 +329,8 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
     console.log("Form validation errors:", errors);
     toast({
       title: "Erro de validação",
-      description: "Por favor, verifique os campos obrigatórios marcados em vermelho.",
+      description:
+        "Por favor, verifique os campos obrigatórios marcados em vermelho.",
       variant: "destructive",
     });
   };
@@ -237,14 +367,21 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
                 className={errors.cnpj ? "border-destructive" : ""}
               />
               {errors.cnpj && (
-                <p className="text-sm text-destructive">{errors.cnpj.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.cnpj.message}
+                </p>
               )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="tipo_empresa">Tipo de Empresa *</Label>
-              <Select onValueChange={(value) => setValue("tipo_empresa", value)} defaultValue={watch("tipo_empresa")}>
-                <SelectTrigger className={errors.tipo_empresa ? "border-destructive" : ""}>
+              <Select
+                onValueChange={(value) => setValue("tipo_empresa", value)}
+                defaultValue={watch("tipo_empresa")}
+              >
+                <SelectTrigger
+                  className={errors.tipo_empresa ? "border-destructive" : ""}
+                >
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -256,7 +393,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
                 </SelectContent>
               </Select>
               {errors.tipo_empresa && (
-                <p className="text-sm text-destructive">{errors.tipo_empresa.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.tipo_empresa.message}
+                </p>
               )}
             </div>
           </div>
@@ -269,7 +408,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
               className={errors.razao_social ? "border-destructive" : ""}
             />
             {errors.razao_social && (
-              <p className="text-sm text-destructive">{errors.razao_social.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.razao_social.message}
+              </p>
             )}
           </div>
 
@@ -281,12 +422,18 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="inscricao_estadual">Inscrição Estadual</Label>
-              <Input id="inscricao_estadual" {...register("inscricao_estadual")} />
+              <Input
+                id="inscricao_estadual"
+                {...register("inscricao_estadual")}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="inscricao_municipal">Inscrição Municipal</Label>
-              <Input id="inscricao_municipal" {...register("inscricao_municipal")} />
+              <Input
+                id="inscricao_municipal"
+                {...register("inscricao_municipal")}
+              />
             </div>
           </div>
 
@@ -295,18 +442,26 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
               <Switch
                 id="recuperacao_judicial"
                 checked={watch("recuperacao_judicial")}
-                onCheckedChange={(checked) => setValue("recuperacao_judicial", checked)}
+                onCheckedChange={(checked) =>
+                  setValue("recuperacao_judicial", checked)
+                }
               />
-              <Label htmlFor="recuperacao_judicial">Em recuperação judicial</Label>
+              <Label htmlFor="recuperacao_judicial">
+                Em recuperação judicial
+              </Label>
             </div>
 
             <div className="flex items-center space-x-2">
               <Switch
                 id="autorizado_para_envio"
                 checked={watch("autorizado_para_envio")}
-                onCheckedChange={(checked) => setValue("autorizado_para_envio", checked)}
+                onCheckedChange={(checked) =>
+                  setValue("autorizado_para_envio", checked)
+                }
               />
-              <Label htmlFor="autorizado_para_envio">Autorizado para envio</Label>
+              <Label htmlFor="autorizado_para_envio">
+                Autorizado para envio
+              </Label>
             </div>
           </div>
         </TabsContent>
@@ -323,7 +478,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
                 className={errors.email_contato ? "border-destructive" : ""}
               />
               {errors.email_contato && (
-                <p className="text-sm text-destructive">{errors.email_contato.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.email_contato.message}
+                </p>
               )}
             </div>
 
@@ -337,7 +494,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
                 className={errors.telefone_contato ? "border-destructive" : ""}
               />
               {errors.telefone_contato && (
-                <p className="text-sm text-destructive">{errors.telefone_contato.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.telefone_contato.message}
+                </p>
               )}
             </div>
           </div>
@@ -345,34 +504,51 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_comercial">Email Comercial</Label>
-              <Input id="email_comercial" type="email" {...register("email_comercial")} />
+              <Input
+                id="email_comercial"
+                type="email"
+                {...register("email_comercial")}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="telefone_comercial">Telefone Comercial</Label>
-              <MaskedInput 
-                id="telefone_comercial" 
+              <MaskedInput
+                id="telefone_comercial"
                 mask="(99) 9999-9999"
-                {...register("telefone_comercial")} 
-                placeholder="(00) 0000-0000" 
+                {...register("telefone_comercial")}
+                placeholder="(00) 0000-0000"
               />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>
-            <Input id="website" type="url" {...register("website")} placeholder="https://" />
+            <Input
+              id="website"
+              type="url"
+              {...register("website")}
+              placeholder="https://"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="responsavel_financeiro">Responsável Financeiro</Label>
-              <Input id="responsavel_financeiro" {...register("responsavel_financeiro")} />
+              <Label htmlFor="responsavel_financeiro">
+                Responsável Financeiro
+              </Label>
+              <Input
+                id="responsavel_financeiro"
+                {...register("responsavel_financeiro")}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="contador_responsavel">Contador Responsável</Label>
-              <Input id="contador_responsavel" {...register("contador_responsavel")} />
+              <Input
+                id="contador_responsavel"
+                {...register("contador_responsavel")}
+              />
             </div>
           </div>
         </TabsContent>
@@ -382,17 +558,27 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnaes">CNAEs (separe por vírgula)</Label>
-              <Textarea id="cnaes" {...register("cnaes")} placeholder="Ex: 6201-5/00, 6202-3/00" rows={3} />
+              <Textarea
+                id="cnaes"
+                {...register("cnaes")}
+                placeholder="Ex: 6201-5/00, 6202-3/00"
+                rows={3}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
-              <Select onValueChange={(value) => setValue("regime_tributacao", value)} defaultValue={watch("regime_tributacao")}>
+              <Select
+                onValueChange={(value) => setValue("regime_tributacao", value)}
+                defaultValue={watch("regime_tributacao")}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o regime" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="lucro_presumido">Lucro Presumido</SelectItem>
+                  <SelectItem value="lucro_presumido">
+                    Lucro Presumido
+                  </SelectItem>
                   <SelectItem value="lucro_real">Lucro Real</SelectItem>
                 </SelectContent>
               </Select>
@@ -401,9 +587,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
           <div className="space-y-2">
             <Label htmlFor="quadro_societario">Quadro Societário (JSON)</Label>
-            <Textarea 
-              id="quadro_societario" 
-              {...register("quadro_societario")} 
+            <Textarea
+              id="quadro_societario"
+              {...register("quadro_societario")}
               placeholder='Ex: [{"nome": "João Silva", "cpf": "000.000.000-00", "participacao": "50%"}]'
               rows={5}
             />
@@ -411,9 +597,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
           <div className="space-y-2">
             <Label htmlFor="cargos">Cargos e Responsabilidades (JSON)</Label>
-            <Textarea 
-              id="cargos" 
-              {...register("cargos")} 
+            <Textarea
+              id="cargos"
+              {...register("cargos")}
               placeholder='Ex: {"diretor": "João Silva", "gerente": "Maria Santos"}'
               rows={4}
             />
@@ -421,9 +607,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
           <div className="space-y-2">
             <Label htmlFor="atividades">Atividades da Empresa (JSON)</Label>
-            <Textarea 
-              id="atividades" 
-              {...register("atividades")} 
+            <Textarea
+              id="atividades"
+              {...register("atividades")}
               placeholder='Ex: {"principal": "Desenvolvimento de software", "secundarias": ["Consultoria", "Treinamento"]}'
               rows={4}
             />
@@ -434,14 +620,20 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
         <TabsContent value="docs" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="contrato_social">Contrato Social</Label>
-            <Textarea id="contrato_social" {...register("contrato_social")} rows={4} />
+            <Textarea
+              id="contrato_social"
+              {...register("contrato_social")}
+              rows={4}
+            />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ultima_alteracao_contratual">Data da Última Alteração Contratual</Label>
-            <Input 
-              id="ultima_alteracao_contratual" 
-              type="date" 
+            <Label htmlFor="ultima_alteracao_contratual">
+              Data da Última Alteração Contratual
+            </Label>
+            <Input
+              id="ultima_alteracao_contratual"
+              type="date"
               {...register("ultima_alteracao_contratual")}
               className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
             />
@@ -449,9 +641,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
           <div className="space-y-2">
             <Label htmlFor="rg_cpf_socios">RG/CPF dos Sócios</Label>
-            <Textarea 
-              id="rg_cpf_socios" 
-              {...register("rg_cpf_socios")} 
+            <Textarea
+              id="rg_cpf_socios"
+              {...register("rg_cpf_socios")}
               placeholder="Liste os documentos dos sócios"
               rows={4}
             />
@@ -459,9 +651,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
           <div className="space-y-2">
             <Label htmlFor="certificado_digital">Certificado Digital</Label>
-            <Textarea 
-              id="certificado_digital" 
-              {...register("certificado_digital")} 
+            <Textarea
+              id="certificado_digital"
+              {...register("certificado_digital")}
               placeholder="Informações sobre certificados digitais"
               rows={3}
             />
@@ -470,15 +662,15 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
         {/* Aba Endereço */}
         <TabsContent value="address" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cep">CEP</Label>
-              <MaskedInput 
-                id="cep" 
-                mask="99999-999"
-                {...register("cep")} 
-                placeholder="00000-000" 
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="cep">CEP</Label>
+            <MaskedInput
+              id="cep"
+              mask="99999-999"
+              {...register("cep")}
+              placeholder="00000-000"
+            />
+          </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 space-y-2">
@@ -511,7 +703,10 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
 
           <div className="space-y-2">
             <Label htmlFor="uf">UF</Label>
-            <Select onValueChange={(value) => setValue("uf", value)} defaultValue={watch("uf")}>
+            <Select
+              onValueChange={(value) => setValue("uf", value)}
+              defaultValue={watch("uf")}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o estado" />
               </SelectTrigger>
@@ -551,7 +746,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
         {/* Aba Anotações */}
         <TabsContent value="notes" className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="anotacoes_anteriores">Anotações e Observações</Label>
+            <Label htmlFor="anotacoes_anteriores">
+              Anotações e Observações
+            </Label>
             <Textarea
               id="anotacoes_anteriores"
               {...register("anotacoes_anteriores")}
@@ -560,8 +757,9 @@ export default function ClientForm({ client, onSuccess, onCancel }: ClientFormPr
               className="resize-none"
             />
             <p className="text-xs text-muted-foreground">
-              Use este espaço para registrar informações importantes, histórico de comunicações, 
-              pendências ou qualquer outra informação relevante sobre este cliente.
+              Use este espaço para registrar informações importantes, histórico
+              de comunicações, pendências ou qualquer outra informação relevante
+              sobre este cliente.
             </p>
           </div>
         </TabsContent>

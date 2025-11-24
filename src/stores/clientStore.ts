@@ -2,12 +2,11 @@ import { create } from "zustand";
 import api, { apiHelpers } from "@/lib/api";
 
 // Client interface matching Django API structure
-interface Client {
-  id: number;
-  public_id?: string;
-  cnpj: string;
+export interface Client {
+  id: string; // UUID
   razao_social: string;
   nome_fantasia: string;
+  cnpj: string;
   inscricao_estadual?: string | null;
   inscricao_municipal?: string | null;
   tipo_empresa: string;
@@ -17,32 +16,34 @@ interface Client {
   website?: string | null;
   telefone_contato?: string | null;
   email_contato?: string | null;
-  quadro_societario?: any;
-  cargos?: any;
+  quadro_societario?: any[]; // Array of objects
+  cargos?: { [key: string]: string }; // Object with key-value pairs
   responsavel_financeiro?: string | null;
   contador_responsavel?: string | null;
-  cnaes?: any;
-  regime_tributacao?: any;
+  cnaes?: string[]; // Array of strings
+  regime_tributacao?: string | null;
   contrato_social?: string | null;
   ultima_alteracao_contratual?: string | null;
   rg_cpf_socios?: string | null;
   certificado_digital?: string | null;
   autorizado_para_envio?: boolean | null;
-  atividades?: any;
-  client_status?: any;
+  atividades?: { [key: string]: string } | null; // Object with key-value pairs
+  client_status?: string | null;
   is_active?: boolean | null;
-  logradouro?: string | null;
-  numero?: string | null;
-  complemento?: string | null;
-  bairro?: string | null;
-  municipio?: string | null;
-  uf?: string | null;
-  cep?: string | null;
-  anotacoes_anteriores?: string | null;
-  nova_anotacao?: string | null;
+  address?: {
+    id: string;
+    logradouro?: string | null;
+    numero?: string | null;
+    complemento?: string | null;
+    bairro?: string | null;
+    municipio?: string | null;
+    uf?: string | null;
+    cep?: string | null;
+    created_at?: string;
+    updated_at?: string;
+  } | null;
   created_at?: string;
   updated_at?: string;
-  deleted_at?: string | null;
 }
 
 interface ClientFilters {
@@ -101,8 +102,9 @@ export const useClientStore = create<ClientState>((set, get) => ({
 
       // Build query parameters for Django API
       const params: Record<string, any> = {
+        is_active: true, // Always filter for active clients
+        ordering: "razao_social", // Default ordering
         page,
-        page_size: pageSize,
       };
 
       // Add search query
@@ -117,13 +119,8 @@ export const useClientStore = create<ClientState>((set, get) => ({
         }
       });
 
-      // Add ordering (default by razao_social)
-      if (!params.ordering) {
-        params.ordering = "razao_social";
-      }
-
       const queryString = apiHelpers.buildQueryParams(params);
-      const response = await api.get(`/clients/?${queryString}`);
+      const response = await api.get(`/clients/clients/?${queryString}`);
       const data = apiHelpers.handlePaginatedResponse(response);
 
       set({
@@ -146,13 +143,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
   fetchClientById: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
-      // Use public_id if it's a string (UUID), otherwise use the numeric ID
-      const endpoint =
-        typeof id === "string" && id.length > 10
-          ? `/clients/${id}/`
-          : `/clients/${id}/`;
-
-      const response = await api.get(endpoint);
+      const response = await api.get(`/clients/clients/${id}/`);
       const client = response.data;
 
       set({
@@ -181,7 +172,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
         id: undefined, // Let the API set this
       };
 
-      const response = await api.post("/clients/", formattedData);
+      const response = await api.post("/clients/clients/", formattedData);
       const client = response.data;
 
       // Add to local state
@@ -204,23 +195,16 @@ export const useClientStore = create<ClientState>((set, get) => ({
   updateClient: async (id: string | number, clientData: Partial<Client>) => {
     set({ isLoading: true, error: null });
     try {
-      // Use public_id if it's a string (UUID), otherwise use the numeric ID
-      const endpoint =
-        typeof id === "string" && id.length > 10
-          ? `/clients/${id}/`
-          : `/clients/${id}/`;
-
-      const response = await api.patch(endpoint, clientData);
+      const response = await api.patch(`/clients/clients/${id}/`, clientData);
       const updatedClient = response.data;
 
       // Update local state
       set((state) => ({
         clients: state.clients.map((client) =>
-          client.id === id || client.public_id === id ? updatedClient : client
+          client.id === id ? updatedClient : client
         ),
         selectedClient:
-          state.selectedClient?.id === id ||
-          state.selectedClient?.public_id === id
+          state.selectedClient?.id === id
             ? updatedClient
             : state.selectedClient,
         isLoading: false,
@@ -239,25 +223,14 @@ export const useClientStore = create<ClientState>((set, get) => ({
   deleteClient: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
-      // Use public_id if it's a string (UUID), otherwise use the numeric ID
-      const endpoint =
-        typeof id === "string" && id.length > 10
-          ? `/clients/${id}/`
-          : `/clients/${id}/`;
-
-      await api.delete(endpoint);
+      await api.delete(`/clients/clients/${id}/`);
 
       // Remove from local state
       set((state) => ({
-        clients: state.clients.filter(
-          (client) => client.id !== id && client.public_id !== id
-        ),
+        clients: state.clients.filter((client) => client.id !== id),
         totalCount: Math.max(0, state.totalCount - 1),
         selectedClient:
-          state.selectedClient?.id === id ||
-          state.selectedClient?.public_id === id
-            ? null
-            : state.selectedClient,
+          state.selectedClient?.id === id ? null : state.selectedClient,
         isLoading: false,
       }));
     } catch (error: any) {

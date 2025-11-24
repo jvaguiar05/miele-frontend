@@ -14,19 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useClientStore } from "@/stores/clientStore";
+import { useClientStore, type Client } from "@/stores/clientStore";
 import { Badge } from "@/components/ui/badge";
-
-interface Client {
-  id: string;
-  cnpj: string;
-  razao_social: string;
-  nome_fantasia: string;
-  tipo_empresa: string;
-  email_contato?: string;
-  telefone_contato?: string;
-  recuperacao_judicial?: boolean;
-}
 
 interface ClientTableProps {
   onEdit: (client: Client) => void;
@@ -43,7 +32,10 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
   };
 
   const formatCNPJ = (cnpj: string) => {
-    return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    return cnpj.replace(
+      /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+      "$1.$2.$3/$4-$5"
+    );
   };
 
   return (
@@ -64,21 +56,26 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
         <TableBody>
           {clients.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+              <TableCell
+                colSpan={8}
+                className="text-center py-8 text-muted-foreground"
+              >
                 Nenhum cliente encontrado
               </TableCell>
             </TableRow>
           ) : (
             clients.map((client) => (
-              <TableRow 
-                key={client.id} 
+              <TableRow
+                key={client.id}
                 className="hover:bg-muted/50 cursor-pointer"
-                onClick={() => onView ? onView(client) : onEdit(client)}
+                onClick={() => (onView ? onView(client) : onEdit(client))}
               >
                 <TableCell className="font-mono text-sm">
                   {formatCNPJ(client.cnpj)}
                 </TableCell>
-                <TableCell className="font-medium">{client.razao_social}</TableCell>
+                <TableCell className="font-medium">
+                  {client.razao_social}
+                </TableCell>
                 <TableCell>{client.nome_fantasia || "-"}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{client.tipo_empresa}</Badge>
@@ -86,14 +83,19 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
                 <TableCell>{client.email_contato || "-"}</TableCell>
                 <TableCell>{client.telefone_contato || "-"}</TableCell>
                 <TableCell>
-                  <Badge 
-                    variant={client.recuperacao_judicial ? "destructive" : "default"}
+                  <Badge
+                    variant={
+                      client.recuperacao_judicial ? "destructive" : "default"
+                    }
                     className="text-xs"
                   >
                     {client.recuperacao_judicial ? "Rec. Judicial" : "Ativo"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                <TableCell
+                  className="text-right"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -101,7 +103,11 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onView ? onView(client) : onEdit(client)}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          onView ? onView(client) : onEdit(client)
+                        }
+                      >
                         <Eye className="mr-2 h-4 w-4" />
                         Visualizar
                       </DropdownMenuItem>

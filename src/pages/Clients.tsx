@@ -5,14 +5,29 @@ import { Users, Search, Plus, Filter, Download, Upload, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useClientStore } from "@/stores/clientStore";
+import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import ClientTable from "@/components/clients/ClientTable";
 import ClientForm from "@/components/clients/ClientForm";
 import ClientDetail from "@/components/clients/ClientDetail";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Pagination,
@@ -23,38 +38,30 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-interface Client {
-  id: string;
-  cnpj: string;
-  razao_social: string;
-  nome_fantasia: string;
-  tipo_empresa: string;
-  email_contato?: string;
-  telefone_contato?: string;
-  recuperacao_judicial?: boolean;
-}
+// Remove the local Client interface since we use the one from clientStore
 
 interface ClientFilters {
   tipo_empresa?: string;
   recuperacao_judicial?: boolean;
   uf?: string;
-  regime_tributario?: string;
+  regime_tributacao?: string;
 }
 
 export default function Clients() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { 
-    fetchClients, 
-    isLoading, 
-    error, 
+  const {
+    fetchClients,
+    fetchClientById,
+    isLoading,
+    error,
     searchClients,
     currentPage,
     totalPages,
     setCurrentPage,
     filters,
     setFilters,
-    clearFilters
+    clearFilters,
   } = useClientStore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,17 +86,40 @@ export default function Clients() {
         }, 300);
       };
     })(),
-    [searchClients, fetchClients, filters]
+    [searchClients, fetchClients]
   );
 
   useEffect(() => {
     if (id) {
-      setSelectedClient({ id } as Client);
-      setIsDetailOpen(true);
-    } else {
+      // Fetch the client data when URL parameter is present
+      const loadClientFromUrl = async () => {
+        try {
+          const client = await fetchClientById(id);
+          setSelectedClient(client);
+          setIsDetailOpen(true);
+        } catch (error) {
+          console.error("Failed to load client from URL:", error);
+          navigate("/clients"); // Navigate back if client not found
+        }
+      };
+      loadClientFromUrl();
+    }
+  }, [id, fetchClientById, navigate]);
+
+  // Initial load - only run once when component mounts
+  useEffect(() => {
+    if (!id) {
+      fetchClients(1, "", {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle page changes
+  useEffect(() => {
+    if (!id && currentPage > 1) {
       fetchClients(currentPage, searchQuery, filters);
     }
-  }, [currentPage, id, filters]);
+  }, [currentPage]);
 
   useEffect(() => {
     if (searchQuery !== undefined) {
@@ -121,7 +151,8 @@ export default function Clients() {
   };
 
   const handleView = (client: Client) => {
-    navigate(`/clients/${client.id}`);
+    setSelectedClient(client);
+    setIsDetailOpen(true);
   };
 
   const handleEdit = (client: Client) => {
@@ -136,8 +167,8 @@ export default function Clients() {
   };
 
   const getActiveFiltersCount = () => {
-    return Object.values(filters).filter(value => 
-      value !== undefined && value !== null && value !== ''
+    return Object.values(filters).filter(
+      (value) => value !== undefined && value !== null && value !== ""
     ).length;
   };
 
@@ -158,7 +189,9 @@ export default function Clients() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold">Clientes</h1>
-                <p className="text-muted-foreground">Gerencie seus clientes e informações</p>
+                <p className="text-muted-foreground">
+                  Gerencie seus clientes e informações
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -206,7 +239,10 @@ export default function Clients() {
                     <Filter className="h-4 w-4 mr-2" />
                     Filtros
                     {getActiveFiltersCount() > 0 && (
-                      <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                      >
                         {getActiveFiltersCount()}
                       </Badge>
                     )}
@@ -224,14 +260,19 @@ export default function Clients() {
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    
+
                     <div className="space-y-3">
                       <div>
-                        <label className="text-sm font-medium">Tipo de Empresa</label>
+                        <label className="text-sm font-medium">
+                          Tipo de Empresa
+                        </label>
                         <Select
                           value={localFilters.tipo_empresa || "all"}
                           onValueChange={(value) =>
-                            setLocalFilters(prev => ({ ...prev, tipo_empresa: value === "all" ? undefined : value }))
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              tipo_empresa: value === "all" ? undefined : value,
+                            }))
                           }
                         >
                           <SelectTrigger>
@@ -252,7 +293,10 @@ export default function Clients() {
                         <Select
                           value={localFilters.uf || "all"}
                           onValueChange={(value) =>
-                            setLocalFilters(prev => ({ ...prev, uf: value === "all" ? undefined : value }))
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              uf: value === "all" ? undefined : value,
+                            }))
                           }
                         >
                           <SelectTrigger>
@@ -263,18 +307,26 @@ export default function Clients() {
                             <SelectItem value="SP">São Paulo</SelectItem>
                             <SelectItem value="RJ">Rio de Janeiro</SelectItem>
                             <SelectItem value="MG">Minas Gerais</SelectItem>
-                            <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                            <SelectItem value="RS">
+                              Rio Grande do Sul
+                            </SelectItem>
                             <SelectItem value="PR">Paraná</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium">Regime Tributário</label>
+                        <label className="text-sm font-medium">
+                          Regime Tributário
+                        </label>
                         <Select
-                          value={localFilters.regime_tributario || "all"}
+                          value={localFilters.regime_tributacao || "all"}
                           onValueChange={(value) =>
-                            setLocalFilters(prev => ({ ...prev, regime_tributario: value === "all" ? undefined : value }))
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              regime_tributacao:
+                                value === "all" ? undefined : value,
+                            }))
                           }
                         >
                           <SelectTrigger>
@@ -282,21 +334,34 @@ export default function Clients() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos</SelectItem>
-                            <SelectItem value="Simples Nacional">Simples Nacional</SelectItem>
-                            <SelectItem value="Lucro Presumido">Lucro Presumido</SelectItem>
-                            <SelectItem value="Lucro Real">Lucro Real</SelectItem>
+                            <SelectItem value="Simples Nacional">
+                              Simples Nacional
+                            </SelectItem>
+                            <SelectItem value="Lucro Presumido">
+                              Lucro Presumido
+                            </SelectItem>
+                            <SelectItem value="Lucro Real">
+                              Lucro Real
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium">Recuperação Judicial</label>
+                        <label className="text-sm font-medium">
+                          Recuperação Judicial
+                        </label>
                         <Select
-                          value={localFilters.recuperacao_judicial === undefined ? "all" : localFilters.recuperacao_judicial.toString()}
+                          value={
+                            localFilters.recuperacao_judicial === undefined
+                              ? "all"
+                              : localFilters.recuperacao_judicial.toString()
+                          }
                           onValueChange={(value) =>
-                            setLocalFilters(prev => ({ 
-                              ...prev, 
-                              recuperacao_judicial: value === "all" ? undefined : value === "true"
+                            setLocalFilters((prev) => ({
+                              ...prev,
+                              recuperacao_judicial:
+                                value === "all" ? undefined : value === "true",
                             }))
                           }
                         >
@@ -324,43 +389,64 @@ export default function Clients() {
                 </PopoverContent>
               </Popover>
             </div>
-            
+
             {/* Active Filters Display */}
             {getActiveFiltersCount() > 0 && (
               <div className="flex gap-2 mt-3 flex-wrap">
                 {filters.tipo_empresa && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
                     Tipo: {filters.tipo_empresa}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
-                      onClick={() => setFilters({...filters, tipo_empresa: undefined})}
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() =>
+                        setFilters({ ...filters, tipo_empresa: undefined })
+                      }
                     />
                   </Badge>
                 )}
                 {filters.uf && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
                     UF: {filters.uf}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
-                      onClick={() => setFilters({...filters, uf: undefined})}
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() => setFilters({ ...filters, uf: undefined })}
                     />
                   </Badge>
                 )}
-                {filters.regime_tributario && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    Regime: {filters.regime_tributario}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
-                      onClick={() => setFilters({...filters, regime_tributario: undefined})}
+                {filters.regime_tributacao && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    Regime: {filters.regime_tributacao}
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() =>
+                        setFilters({ ...filters, regime_tributacao: undefined })
+                      }
                     />
                   </Badge>
                 )}
                 {filters.recuperacao_judicial !== undefined && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    Recuperação: {filters.recuperacao_judicial ? 'Sim' : 'Não'}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
-                      onClick={() => setFilters({...filters, recuperacao_judicial: undefined})}
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    Recuperação: {filters.recuperacao_judicial ? "Sim" : "Não"}
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() =>
+                        setFilters({
+                          ...filters,
+                          recuperacao_judicial: undefined,
+                        })
+                      }
                     />
                   </Badge>
                 )}
@@ -381,10 +467,7 @@ export default function Clients() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <ClientTable
-                onEdit={handleEdit}
-                onView={handleView}
-              />
+              <ClientTable onEdit={handleEdit} onView={handleView} />
             )}
           </Card>
         </motion.div>
@@ -395,12 +478,16 @@ export default function Clients() {
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
+                  <PaginationPrevious
                     onClick={() => handlePageChange(currentPage - 1)}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    className={
+                      currentPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
-                
+
                 {[...Array(totalPages)].map((_, i) => {
                   const page = i + 1;
                   if (
@@ -423,15 +510,23 @@ export default function Clients() {
                     page === currentPage - 2 ||
                     page === currentPage + 2
                   ) {
-                    return <span key={page} className="px-1">...</span>;
+                    return (
+                      <span key={page} className="px-1">
+                        ...
+                      </span>
+                    );
                   }
                   return null;
                 })}
-                
+
                 <PaginationItem>
-                  <PaginationNext 
+                  <PaginationNext
                     onClick={() => handlePageChange(currentPage + 1)}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    className={
+                      currentPage === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -444,7 +539,7 @@ export default function Clients() {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {selectedClient ? 'Editar Cliente' : 'Novo Cliente'}
+                {selectedClient ? "Editar Cliente" : "Novo Cliente"}
               </DialogTitle>
             </DialogHeader>
             <ClientForm
@@ -459,16 +554,23 @@ export default function Clients() {
         </Dialog>
 
         {/* Client Detail Dialog */}
-        <Dialog open={isDetailOpen} onOpenChange={(open) => {
-          setIsDetailOpen(open);
-          if (!open && id) {
-            navigate('/clients');
-          }
-        }}>
+        <Dialog
+          open={isDetailOpen}
+          onOpenChange={(open) => {
+            setIsDetailOpen(open);
+            if (!open && id) {
+              navigate("/clients");
+            }
+          }}
+        >
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            {selectedClient && (
+            <DialogHeader className="sr-only">
+              <DialogTitle>Detalhes do Cliente</DialogTitle>
+            </DialogHeader>
+            {selectedClient ? (
               <ClientDetail
                 clientId={selectedClient.id}
+                client={selectedClient as any}
                 onEdit={(client) => {
                   setSelectedClient(client);
                   setIsDetailOpen(false);
@@ -480,6 +582,12 @@ export default function Clients() {
                   setIsDetailOpen(false);
                 }}
               />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  Carregando dados do cliente...
+                </p>
+              </div>
             )}
           </DialogContent>
         </Dialog>
