@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { AuthErrorBoundary } from "@/components/providers/auth-error-boundary";
 import { AdminRoute } from "@/components/providers/admin-route";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import Header from "@/components/layout/header";
@@ -49,7 +50,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
+          <AuthErrorBoundary>
+            <AuthProvider>
             <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -85,6 +87,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
+          </AuthErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>

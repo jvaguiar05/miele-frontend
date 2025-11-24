@@ -40,8 +40,13 @@ interface AuthState {
     password: string,
     firstName: string,
     lastName: string
-  ) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  ) => Promise<{
+    message: string;
+    username: string;
+    email: string;
+    approval_status: string;
+  }>;
+  signIn: (username: string, password: string) => Promise<void>;
   signInAsTestUser: () => void;
   signOut: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
@@ -71,61 +76,68 @@ export const useAuthStore = create<AuthState>()(
             username: email,
             email,
             password,
+            confirm_password: password,
             first_name: firstName,
             last_name: lastName,
           });
 
-          // Registration successful - user may need to verify email
+          // Registration creates an approval request - user needs admin approval
           set({ isLoading: false });
 
-          // Optionally auto-login after registration if tokens are returned
-          if (response.data.access) {
-            const { access, refresh, user } = response.data;
-            Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
-            Cookies.set("refresh_token", refresh, { expires: 14 }); // 14 days
-
-            set({
-              user,
-              isAuthenticated: true,
-              isAdmin: user.is_staff || user.is_superuser || false,
-            });
-          }
+          // Return the response data for handling in UI
+          return {
+            message: response.data.message,
+            username: response.data.username,
+            email: response.data.email,
+            approval_status: response.data.approval_status,
+          };
         } catch (error: any) {
           set({ isLoading: false });
-          const errorMessage =
-            error.response?.data?.detail || error.message || "Erro no registro";
-          throw new Error(errorMessage);
+          // Handle Django validation errors
+          const errorData = error.response?.data;
+          if (errorData?.error) {
+            throw new Error(errorData.error.message || "Erro no registro");
+          } else if (errorData) {
+            // Handle field validation errors
+            const fieldErrors = [];
+            for (const [field, messages] of Object.entries(errorData)) {
+              if (Array.isArray(messages)) {
+                fieldErrors.push(`${field}: ${messages.join(", ")}`);
+              }
+            }
+            throw new Error(fieldErrors.join("; ") || "Erro de validação");
+          }
+          throw new Error(error.message || "Erro no registro");
         }
       },
 
-      signIn: async (email: string, password: string) => {
+      signIn: async (username: string, password: string) => {
         set({ isLoading: true });
         try {
           const response = await api.post("/auth/login/", {
-            username: email,
+            username,
             password,
           });
 
-          const { access, refresh, user } = response.data;
+          const { access, refresh } = response.data;
 
           // Store tokens in cookies
           Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
           Cookies.set("refresh_token", refresh, { expires: 14 }); // 14 days
 
-          set({
-            user,
-            isAuthenticated: true,
-            isAdmin: user.is_staff || user.is_superuser || false,
-            isLoading: false,
-          });
-
-          // Fetch additional profile data if needed
+          // Fetch user data and RBAC information
           await get().getCurrentUser();
+
+          set({ isLoading: false });
         } catch (error: any) {
           set({ isLoading: false });
-          const errorMessage =
-            error.response?.data?.detail || error.message || "Erro no login";
-          throw new Error(errorMessage);
+          const errorData = error.response?.data;
+          if (errorData?.detail) {
+            throw new Error(errorData.detail);
+          } else if (errorData?.error) {
+            throw new Error(errorData.error.message || "Erro no login");
+          }
+          throw new Error(error.message || "Erro no login");
         }
       },
 
@@ -164,11 +176,18 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          // Call API logout endpoint if available
-          try {
-            await api.post("/auth/logout/", {});
-          } catch (error) {
-            // Ignore logout API errors, just clear local state
+          const refreshToken = Cookies.get("refresh_token");
+
+          // Call API logout endpoint to blacklist refresh token
+          if (refreshToken) {
+            try {
+              await api.post("/auth/logout/", {
+                refresh: refreshToken,
+              });
+            } catch (error) {
+              // Ignore logout API errors, just clear local state
+              console.warn("Logout API error:", error);
+            }
           }
 
           // Clear tokens
@@ -182,6 +201,15 @@ export const useAuthStore = create<AuthState>()(
             isAdmin: false,
           });
         } catch (error) {
+          // Always clear local state even if API call fails
+          Cookies.remove("access_token");
+          Cookies.remove("refresh_token");
+          set({
+            user: null,
+            profile: null,
+            isAuthenticated: false,
+            isAdmin: false,
+          });
           throw error;
         }
       },
@@ -199,22 +227,38 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          const response = await api.get("/auth/me/");
-          const user = response.data;
+          // Fetch user RBAC information
+          const response = await api.get("/auth/rbac/");
+          const userData = response.data;
+
+          // Map RBAC response to user object
+          const user: User = {
+            id: userData.user_id,
+            username: userData.username,
+            email: userData.username, // Assuming username is email
+            first_name: "", // Will be filled from profile if available
+            last_name: "",
+            is_active: userData.approval_status === "approved",
+            is_staff: userData.role === "admin",
+            is_superuser: userData.role === "admin",
+            date_joined: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+          };
 
           set({
-            user,
+            user: {
+              ...user,
+              // Store permissions for easy access
+              permissions: userData.permissions,
+            } as any,
             profile: {
-              id: user.id.toString(),
-              full_name:
-                user.first_name && user.last_name
-                  ? `${user.first_name} ${user.last_name}`
-                  : user.username,
-              avatar_url: user.avatar || null,
-              phone: user.phone || null,
+              id: userData.user_id.toString(),
+              full_name: userData.username,
+              avatar_url: null,
+              phone: null,
             },
             isAuthenticated: true,
-            isAdmin: user.is_staff || user.is_superuser || false,
+            isAdmin: userData.role === "admin",
           });
         } catch (error) {
           console.error("Error fetching user:", error);
@@ -267,8 +311,13 @@ export const useAuthStore = create<AuthState>()(
             refresh: refreshToken,
           });
 
-          const { access } = response.data;
+          const { access, refresh: newRefresh } = response.data;
+
+          // Store new tokens (refresh token rotation)
           Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
+          if (newRefresh) {
+            Cookies.set("refresh_token", newRefresh, { expires: 14 }); // 14 days
+          }
 
           return access;
         } catch (error) {

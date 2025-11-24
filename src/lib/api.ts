@@ -50,10 +50,15 @@ api.interceptors.response.use(
             refresh: refreshToken,
           });
 
-          const { access } = response.data;
-          Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
-          originalRequest.headers.Authorization = `Bearer ${access}`;
+          const { access, refresh: newRefresh } = response.data;
 
+          // Store new tokens (refresh token rotation)
+          Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
+          if (newRefresh) {
+            Cookies.set("refresh_token", newRefresh, { expires: 14 }); // 14 days
+          }
+
+          originalRequest.headers.Authorization = `Bearer ${access}`;
           return api(originalRequest);
         }
       } catch (refreshError) {

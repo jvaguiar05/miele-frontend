@@ -126,30 +126,6 @@ export default function Home() {
           fetchClients(1).catch(() => {}), // Ignore errors for dashboard
           fetchPerdComps(1).catch(() => {}), // Ignore errors for dashboard
         ]);
-
-        // Calculate stats from store data
-        const activeClients = clients.filter(
-          (client) => client.is_active !== false
-        ).length;
-        const openPerdcomps = perdcomps.filter((perdcomp) =>
-          ["RASCUNHO", "TRANSMITIDO", "EM_PROCESSAMENTO"].includes(
-            perdcomp.status
-          )
-        ).length;
-
-        const totalValue = perdcomps.reduce(
-          (sum, perdcomp) => sum + (Number(perdcomp.valor_pedido) || 0),
-          0
-        );
-
-        setDashboardStats({
-          totalClients: clients.length,
-          activeClients: activeClients,
-          totalPerdcomps: perdcomps.length,
-          openPerdcomps: openPerdcomps,
-          pendingRequests: 0, // TODO: Add requests store data when available
-          totalValue: totalValue,
-        });
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -161,7 +137,33 @@ export default function Home() {
     if (!isAdmin) {
       fetchDashboardData();
     }
-  }, [isAdmin, clients, perdcomps, fetchClients, fetchPerdComps]);
+  }, [isAdmin]); // Only depend on isAdmin
+
+  // Separate effect to calculate stats when data changes
+  useEffect(() => {
+    const activeClients = clients.filter(
+      (client) => client.is_active !== false
+    ).length;
+    const openPerdcomps = perdcomps.filter((perdcomp) =>
+      ["RASCUNHO", "TRANSMITIDO", "EM_PROCESSAMENTO"].includes(
+        perdcomp.status
+      )
+    ).length;
+
+    const totalValue = perdcomps.reduce(
+      (sum, perdcomp) => sum + (Number(perdcomp.valor_pedido) || 0),
+      0
+    );
+
+    setDashboardStats({
+      totalClients: clients.length,
+      activeClients: activeClients,
+      totalPerdcomps: perdcomps.length,
+      openPerdcomps: openPerdcomps,
+      pendingRequests: 0, // TODO: Add requests store data when available
+      totalValue: totalValue,
+    });
+  }, [clients, perdcomps]); // Only recalculate when data changes
 
   // Se for admin, renderiza o AdminDashboard
   if (isAdmin) {

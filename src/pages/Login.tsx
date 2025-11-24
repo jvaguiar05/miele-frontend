@@ -4,7 +4,18 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, Users, FileText, TrendingUp, Shield, ChevronLeft, ChevronRight, Clock, BarChart3, Sparkles } from "lucide-react";
+import {
+  LogIn,
+  Users,
+  FileText,
+  TrendingUp,
+  Shield,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  BarChart3,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +25,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
+  username: z.string().min(1, "Nome de usuário é obrigatório"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
@@ -23,7 +34,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInAsTestUser } = useAuthStore();
+  const { signIn, isLoading } = useAuthStore();
   const [rememberMe, setRememberMe] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -31,39 +42,45 @@ export default function Login() {
     {
       icon: Users,
       title: "Gestão Tributária Completa",
-      description: "Acompanhe todos os processos fiscais dos seus clientes em uma única plataforma integrada",
-      highlight: "Redução de 70% no tempo de análise"
+      description:
+        "Acompanhe todos os processos fiscais dos seus clientes em uma única plataforma integrada",
+      highlight: "Redução de 70% no tempo de análise",
     },
     {
       icon: FileText,
       title: "PER/DCOMP Automatizado",
-      description: "Gerencie declarações e compensações tributárias com inteligência e precisão",
-      highlight: "100% de conformidade fiscal"
+      description:
+        "Gerencie declarações e compensações tributárias com inteligência e precisão",
+      highlight: "100% de conformidade fiscal",
     },
     {
       icon: TrendingUp,
       title: "Relatórios Inteligentes",
-      description: "Dashboards personalizados com insights em tempo real para tomada de decisão",
-      highlight: "Análises preditivas avançadas"
+      description:
+        "Dashboards personalizados com insights em tempo real para tomada de decisão",
+      highlight: "Análises preditivas avançadas",
     },
     {
       icon: Shield,
       title: "Segurança Garantida",
-      description: "Seus dados protegidos com criptografia de ponta e backup automático",
-      highlight: "Certificação ISO 27001"
+      description:
+        "Seus dados protegidos com criptografia de ponta e backup automático",
+      highlight: "Certificação ISO 27001",
     },
     {
       icon: Clock,
       title: "Economia de Tempo",
-      description: "Automatize tarefas repetitivas e foque no que realmente importa",
-      highlight: "5 horas economizadas por semana"
+      description:
+        "Automatize tarefas repetitivas e foque no que realmente importa",
+      highlight: "5 horas economizadas por semana",
     },
     {
       icon: BarChart3,
       title: "Controle Total",
-      description: "Visão completa de todos os processos e pendências em um só lugar",
-      highlight: "Dashboard executivo em tempo real"
-    }
+      description:
+        "Visão completa de todos os processos e pendências em um só lugar",
+      highlight: "Dashboard executivo em tempo real",
+    },
   ];
 
   useEffect(() => {
@@ -74,7 +91,9 @@ export default function Login() {
   }, [carouselItems.length]);
 
   const handlePrevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+    setCurrentSlide(
+      (prev) => (prev - 1 + carouselItems.length) % carouselItems.length
+    );
   };
 
   const handleNextSlide = () => {
@@ -84,19 +103,26 @@ export default function Login() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    // Temporary: bypass authentication - any login works as test user
-    signInAsTestUser();
-    toast({
-      title: "Login realizado com sucesso!",
-      description: "Bem-vindo ao Miele (modo teste).",
-    });
-    navigate("/home");
+    try {
+      await signIn(data.username, data.password);
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo ao Miele.",
+      });
+      navigate("/home");
+    } catch (error: any) {
+      toast({
+        title: "Erro no login",
+        description: error.message || "Credenciais inválidas. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -112,9 +138,13 @@ export default function Login() {
         >
           <div className="text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 mb-4 shadow-lg">
-              <span className="text-3xl font-bold text-primary-foreground">M</span>
+              <span className="text-3xl font-bold text-primary-foreground">
+                M
+              </span>
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Bem-vindo de volta</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">
+              Bem-vindo de volta
+            </h2>
             <p className="text-muted-foreground mt-2">
               Entre com suas credenciais para acessar o sistema
             </p>
@@ -123,16 +153,18 @@ export default function Login() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Nome de usuário</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  {...register("email")}
-                  className={errors.email ? "border-destructive" : ""}
+                  id="username"
+                  type="text"
+                  placeholder="Digite seu nome de usuário"
+                  {...register("username")}
+                  className={errors.username ? "border-destructive" : ""}
                 />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                {errors.username && (
+                  <p className="text-sm text-destructive">
+                    {errors.username.message}
+                  </p>
                 )}
               </div>
 
@@ -146,7 +178,9 @@ export default function Login() {
                   className={errors.password ? "border-destructive" : ""}
                 />
                 {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.password.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -160,7 +194,10 @@ export default function Login() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 rounded border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                 />
-                <Label htmlFor="remember" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                <Label
+                  htmlFor="remember"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
                   Lembrar-me
                 </Label>
               </div>
@@ -175,18 +212,29 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              disabled={isLoading || isSubmitting}
             >
-              <span className="flex items-center gap-2">
-                <LogIn className="h-4 w-4" />
-                Entrar
-              </span>
+              {isLoading || isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  Entrando...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <LogIn className="h-4 w-4" />
+                  Entrar
+                </span>
+              )}
             </Button>
           </form>
 
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
               Novo por aqui?{" "}
-              <Link to="/register" className="text-primary hover:text-primary/80 transition-colors font-medium">
+              <Link
+                to="/register"
+                className="text-primary hover:text-primary/80 transition-colors font-medium"
+              >
                 Criar uma conta
               </Link>
             </p>
@@ -197,7 +245,7 @@ export default function Login() {
       {/* Right side - Dynamic Carousel */}
       <div className="hidden lg:flex flex-1 relative overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-background">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
-        
+
         <div className="relative flex flex-col items-center justify-center w-full p-12">
           <AnimatePresence mode="wait">
             <motion.div

@@ -11,27 +11,33 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/authStore";
 
-const registerSchema = z.object({
-  firstName: z.string()
-    .trim()
-    .min(2, "Nome deve ter pelo menos 2 caracteres")
-    .max(50, "Nome deve ter no máximo 50 caracteres"),
-  lastName: z.string()
-    .trim()
-    .min(2, "Sobrenome deve ter pelo menos 2 caracteres")
-    .max(50, "Sobrenome deve ter no máximo 50 caracteres"),
-  email: z.string()
-    .trim()
-    .email("Email inválido")
-    .max(255, "Email deve ter no máximo 255 caracteres"),
-  password: z.string()
-    .min(6, "Senha deve ter pelo menos 6 caracteres")
-    .max(100, "Senha deve ter no máximo 100 caracteres"),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+const registerSchema = z
+  .object({
+    firstName: z
+      .string()
+      .trim()
+      .min(2, "Nome deve ter pelo menos 2 caracteres")
+      .max(50, "Nome deve ter no máximo 50 caracteres"),
+    lastName: z
+      .string()
+      .trim()
+      .min(2, "Sobrenome deve ter pelo menos 2 caracteres")
+      .max(50, "Sobrenome deve ter no máximo 50 caracteres"),
+    email: z
+      .string()
+      .trim()
+      .email("Email inválido")
+      .max(255, "Email deve ter no máximo 255 caracteres"),
+    password: z
+      .string()
+      .min(6, "Senha deve ter pelo menos 6 caracteres")
+      .max(100, "Senha deve ter no máximo 100 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -50,11 +56,16 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await signUp(data.email, data.password, data.firstName, data.lastName);
-      
+      const result = await signUp(
+        data.email,
+        data.password,
+        data.firstName,
+        data.lastName
+      );
+
       toast({
         title: "Conta criada com sucesso!",
-        description: "Verifique seu email para confirmar o cadastro.",
+        description: `${result.message} Sua conta está pendente de aprovação pelos administradores.`,
       });
       navigate("/login");
     } catch (error: any) {
@@ -89,7 +100,9 @@ export default function Register() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 mb-4 shadow-lg">
               <UserPlus className="h-8 w-8 text-primary-foreground" />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Criar conta</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">
+              Criar conta
+            </h2>
             <p className="text-muted-foreground mt-2">
               Preencha os dados abaixo para criar sua conta
             </p>
@@ -107,7 +120,9 @@ export default function Register() {
                   className={errors.firstName ? "border-destructive" : ""}
                 />
                 {errors.firstName && (
-                  <p className="text-sm text-destructive">{errors.firstName.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.firstName.message}
+                  </p>
                 )}
               </div>
 
@@ -121,7 +136,9 @@ export default function Register() {
                   className={errors.lastName ? "border-destructive" : ""}
                 />
                 {errors.lastName && (
-                  <p className="text-sm text-destructive">{errors.lastName.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.lastName.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -136,7 +153,9 @@ export default function Register() {
                 className={errors.email ? "border-destructive" : ""}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
@@ -150,7 +169,9 @@ export default function Register() {
                 className={errors.password ? "border-destructive" : ""}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
@@ -164,7 +185,9 @@ export default function Register() {
                 className={errors.confirmPassword ? "border-destructive" : ""}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.confirmPassword.message}
+                </p>
               )}
             </div>
 
@@ -190,7 +213,10 @@ export default function Register() {
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
               Já tem uma conta?{" "}
-              <Link to="/login" className="text-primary hover:text-primary/80 transition-colors font-medium">
+              <Link
+                to="/login"
+                className="text-primary hover:text-primary/80 transition-colors font-medium"
+              >
                 Fazer login
               </Link>
             </p>
