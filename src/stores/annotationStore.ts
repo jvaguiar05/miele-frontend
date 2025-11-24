@@ -1,177 +1,249 @@
-import { create } from 'zustand';
-
-// ⚠️ TEMPORÁRIO: Este store está desabilitado até que as tabelas sejam criadas no Supabase
-// Execute SUPABASE_SETUP.sql no Supabase Dashboard e depois descomente este código
+import { create } from "zustand";
+import api, { apiHelpers } from "@/lib/api";
 
 export interface Annotation {
-  id: string;
-  user_id: string;
-  entity_type: 'client' | 'perdcomp';
+  id: number;
+  public_id?: string;
+  user_id: number;
+  entity_type: "client" | "perdcomp" | "request" | string;
   entity_id: number;
   content: string;
   created_at: string;
   updated_at: string;
-  profile?: {
-    full_name: string;
-    email: string;
+
+  // Related user information
+  user?: {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
   };
 }
 
 export interface CreateAnnotationInput {
-  entity_type: 'client' | 'perdcomp';
+  entity_type: "client" | "perdcomp" | "request" | string;
   entity_id: number;
   content: string;
 }
 
+interface AnnotationFilters {
+  entity_type?: string;
+  entity_id?: number;
+  user_id?: number;
+}
+
 interface AnnotationState {
   annotations: Annotation[];
   isLoading: boolean;
   error: string | null;
-  fetchAnnotations: (entityType: 'client' | 'perdcomp', entityId: number) => Promise<void>;
-  createAnnotation: (input: CreateAnnotationInput) => Promise<void>;
-  updateAnnotation: (id: string, content: string) => Promise<void>;
-  deleteAnnotation: (id: string) => Promise<void>;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
+  filters: AnnotationFilters;
+
+  fetchAnnotations: (
+    entityType?: string,
+    entityId?: number,
+    page?: number
+  ) => Promise<void>;
+  fetchAnnotationById: (id: string | number) => Promise<Annotation>;
+  createAnnotation: (input: CreateAnnotationInput) => Promise<Annotation>;
+  updateAnnotation: (
+    id: string | number,
+    content: string
+  ) => Promise<Annotation>;
+  deleteAnnotation: (id: string | number) => Promise<void>;
+  setCurrentPage: (page: number) => void;
+  setFilters: (filters: AnnotationFilters) => void;
+  clearFilters: () => void;
 }
 
 export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   annotations: [],
   isLoading: false,
   error: null,
+  currentPage: 1,
+  totalPages: 1,
+  pageSize: 20,
+  totalCount: 0,
+  filters: {},
 
-  fetchAnnotations: async (entityType: 'client' | 'perdcomp', entityId: number) => {
-    // Mock implementation - replace after running SQL
-    set({ annotations: [], isLoading: false });
-  },
-
-  createAnnotation: async (input: CreateAnnotationInput) => {
-    // Mock implementation - replace after running SQL
-    console.warn('Annotations feature disabled until Supabase tables are created');
-  },
-
-  updateAnnotation: async (id: string, content: string) => {
-    // Mock implementation - replace after running SQL
-    console.warn('Annotations feature disabled until Supabase tables are created');
-  },
-
-  deleteAnnotation: async (id: string) => {
-    // Mock implementation - replace after running SQL
-    console.warn('Annotations feature disabled until Supabase tables are created');
-  },
-}));
-
-/* 
-===========================================
-CÓDIGO COMPLETO (descomente após criar as tabelas no Supabase):
-===========================================
-
-import { create } from 'zustand';
-import { supabase } from '@/integrations/supabase/client';
-import { Annotation, CreateAnnotationInput } from '@/types/annotations';
-
-interface AnnotationState {
-  annotations: Annotation[];
-  isLoading: boolean;
-  error: string | null;
-  fetchAnnotations: (entityType: 'client' | 'perdcomp', entityId: number) => Promise<void>;
-  createAnnotation: (input: CreateAnnotationInput) => Promise<void>;
-  updateAnnotation: (id: string, content: string) => Promise<void>;
-  deleteAnnotation: (id: string) => Promise<void>;
-}
-
-export const useAnnotationStore = create<AnnotationState>((set, get) => ({
-  annotations: [],
-  isLoading: false,
-  error: null,
-
-  fetchAnnotations: async (entityType: 'client' | 'perdcomp', entityId: number) => {
+  fetchAnnotations: async (
+    entityType?: string,
+    entityId?: number,
+    page = 1
+  ) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('annotations')
-        .select(`
-          *,
-          profile:profiles(full_name, email)
-        `)
-        .eq('entity_type', entityType)
-        .eq('entity_id', entityId)
-        .order('created_at', { ascending: false });
+      const pageSize = get().pageSize;
 
-      if (error) throw error;
+      // Build query parameters for Django API
+      const params: Record<string, any> = {
+        page,
+        page_size: pageSize,
+      };
 
-      set({ annotations: data || [], isLoading: false });
+      // Add entity filters if provided
+      if (entityType) {
+        params.entity_type = entityType;
+      }
+      if (entityId !== undefined) {
+        params.entity_id = entityId;
+      }
+
+      // Add other filters
+      Object.entries(get().filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params[key] = value;
+        }
+      });
+
+      // Default ordering by creation date (newest first)
+      if (!params.ordering) {
+        params.ordering = "-created_at";
+      }
+
+      const queryString = apiHelpers.buildQueryParams(params);
+      const response = await api.get(`/annotations/?${queryString}`);
+      const data = apiHelpers.handlePaginatedResponse(response);
+
+      set({
+        annotations: data.results,
+        totalCount: data.count,
+        totalPages: Math.ceil(data.count / pageSize),
+        currentPage: page,
+        isLoading: false,
+      });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({
+        error: error.message || "Erro ao buscar anotações",
+        isLoading: false,
+      });
       throw error;
     }
   },
 
-  createAnnotation: async (input: CreateAnnotationInput) => {
+  fetchAnnotationById: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/annotations/${id}/`
+          : `/annotations/${id}/`;
 
-      const { error } = await supabase
-        .from('annotations')
-        .insert({
-          user_id: user.id,
-          entity_type: input.entity_type,
-          entity_id: input.entity_id,
-          content: input.content,
-        });
+      const response = await api.get(endpoint);
+      const annotation = response.data;
 
-      if (error) throw error;
-
-      await get().fetchAnnotations(input.entity_type, input.entity_id);
-      
       set({ isLoading: false });
+      return annotation;
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({
+        error: error.message || "Erro ao buscar anotação",
+        isLoading: false,
+      });
       throw error;
     }
   },
 
-  updateAnnotation: async (id: string, content: string) => {
+  createAnnotation: async (input: CreateAnnotationInput) => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('annotations')
-        .update({ content })
-        .eq('id', id);
+      const response = await api.post("/annotations/", input);
+      const annotation = response.data;
 
-      if (error) throw error;
+      // Add to local state
+      set((state) => ({
+        annotations: [annotation, ...state.annotations],
+        totalCount: state.totalCount + 1,
+        isLoading: false,
+      }));
 
-      set(state => ({
-        annotations: state.annotations.map(a =>
-          a.id === id ? { ...a, content, updated_at: new Date().toISOString() } : a
+      return annotation;
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao criar anotação",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateAnnotation: async (id: string | number, content: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/annotations/${id}/`
+          : `/annotations/${id}/`;
+
+      const response = await api.patch(endpoint, { content });
+      const updatedAnnotation = response.data;
+
+      // Update local state
+      set((state) => ({
+        annotations: state.annotations.map((annotation) =>
+          annotation.id === id || annotation.public_id === id
+            ? updatedAnnotation
+            : annotation
         ),
         isLoading: false,
       }));
+
+      return updatedAnnotation;
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({
+        error: error.message || "Erro ao atualizar anotação",
+        isLoading: false,
+      });
       throw error;
     }
   },
 
-  deleteAnnotation: async (id: string) => {
+  deleteAnnotation: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('annotations')
-        .delete()
-        .eq('id', id);
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/annotations/${id}/`
+          : `/annotations/${id}/`;
 
-      if (error) throw error;
+      await api.delete(endpoint);
 
-      set(state => ({
-        annotations: state.annotations.filter(a => a.id !== id),
+      // Remove from local state
+      set((state) => ({
+        annotations: state.annotations.filter(
+          (annotation) => annotation.id !== id && annotation.public_id !== id
+        ),
+        totalCount: Math.max(0, state.totalCount - 1),
         isLoading: false,
       }));
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({
+        error: error.message || "Erro ao deletar anotação",
+        isLoading: false,
+      });
       throw error;
     }
   },
-}));
 
-*/
+  setCurrentPage: (page: number) => {
+    set({ currentPage: page });
+    // Re-fetch with current filters
+    const { filters } = get();
+    get().fetchAnnotations(filters.entity_type, filters.entity_id, page);
+  },
+
+  setFilters: (filters: AnnotationFilters) => {
+    set({ filters: { ...get().filters, ...filters } });
+    get().fetchAnnotations(filters.entity_type, filters.entity_id, 1);
+  },
+
+  clearFilters: () => {
+    set({ filters: {} });
+    get().fetchAnnotations(undefined, undefined, 1);
+  },
+}));

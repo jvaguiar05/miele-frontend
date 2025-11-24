@@ -1,152 +1,80 @@
-import { create } from 'zustand';
-import { supabase } from '@/integrations/supabase/client';
+import { create } from "zustand";
+import api, { apiHelpers } from "@/lib/api";
 
-// PerdComp interface aligned with Django model
-export type PerDcompStatus = 
-  | 'RASCUNHO' 
-  | 'TRANSMITIDO' 
-  | 'EM_PROCESSAMENTO' 
-  | 'DEFERIDO' 
-  | 'INDEFERIDO' 
-  | 'PARCIALMENTE_DEFERIDO' 
-  | 'CANCELADO' 
-  | 'VENCIDO';
+// PerdComp status enum aligned with Django model
+export type PerDcompStatus =
+  | "RASCUNHO"
+  | "TRANSMITIDO"
+  | "EM_PROCESSAMENTO"
+  | "DEFERIDO"
+  | "INDEFERIDO"
+  | "PARCIALMENTE_DEFERIDO"
+  | "CANCELADO"
+  | "VENCIDO";
 
+// PerdComp interface matching Django API structure
 export interface PerdComp {
-  id: string;
-  created_by_id?: string;
-  client_id: string;
-  
-  // Dados do cliente (desnormalizado)
+  id: number;
+  public_id?: string;
+  created_by?: number;
+  client_id: number;
+
+  // Dados do cliente (desnormalizado ou via relation)
   cnpj?: string;
-  
+  client?: {
+    id: number;
+    cnpj: string;
+    razao_social: string;
+    nome_fantasia: string;
+  };
+
   // Identificação do processo
   numero: string;
   numero_perdcomp?: string;
   processo_protocolo?: string;
-  
+
   // Datas importantes
   data_transmissao?: string;
   data_vencimento?: string;
   data_competencia?: string;
-  
+
   // Dados fiscais
   tributo_pedido: string;
   competencia: string;
-  
+
   // Valores monetários (string para precisão exata)
   valor_pedido: string;
   valor_compensado?: string;
   valor_recebido?: string;
   valor_saldo?: string;
   valor_selic?: string;
-  
+
   // Status
   status: PerDcompStatus;
-  
+
   // Anotações
   anotacoes?: string;
-  
+
   // Controles
   is_active?: boolean;
-  
-  // Auditoria
   created_at?: string;
   updated_at?: string;
   deleted_at?: string;
 }
 
-// Interface do banco Supabase atual
-interface SupabasePerdComp {
-  id: string;
-  client_id: string;
-  cnpj?: string;
-  numero: string;
-  numero_perdcomp?: string;
-  processo_protocolo?: number;
-  imposto: string;
-  competencia: string;
-  valor_solicitado: number;
-  valor_recebido?: number;
-  valor_compensado?: number;
-  valor_saldo?: number;
-  valor_selic?: number;
-  status: string;
-  data_transmissao?: string;
-  data_vencimento?: string;
-  data_competencia?: string;
-  observacoes?: string;
+interface PerdCompFilters {
+  client_id?: number;
+  status?: PerDcompStatus | "all";
+  tributo_pedido?: string;
+  data_transmissao_after?: string;
+  data_transmissao_before?: string;
+  data_vencimento_after?: string;
+  data_vencimento_before?: string;
   is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  deleted_at?: string;
-}
-
-// Função para converter do Supabase para a interface Django
-function fromSupabase(supabaseData: any): PerdComp {
-  return {
-    id: supabaseData.id,
-    client_id: supabaseData.client_id,
-    numero: supabaseData.numero,
-    cnpj: supabaseData.cnpj,
-    numero_perdcomp: supabaseData.numero_perdcomp,
-    processo_protocolo: supabaseData.processo_protocolo?.toString(),
-    tributo_pedido: supabaseData.imposto,
-    competencia: supabaseData.competencia,
-    valor_pedido: supabaseData.valor_solicitado?.toString() || '0',
-    valor_recebido: supabaseData.valor_recebido?.toString() || '0',
-    valor_compensado: supabaseData.valor_compensado?.toString() || '0',
-    valor_saldo: supabaseData.valor_saldo?.toString() || '0',
-    valor_selic: supabaseData.valor_selic?.toString() || '0',
-    status: supabaseData.status as PerDcompStatus,
-    data_transmissao: supabaseData.data_transmissao,
-    data_vencimento: supabaseData.data_vencimento,
-    data_competencia: supabaseData.data_competencia,
-    anotacoes: supabaseData.observacoes,
-    created_at: supabaseData.created_at,
-    updated_at: supabaseData.updated_at,
-  };
-}
-
-// Função para converter da interface Django para o Supabase
-function toSupabase(perdcomp: Partial<PerdComp>): Partial<SupabasePerdComp> {
-  const supabaseData: any = {
-    ...perdcomp,
-  };
-  
-  // Mapear campos da nova interface para os antigos do Supabase
-  if (perdcomp.tributo_pedido !== undefined) {
-    supabaseData.imposto = perdcomp.tributo_pedido;
-    delete supabaseData.tributo_pedido;
-  }
-  if (perdcomp.valor_pedido !== undefined) {
-    supabaseData.valor_solicitado = parseFloat(perdcomp.valor_pedido);
-    delete supabaseData.valor_pedido;
-  }
-  if (perdcomp.valor_recebido !== undefined) {
-    supabaseData.valor_recebido = parseFloat(perdcomp.valor_recebido);
-  }
-  
-  // Mapear anotacoes para observacoes
-  if (perdcomp.anotacoes !== undefined) {
-    supabaseData.observacoes = perdcomp.anotacoes;
-    delete supabaseData.anotacoes;
-  }
-  
-  // Remover apenas campos que realmente não existem no Supabase
-  delete supabaseData.valor_compensado;
-  delete supabaseData.valor_saldo;
-  delete supabaseData.valor_selic;
-  delete supabaseData.is_active;
-  delete supabaseData.created_by_id;
-  delete supabaseData.deleted_at;
-  
-  return supabaseData;
 }
 
 interface PerdCompState {
   perdcomps: PerdComp[];
-  clientPerdComps: PerdComp[];
   selectedPerdComp: PerdComp | null;
   isLoading: boolean;
   error: string | null;
@@ -154,191 +82,332 @@ interface PerdCompState {
   totalPages: number;
   pageSize: number;
   totalCount: number;
-  
+  filters: PerdCompFilters;
+
   // Actions
-  fetchPerdComps: (page?: number) => Promise<void>;
-  fetchPerdCompById: (id: string) => Promise<PerdComp>;
-  fetchPerdCompsByClient: (clientId: string) => Promise<void>;
+  fetchPerdComps: (
+    page?: number,
+    searchQuery?: string,
+    filters?: PerdCompFilters
+  ) => Promise<void>;
+  fetchPerdCompById: (id: string | number) => Promise<PerdComp>;
   createPerdComp: (perdcompData: Partial<PerdComp>) => Promise<PerdComp>;
-  updatePerdComp: (id: string, perdcompData: Partial<PerdComp>) => Promise<PerdComp>;
-  deletePerdComp: (id: string) => Promise<void>;
+  updatePerdComp: (
+    id: string | number,
+    perdcompData: Partial<PerdComp>
+  ) => Promise<PerdComp>;
+  deletePerdComp: (id: string | number) => Promise<void>;
   setSelectedPerdComp: (perdcomp: PerdComp | null) => void;
-  searchPerdComps: (query: string) => Promise<void>;
+  searchPerdComps: (query: string, filters?: PerdCompFilters) => Promise<void>;
   setCurrentPage: (page: number) => void;
+  setFilters: (filters: PerdCompFilters) => void;
+  clearFilters: () => void;
+
+  // Status actions
+  transmitirPerdComp: (id: string | number) => Promise<PerdComp>;
+  cancelarPerdComp: (id: string | number, reason?: string) => Promise<PerdComp>;
+  atualizarStatus: (
+    id: string | number,
+    status: PerDcompStatus
+  ) => Promise<PerdComp>;
 }
 
 export const usePerdCompStore = create<PerdCompState>((set, get) => ({
   perdcomps: [],
-  clientPerdComps: [],
   selectedPerdComp: null,
   isLoading: false,
   error: null,
   currentPage: 1,
   totalPages: 1,
-  pageSize: 10,
+  pageSize: 20,
   totalCount: 0,
+  filters: {},
 
-  fetchPerdComps: async (page = 1) => {
+  fetchPerdComps: async (page = 1, searchQuery = "", filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const pageSize = get().pageSize;
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
 
-      const { data, error, count } = await supabase
-        .from('perdcomps')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
-      
-      if (error) throw error;
-      
-      set({ 
-        perdcomps: (data || []).map(fromSupabase), 
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
-        currentPage: page,
-        isLoading: false 
-      });
-    } catch (error) {
-      set({ error: 'Falha ao buscar PER/DCOMPs', isLoading: false });
-    }
-  },
+      // Build query parameters for Django API
+      const params: Record<string, any> = {
+        page,
+        page_size: pageSize,
+      };
 
-  fetchPerdCompById: async (id: string) => {
-    set({ isLoading: true });
-    try {
-      const { data, error } = await supabase
-        .from('perdcomps')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) throw error;
-      const perdcomp = fromSupabase(data);
-      set({ selectedPerdComp: perdcomp, isLoading: false });
-      return perdcomp;
-    } catch (error) {
-      set({ error: 'Falha ao buscar PER/DCOMP', isLoading: false });
-      throw error;
-    }
-  },
-
-  fetchPerdCompsByClient: async (clientId: string) => {
-    set({ isLoading: true });
-    try {
-      const { data, error } = await supabase
-        .from('perdcomps')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      set({ clientPerdComps: (data || []).map(fromSupabase), isLoading: false });
-    } catch (error) {
-      set({ error: 'Falha ao buscar PER/DCOMPs do cliente', isLoading: false });
-    }
-  },
-
-  createPerdComp: async (perdcompData) => {
-    set({ isLoading: true });
-    try {
-      const supabaseData = toSupabase(perdcompData);
-      const { data, error } = await supabase
-        .from('perdcomps')
-        .insert([supabaseData] as any)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newPerdComp = fromSupabase(data);
-      set(state => ({ 
-        perdcomps: [newPerdComp, ...state.perdcomps],
-        clientPerdComps: perdcompData.client_id ? [newPerdComp, ...state.clientPerdComps] : state.clientPerdComps,
-        isLoading: false 
-      }));
-      return newPerdComp;
-    } catch (error) {
-      set({ error: 'Falha ao criar PER/DCOMP', isLoading: false });
-      throw error;
-    }
-  },
-
-  updatePerdComp: async (id, perdcompData) => {
-    set({ isLoading: true });
-    try {
-      const supabaseData = toSupabase(perdcompData);
-      const { data, error } = await supabase
-        .from('perdcomps')
-        .update(supabaseData as any)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
-      
-      if (error) throw error;
-      
-      if (!data) {
-        throw new Error('PER/DCOMP não encontrado ou você não tem permissão para atualizá-lo');
+      // Add search query
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
       }
-      
-      const updatedPerdComp = fromSupabase(data);
-      set(state => ({
-        perdcomps: state.perdcomps.map(pc => 
-          pc.id === id ? updatedPerdComp : pc
-        ),
-        clientPerdComps: state.clientPerdComps.map(pc =>
-          pc.id === id ? updatedPerdComp : pc
-        ),
-        selectedPerdComp: state.selectedPerdComp?.id === id ? updatedPerdComp : state.selectedPerdComp,
-        isLoading: false
+
+      // Add filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (
+          value !== undefined &&
+          value !== null &&
+          value !== "" &&
+          value !== "all"
+        ) {
+          params[key] = value;
+        }
+      });
+
+      // Default ordering by creation date (newest first)
+      if (!params.ordering) {
+        params.ordering = "-created_at";
+      }
+
+      const queryString = apiHelpers.buildQueryParams(params);
+      const response = await api.get(`/perdcomps/?${queryString}`);
+      const data = apiHelpers.handlePaginatedResponse(response);
+
+      set({
+        perdcomps: data.results,
+        totalCount: data.count,
+        totalPages: Math.ceil(data.count / pageSize),
+        currentPage: page,
+        isLoading: false,
+        filters: { ...get().filters, ...filters },
+      });
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao buscar PER/DCOMPs",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  fetchPerdCompById: async (id: string | number) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/perdcomps/${id}/`
+          : `/perdcomps/${id}/`;
+
+      const response = await api.get(endpoint);
+      const perdcomp = response.data;
+
+      set({
+        selectedPerdComp: perdcomp,
+        isLoading: false,
+      });
+
+      return perdcomp;
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao buscar PER/DCOMP",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  createPerdComp: async (perdcompData: Partial<PerdComp>) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Format data for Django API
+      const formattedData = {
+        ...perdcompData,
+        created_at: undefined, // Let the API set this
+        updated_at: undefined, // Let the API set this
+        id: undefined, // Let the API set this
+      };
+
+      const response = await api.post("/perdcomps/", formattedData);
+      const perdcomp = response.data;
+
+      // Add to local state
+      set((state) => ({
+        perdcomps: [perdcomp, ...state.perdcomps],
+        totalCount: state.totalCount + 1,
+        isLoading: false,
       }));
+
+      return perdcomp;
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao criar PER/DCOMP",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updatePerdComp: async (
+    id: string | number,
+    perdcompData: Partial<PerdComp>
+  ) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/perdcomps/${id}/`
+          : `/perdcomps/${id}/`;
+
+      const response = await api.patch(endpoint, perdcompData);
+      const updatedPerdComp = response.data;
+
+      // Update local state
+      set((state) => ({
+        perdcomps: state.perdcomps.map((perdcomp) =>
+          perdcomp.id === id || perdcomp.public_id === id
+            ? updatedPerdComp
+            : perdcomp
+        ),
+        selectedPerdComp:
+          state.selectedPerdComp?.id === id ||
+          state.selectedPerdComp?.public_id === id
+            ? updatedPerdComp
+            : state.selectedPerdComp,
+        isLoading: false,
+      }));
+
       return updatedPerdComp;
-    } catch (error) {
-      set({ error: 'Falha ao atualizar PER/DCOMP', isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao atualizar PER/DCOMP",
+        isLoading: false,
+      });
       throw error;
     }
   },
 
-  deletePerdComp: async (id) => {
-    set({ isLoading: true });
+  deletePerdComp: async (id: string | number) => {
+    set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('perdcomps')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      set(state => ({
-        perdcomps: state.perdcomps.filter(pc => pc.id !== id),
-        clientPerdComps: state.clientPerdComps.filter(pc => pc.id !== id),
-        selectedPerdComp: state.selectedPerdComp?.id === id ? null : state.selectedPerdComp,
-        isLoading: false
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/perdcomps/${id}/`
+          : `/perdcomps/${id}/`;
+
+      await api.delete(endpoint);
+
+      // Remove from local state
+      set((state) => ({
+        perdcomps: state.perdcomps.filter(
+          (perdcomp) => perdcomp.id !== id && perdcomp.public_id !== id
+        ),
+        totalCount: Math.max(0, state.totalCount - 1),
+        selectedPerdComp:
+          state.selectedPerdComp?.id === id ||
+          state.selectedPerdComp?.public_id === id
+            ? null
+            : state.selectedPerdComp,
+        isLoading: false,
       }));
-    } catch (error) {
-      set({ error: 'Falha ao deletar PER/DCOMP', isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao deletar PER/DCOMP",
+        isLoading: false,
+      });
       throw error;
     }
   },
 
-  setSelectedPerdComp: (perdcomp) => set({ selectedPerdComp: perdcomp }),
+  setSelectedPerdComp: (perdcomp: PerdComp | null) => {
+    set({ selectedPerdComp: perdcomp });
+  },
 
-  searchPerdComps: async (query) => {
-    set({ isLoading: true });
+  searchPerdComps: async (query: string, filters = {}) => {
+    await get().fetchPerdComps(1, query, filters);
+  },
+
+  setCurrentPage: (page: number) => {
+    set({ currentPage: page });
+    get().fetchPerdComps(page, "", get().filters);
+  },
+
+  setFilters: (filters: PerdCompFilters) => {
+    set({ filters: { ...get().filters, ...filters } });
+    get().fetchPerdComps(1, "", { ...get().filters, ...filters });
+  },
+
+  clearFilters: () => {
+    set({ filters: {} });
+    get().fetchPerdComps(1, "", {});
+  },
+
+  // Status actions
+  transmitirPerdComp: async (id: string | number) => {
+    set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('perdcomps')
-        .select('*')
-        .or(`numero.ilike.%${query}%,imposto.ilike.%${query}%,competencia.ilike.%${query}%`)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      set({ perdcomps: (data || []).map(fromSupabase), isLoading: false });
-    } catch (error) {
-      set({ error: 'Falha na busca', isLoading: false });
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/perdcomps/${id}/transmitir/`
+          : `/perdcomps/${id}/transmitir/`;
+
+      const response = await api.post(endpoint);
+      const updatedPerdComp = response.data;
+
+      // Update local state
+      set((state) => ({
+        perdcomps: state.perdcomps.map((perdcomp) =>
+          perdcomp.id === id || perdcomp.public_id === id
+            ? updatedPerdComp
+            : perdcomp
+        ),
+        selectedPerdComp:
+          state.selectedPerdComp?.id === id ||
+          state.selectedPerdComp?.public_id === id
+            ? updatedPerdComp
+            : state.selectedPerdComp,
+        isLoading: false,
+      }));
+
+      return updatedPerdComp;
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao transmitir PER/DCOMP",
+        isLoading: false,
+      });
+      throw error;
     }
   },
 
-  setCurrentPage: (page) => set({ currentPage: page }),
+  cancelarPerdComp: async (id: string | number, reason?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/perdcomps/${id}/cancelar/`
+          : `/perdcomps/${id}/cancelar/`;
+
+      const response = await api.post(endpoint, {
+        reason: reason || "Cancelado pelo usuário",
+      });
+
+      const updatedPerdComp = response.data;
+
+      // Update local state
+      set((state) => ({
+        perdcomps: state.perdcomps.map((perdcomp) =>
+          perdcomp.id === id || perdcomp.public_id === id
+            ? updatedPerdComp
+            : perdcomp
+        ),
+        selectedPerdComp:
+          state.selectedPerdComp?.id === id ||
+          state.selectedPerdComp?.public_id === id
+            ? updatedPerdComp
+            : state.selectedPerdComp,
+        isLoading: false,
+      }));
+
+      return updatedPerdComp;
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao cancelar PER/DCOMP",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  atualizarStatus: async (id: string | number, status: PerDcompStatus) => {
+    return await get().updatePerdComp(id, { status });
+  },
 }));

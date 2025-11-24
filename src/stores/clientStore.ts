@@ -1,9 +1,10 @@
-import { create } from 'zustand';
-import { supabase } from '@/integrations/supabase/client';
+import { create } from "zustand";
+import api, { apiHelpers } from "@/lib/api";
 
-// Client interface matching Supabase table schema
+// Client interface matching Django API structure
 interface Client {
-  id: string;
+  id: number;
+  public_id?: string;
   cnpj: string;
   razao_social: string;
   nome_fantasia: string;
@@ -48,7 +49,8 @@ interface ClientFilters {
   tipo_empresa?: string;
   recuperacao_judicial?: boolean;
   uf?: string;
-  regime_tributario?: string;
+  regime_tributacao?: string;
+  is_active?: boolean;
 }
 
 interface ClientState {
@@ -61,12 +63,19 @@ interface ClientState {
   pageSize: number;
   totalCount: number;
   filters: ClientFilters;
-  
-  fetchClients: (page?: number, searchQuery?: string, filters?: ClientFilters) => Promise<void>;
-  fetchClientById: (id: string) => Promise<Client>;
+
+  fetchClients: (
+    page?: number,
+    searchQuery?: string,
+    filters?: ClientFilters
+  ) => Promise<void>;
+  fetchClientById: (id: string | number) => Promise<Client>;
   createClient: (clientData: Partial<Client>) => Promise<Client>;
-  updateClient: (id: string, clientData: Partial<Client>) => Promise<Client>;
-  deleteClient: (id: string) => Promise<void>;
+  updateClient: (
+    id: string | number,
+    clientData: Partial<Client>
+  ) => Promise<Client>;
+  deleteClient: (id: string | number) => Promise<void>;
   setSelectedClient: (client: Client | null) => void;
   searchClients: (query: string, filters?: ClientFilters) => Promise<void>;
   setCurrentPage: (page: number) => void;
@@ -81,75 +90,82 @@ export const useClientStore = create<ClientState>((set, get) => ({
   error: null,
   currentPage: 1,
   totalPages: 1,
-  pageSize: 10,
+  pageSize: 20, // Match Django default pagination
   totalCount: 0,
   filters: {},
 
-  fetchClients: async (page = 1, searchQuery = '', filters = {}) => {
+  fetchClients: async (page = 1, searchQuery = "", filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const pageSize = get().pageSize;
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
 
-      let query = supabase
-        .from('clients')
-        .select('*', { count: 'exact' });
+      // Build query parameters for Django API
+      const params: Record<string, any> = {
+        page,
+        page_size: pageSize,
+      };
 
+      // Add search query
       if (searchQuery.trim()) {
-        query = query.or(`cnpj.ilike.%${searchQuery}%,razao_social.ilike.%${searchQuery}%,nome_fantasia.ilike.%${searchQuery}%`);
+        params.search = searchQuery.trim();
       }
 
-      if (filters.tipo_empresa) {
-        query = query.eq('tipo_empresa', filters.tipo_empresa);
-      }
-      if (filters.recuperacao_judicial !== undefined) {
-        query = query.eq('recuperacao_judicial', filters.recuperacao_judicial);
-      }
-      if (filters.uf) {
-        query = query.eq('uf', filters.uf);
-      }
-      if (filters.regime_tributario) {
-        query = query.eq('regime_tributacao', filters.regime_tributario as any);
+      // Add filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params[key] = value;
+        }
+      });
+
+      // Add ordering (default by razao_social)
+      if (!params.ordering) {
+        params.ordering = "razao_social";
       }
 
-      const { data, error, count } = await query
-        .order('razao_social', { ascending: true })
-        .range(from, to);
-      
-      if (error) throw error;
-      
+      const queryString = apiHelpers.buildQueryParams(params);
+      const response = await api.get(`/clients/?${queryString}`);
+      const data = apiHelpers.handlePaginatedResponse(response);
+
       set({
-        clients: (data || []) as Client[],
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize),
+        clients: data.results,
+        totalCount: data.count,
+        totalPages: Math.ceil(data.count / pageSize),
         currentPage: page,
-        isLoading: false
+        isLoading: false,
+        filters: { ...get().filters, ...filters },
       });
     } catch (error: any) {
-      set({ error: error.message || 'Falha ao buscar clientes', isLoading: false });
+      set({
+        error: error.message || "Erro ao buscar clientes",
+        isLoading: false,
+      });
+      throw error;
     }
   },
 
-  fetchClientById: async (id: string) => {
+  fetchClientById: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) throw error;
-      
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/clients/${id}/`
+          : `/clients/${id}/`;
+
+      const response = await api.get(endpoint);
+      const client = response.data;
+
       set({
-        selectedClient: data as Client,
-        isLoading: false
+        selectedClient: client,
+        isLoading: false,
       });
-      
-      return data as Client;
+
+      return client;
     } catch (error: any) {
-      set({ error: error.message || 'Falha ao buscar cliente', isLoading: false });
+      set({
+        error: error.message || "Erro ao buscar cliente",
+        isLoading: false,
+      });
       throw error;
     }
   },
@@ -157,119 +173,122 @@ export const useClientStore = create<ClientState>((set, get) => ({
   createClient: async (clientData: Partial<Client>) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('clients')
-        .insert(clientData as any)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      set(state => ({
-        clients: [data as Client, ...state.clients],
-        isLoading: false
+      // Format data for Django API
+      const formattedData = {
+        ...clientData,
+        created_at: undefined, // Let the API set this
+        updated_at: undefined, // Let the API set this
+        id: undefined, // Let the API set this
+      };
+
+      const response = await api.post("/clients/", formattedData);
+      const client = response.data;
+
+      // Add to local state
+      set((state) => ({
+        clients: [client, ...state.clients],
+        totalCount: state.totalCount + 1,
+        isLoading: false,
       }));
-      
-      return data as Client;
+
+      return client;
     } catch (error: any) {
-      set({ error: error.message || 'Falha ao criar cliente', isLoading: false });
-      throw error;
-    }
-  },
-
-  updateClient: async (id: string, clientData: Partial<Client>) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .update(clientData as any)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
-      
-      if (error) throw error;
-      
-      if (!data) {
-        throw new Error('Cliente não encontrado ou você não tem permissão para atualizá-lo');
-      }
-      
-      set(state => ({
-        clients: state.clients.map(c => c.id === id ? data as Client : c),
-        selectedClient: state.selectedClient?.id === id ? data as Client : state.selectedClient,
-        isLoading: false
-      }));
-      
-      return data as Client;
-    } catch (error: any) {
-      set({ error: error.message || 'Falha ao atualizar cliente', isLoading: false });
-      throw error;
-    }
-  },
-
-  deleteClient: async (id: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      set(state => ({
-        clients: state.clients.filter(c => c.id !== id),
-        selectedClient: state.selectedClient?.id === id ? null : state.selectedClient,
-        isLoading: false
-      }));
-    } catch (error: any) {
-      set({ error: error.message || 'Falha ao deletar cliente', isLoading: false });
-      throw error;
-    }
-  },
-
-  setSelectedClient: (client) => set({ selectedClient: client }),
-
-  searchClients: async (query, filters = {}) => {
-    set({ isLoading: true, error: null });
-    try {
-      let supaQuery = supabase
-        .from('clients')
-        .select('*', { count: 'exact' });
-
-      if (query.trim()) {
-        supaQuery = supaQuery.or(`cnpj.ilike.%${query}%,razao_social.ilike.%${query}%,nome_fantasia.ilike.%${query}%`);
-      }
-
-      if (filters.tipo_empresa) {
-        supaQuery = supaQuery.eq('tipo_empresa', filters.tipo_empresa);
-      }
-      if (filters.recuperacao_judicial !== undefined) {
-        supaQuery = supaQuery.eq('recuperacao_judicial', filters.recuperacao_judicial);
-      }
-      if (filters.uf) {
-        supaQuery = supaQuery.eq('uf', filters.uf);
-      }
-      if (filters.regime_tributario) {
-        supaQuery = supaQuery.eq('regime_tributacao', filters.regime_tributario as any);
-      }
-
-      const { data, error, count } = await supaQuery.order('razao_social', { ascending: true });
-      
-      if (error) throw error;
-      
       set({
-        clients: (data || []) as Client[],
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / get().pageSize),
-        currentPage: 1,
-        isLoading: false
+        error: error.message || "Erro ao criar cliente",
+        isLoading: false,
       });
-    } catch (error: any) {
-      set({ error: error.message || 'Falha na busca', isLoading: false });
+      throw error;
     }
   },
 
-  setCurrentPage: (page) => set({ currentPage: page }),
-  setFilters: (filters) => set({ filters }),
-  clearFilters: () => set({ filters: {} }),
+  updateClient: async (id: string | number, clientData: Partial<Client>) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/clients/${id}/`
+          : `/clients/${id}/`;
+
+      const response = await api.patch(endpoint, clientData);
+      const updatedClient = response.data;
+
+      // Update local state
+      set((state) => ({
+        clients: state.clients.map((client) =>
+          client.id === id || client.public_id === id ? updatedClient : client
+        ),
+        selectedClient:
+          state.selectedClient?.id === id ||
+          state.selectedClient?.public_id === id
+            ? updatedClient
+            : state.selectedClient,
+        isLoading: false,
+      }));
+
+      return updatedClient;
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao atualizar cliente",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  deleteClient: async (id: string | number) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Use public_id if it's a string (UUID), otherwise use the numeric ID
+      const endpoint =
+        typeof id === "string" && id.length > 10
+          ? `/clients/${id}/`
+          : `/clients/${id}/`;
+
+      await api.delete(endpoint);
+
+      // Remove from local state
+      set((state) => ({
+        clients: state.clients.filter(
+          (client) => client.id !== id && client.public_id !== id
+        ),
+        totalCount: Math.max(0, state.totalCount - 1),
+        selectedClient:
+          state.selectedClient?.id === id ||
+          state.selectedClient?.public_id === id
+            ? null
+            : state.selectedClient,
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao deletar cliente",
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  setSelectedClient: (client: Client | null) => {
+    set({ selectedClient: client });
+  },
+
+  searchClients: async (query: string, filters = {}) => {
+    await get().fetchClients(1, query, filters);
+  },
+
+  setCurrentPage: (page: number) => {
+    set({ currentPage: page });
+    get().fetchClients(page, "", get().filters);
+  },
+
+  setFilters: (filters: ClientFilters) => {
+    set({ filters: { ...get().filters, ...filters } });
+    get().fetchClients(1, "", { ...get().filters, ...filters });
+  },
+
+  clearFilters: () => {
+    set({ filters: {} });
+    get().fetchClients(1, "", {});
+  },
 }));
