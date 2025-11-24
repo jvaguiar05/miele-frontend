@@ -1,6 +1,14 @@
 "use client";
 
-import { LogOut, User, Settings, ChevronRight, Briefcase, Mail, Calendar } from "lucide-react";
+import {
+  LogOut,
+  User,
+  Settings,
+  ChevronRight,
+  Briefcase,
+  Mail,
+  Calendar,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,7 +32,7 @@ export default function Header() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
+    navigate("/login");
   };
 
   const navItems = [
@@ -42,21 +50,24 @@ export default function Header() {
   // Get user data from auth store
   const getUserRole = () => {
     if (!user?.role) return "Usuário";
-    
+
     switch (user.role) {
-      case 'admin':
+      case "admin":
         return "Administrador";
-      case 'employee':
+      case "employee":
         return "Funcionário";
       default:
         return "Usuário";
     }
   };
-  
+
   const userRole = getUserRole();
-  const memberSince = user?.date_joined ? 
-    new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' })
-      .format(new Date(user.date_joined)) : 'N/A';
+  const memberSince = user?.date_joined
+    ? new Intl.DateTimeFormat("pt-BR", {
+        month: "short",
+        year: "numeric",
+      }).format(new Date(user.date_joined))
+    : "N/A";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
@@ -65,11 +76,15 @@ export default function Header() {
           <div className="flex items-center gap-8 flex-1">
             <Link to="/home" className="flex items-center gap-2.5 group">
               <div className="relative h-9 w-9 rounded-xl bg-gradient-to-br from-primary via-primary to-primary/60 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-                <span className="text-primary-foreground font-bold text-lg">M</span>
+                <span className="text-primary-foreground font-bold text-lg">
+                  M
+                </span>
               </div>
-              <span className="font-semibold text-lg hidden sm:inline-block text-foreground">Miele</span>
+              <span className="font-semibold text-lg hidden sm:inline-block text-foreground">
+                Miele
+              </span>
             </Link>
-            
+
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map((item) => (
                 <Link key={item.href} to={item.href}>
@@ -98,10 +113,15 @@ export default function Header() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative gap-2 px-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative gap-2 px-2"
+                >
                   <Avatar className="h-7 w-7">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-                      {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
+                      {profile?.full_name?.[0]?.toUpperCase() ||
+                        user?.email?.[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
@@ -113,13 +133,19 @@ export default function Header() {
                   <div className="flex items-start gap-3">
                     <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
                       <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-sm">
-                        {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
+                        {user?.username?.[0]?.toUpperCase() ||
+                          user?.email?.[0]?.toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">{profile?.full_name || user?.email}</p>
-                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                        <p className="text-sm font-semibold">
+                          {user?.username}
+                        </p>
+                        <Badge
+                          variant="secondary"
+                          className="text-xs px-1.5 py-0"
+                        >
                           {userRole}
                         </Badge>
                       </div>
@@ -138,31 +164,41 @@ export default function Header() {
                 </div>
 
                 <div className="p-1">
-                  <DropdownMenuItem asChild className="cursor-pointer p-2.5 rounded-md">
+                  <DropdownMenuItem
+                    asChild
+                    className="cursor-pointer p-2.5 rounded-md"
+                  >
                     <Link to="/profile" className="flex items-center">
                       <User className="mr-3 h-4 w-4 text-muted-foreground" />
                       <div className="flex-1">
                         <p className="text-sm">Meu Perfil</p>
-                        <p className="text-xs text-muted-foreground">Gerencie suas informações pessoais</p>
+                        <p className="text-xs text-muted-foreground">
+                          Gerencie suas informações pessoais
+                        </p>
                       </div>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="cursor-pointer p-2.5 rounded-md">
+                  <DropdownMenuItem
+                    asChild
+                    className="cursor-pointer p-2.5 rounded-md"
+                  >
                     <Link to="/configuration" className="flex items-center">
                       <Settings className="mr-3 h-4 w-4 text-muted-foreground" />
                       <div className="flex-1">
                         <p className="text-sm">Configurações</p>
-                        <p className="text-xs text-muted-foreground">Preferências e configurações do sistema</p>
+                        <p className="text-xs text-muted-foreground">
+                          Preferências e configurações do sistema
+                        </p>
                       </div>
                     </Link>
                   </DropdownMenuItem>
                 </div>
 
                 <DropdownMenuSeparator className="my-0" />
-                
+
                 <div className="p-1">
-                  <DropdownMenuItem 
-                    onClick={handleLogout} 
+                  <DropdownMenuItem
+                    onClick={handleLogout}
                     className="cursor-pointer p-2.5 rounded-md text-destructive focus:text-destructive focus:bg-destructive/10"
                   >
                     <LogOut className="mr-3 h-4 w-4" />

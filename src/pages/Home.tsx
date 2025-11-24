@@ -104,7 +104,7 @@ const getQuickStats = (stats: DashboardStats) => {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { profile, isAdmin } = useAuthStore();
+  const { user, profile, isAdmin } = useAuthStore();
   const { clients, fetchClients } = useClientStore();
   const { perdcomps, fetchPerdComps } = usePerdCompStore();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
@@ -145,9 +145,7 @@ export default function Home() {
       (client) => client.is_active !== false
     ).length;
     const openPerdcomps = perdcomps.filter((perdcomp) =>
-      ["RASCUNHO", "TRANSMITIDO", "EM_PROCESSAMENTO"].includes(
-        perdcomp.status
-      )
+      ["RASCUNHO", "TRANSMITIDO", "EM_PROCESSAMENTO"].includes(perdcomp.status)
     ).length;
 
     const totalValue = perdcomps.reduce(
@@ -184,7 +182,7 @@ export default function Home() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold mb-2">
-            Olá, {profile?.full_name?.split(" ")[0] || "Usuário"}! 👋
+            Olá, {user?.first_name || user?.username || "Usuário"}! 👋
           </h1>
           <p className="text-muted-foreground text-lg">
             Bem-vindo ao painel de controle do Miele
