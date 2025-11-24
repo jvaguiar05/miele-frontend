@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, FileText, BarChart3, ClipboardList, TrendingUp, Clock, DollarSign, FolderOpen } from "lucide-react";
+import {
+  Users,
+  FileText,
+  BarChart3,
+  ClipboardList,
+  TrendingUp,
+  Clock,
+  DollarSign,
+  FolderOpen,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { useClientStore } from "@/stores/clientStore";
 import { usePerdCompStore } from "@/stores/perdcompStore";
 import { ActivityTable } from "@/components/activity/ActivityTable";
-import { supabase } from "@/integrations/supabase/client";
 import AdminDashboard from "./AdminDashboard";
 
 interface DashboardStats {
@@ -26,7 +34,7 @@ const getNavigationCards = (stats: DashboardStats) => [
     icon: Users,
     href: "/clients",
     color: "from-blue-500 to-blue-600",
-    stats: `${stats.activeClients} ativos`
+    stats: `${stats.activeClients} ativos`,
   },
   {
     title: "PER/DCOMP",
@@ -34,7 +42,7 @@ const getNavigationCards = (stats: DashboardStats) => [
     icon: FileText,
     href: "/perdcomps",
     color: "from-purple-500 to-purple-600",
-    stats: `${stats.openPerdcomps} em aberto`
+    stats: `${stats.openPerdcomps} em aberto`,
   },
   {
     title: "Relatórios",
@@ -42,7 +50,7 @@ const getNavigationCards = (stats: DashboardStats) => [
     icon: BarChart3,
     href: "/reports",
     color: "from-green-500 to-green-600",
-    stats: "Dashboard"
+    stats: "Dashboard",
   },
   {
     title: "Solicitações",
@@ -50,15 +58,15 @@ const getNavigationCards = (stats: DashboardStats) => [
     icon: ClipboardList,
     href: "/requests",
     color: "from-orange-500 to-orange-600",
-    stats: `${stats.pendingRequests} pendentes`
-  }
+    stats: `${stats.pendingRequests} pendentes`,
+  },
 ];
 
 const getQuickStats = (stats: DashboardStats) => {
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     }).format(value);
   };
 
@@ -68,35 +76,37 @@ const getQuickStats = (stats: DashboardStats) => {
       value: formatCurrency(stats.totalValue),
       change: "",
       icon: DollarSign,
-      trend: "neutral" as const
+      trend: "neutral" as const,
     },
     {
       title: "Total de Clientes",
       value: stats.totalClients.toString(),
       change: `${stats.activeClients} ativos`,
       icon: Users,
-      trend: "up" as const
+      trend: "up" as const,
     },
     {
       title: "Solicitações Pendentes",
       value: stats.pendingRequests.toString(),
       change: "",
       icon: Clock,
-      trend: "neutral" as const
+      trend: "neutral" as const,
     },
     {
       title: "PER/DCOMPs Ativos",
       value: stats.totalPerdcomps.toString(),
       change: `${stats.openPerdcomps} em aberto`,
       icon: FolderOpen,
-      trend: "up" as const
-    }
+      trend: "up" as const,
+    },
   ];
 };
 
 export default function Home() {
   const navigate = useNavigate();
   const { profile, isAdmin } = useAuthStore();
+  const { clients, fetchClients } = useClientStore();
+  const { perdcomps, fetchPerdComps } = usePerdCompStore();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalClients: 0,
     activeClients: 0,
@@ -111,52 +121,37 @@ export default function Home() {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        // Fetch clients count
-        const { count: totalClients } = await supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true });
+        // Fetch initial data - this will populate the stores
+        await Promise.all([
+          fetchClients(1).catch(() => {}), // Ignore errors for dashboard
+          fetchPerdComps(1).catch(() => {}), // Ignore errors for dashboard
+        ]);
 
-        const { count: activeClients } = await supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_active', true);
+        // Calculate stats from store data
+        const activeClients = clients.filter(
+          (client) => client.is_active !== false
+        ).length;
+        const openPerdcomps = perdcomps.filter((perdcomp) =>
+          ["RASCUNHO", "TRANSMITIDO", "EM_PROCESSAMENTO"].includes(
+            perdcomp.status
+          )
+        ).length;
 
-        // Fetch perdcomps data
-        const { count: totalPerdcomps } = await supabase
-          .from('perdcomps')
-          .select('*', { count: 'exact', head: true });
-
-        const { count: openPerdcomps } = await supabase
-          .from('perdcomps')
-          .select('*', { count: 'exact', head: true })
-          .in('status', ['RASCUNHO', 'TRANSMITIDO', 'EM_PROCESSAMENTO']);
-
-        // Fetch total value from perdcomps
-        const { data: perdcompsData } = await supabase
-          .from('perdcomps')
-          .select('valor_solicitado');
-
-        const totalValue = perdcompsData?.reduce(
-          (sum, item) => sum + (Number(item.valor_solicitado) || 0),
+        const totalValue = perdcomps.reduce(
+          (sum, perdcomp) => sum + (Number(perdcomp.valor_pedido) || 0),
           0
-        ) || 0;
-
-        // Fetch pending requests
-        const { count: pendingRequests } = await supabase
-          .from('requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
+        );
 
         setDashboardStats({
-          totalClients: totalClients || 0,
-          activeClients: activeClients || 0,
-          totalPerdcomps: totalPerdcomps || 0,
-          openPerdcomps: openPerdcomps || 0,
-          pendingRequests: pendingRequests || 0,
+          totalClients: clients.length,
+          activeClients: activeClients,
+          totalPerdcomps: perdcomps.length,
+          openPerdcomps: openPerdcomps,
+          pendingRequests: 0, // TODO: Add requests store data when available
           totalValue: totalValue,
         });
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -166,7 +161,7 @@ export default function Home() {
     if (!isAdmin) {
       fetchDashboardData();
     }
-  }, [isAdmin]);
+  }, [isAdmin, clients, perdcomps, fetchClients, fetchPerdComps]);
 
   // Se for admin, renderiza o AdminDashboard
   if (isAdmin) {
@@ -187,7 +182,7 @@ export default function Home() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold mb-2">
-            Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}! 👋
+            Olá, {profile?.full_name?.split(" ")[0] || "Usuário"}! 👋
           </h1>
           <p className="text-muted-foreground text-lg">
             Bem-vindo ao painel de controle do Miele
@@ -213,9 +208,15 @@ export default function Home() {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   {stat.change && (
-                    <span className={`text-sm font-medium ${
-                      stat.trend === 'up' ? 'text-green-500' : stat.trend === 'neutral' ? 'text-muted-foreground' : 'text-red-500'
-                    }`}>
+                    <span
+                      className={`text-sm font-medium ${
+                        stat.trend === "up"
+                          ? "text-green-500"
+                          : stat.trend === "neutral"
+                          ? "text-muted-foreground"
+                          : "text-red-500"
+                      }`}
+                    >
                       {stat.change}
                     </span>
                   )}
@@ -250,13 +251,19 @@ export default function Home() {
                   className="p-6 cursor-pointer hover:shadow-xl transition-all duration-300 group border-border/50 bg-card/50 backdrop-blur"
                   onClick={() => navigate(card.href)}
                 >
-                  <div className={`inline-flex p-3 rounded-xl bg-gradient-to-r ${card.color} mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                  <div
+                    className={`inline-flex p-3 rounded-xl bg-gradient-to-r ${card.color} mb-4 group-hover:scale-110 transition-transform duration-300`}
+                  >
                     <Icon className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2">{card.title}</h3>
-                  <p className="text-sm text-muted-foreground mb-3">{card.description}</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {card.description}
+                  </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-primary">{card.stats}</span>
+                    <span className="text-xs font-medium text-primary">
+                      {card.stats}
+                    </span>
                     <TrendingUp className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 </Card>

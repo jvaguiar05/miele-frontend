@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import api from "@/lib/api";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -34,24 +34,25 @@ export default function ForgotPassword() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      await api.post("/auth/password-reset/", {
+        email: data.email,
       });
 
-      if (error) throw error;
-      
       toast({
         title: "Email enviado!",
         description: "Verifique sua caixa de entrada para redefinir sua senha.",
       });
-      
+
       setTimeout(() => {
         navigate("/login");
       }, 3000);
     } catch (error: any) {
       toast({
         title: "Erro ao enviar email",
-        description: error.message || "Ocorreu um erro ao enviar o email",
+        description:
+          error.response?.data?.detail ||
+          error.message ||
+          "Ocorreu um erro ao enviar o email",
         variant: "destructive",
       });
     } finally {
@@ -82,7 +83,9 @@ export default function ForgotPassword() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 mb-4 shadow-lg">
               <Mail className="h-8 w-8 text-primary-foreground" />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Esqueceu sua senha?</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">
+              Esqueceu sua senha?
+            </h2>
             <p className="text-muted-foreground mt-2">
               Digite seu email e enviaremos instruções para redefinir sua senha
             </p>
@@ -99,7 +102,9 @@ export default function ForgotPassword() {
                 className={errors.email ? "border-destructive" : ""}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
@@ -125,7 +130,10 @@ export default function ForgotPassword() {
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
               Lembrou sua senha?{" "}
-              <Link to="/login" className="text-primary hover:text-primary/80 transition-colors font-medium">
+              <Link
+                to="/login"
+                className="text-primary hover:text-primary/80 transition-colors font-medium"
+              >
                 Fazer login
               </Link>
             </p>
