@@ -52,11 +52,16 @@ export default function Profile() {
 
   // Profile state
   const [fullName, setFullName] = useState(() => {
-    if (profile?.full_name) return profile.full_name;
-    if (user?.first_name || user?.last_name) {
-      return `${user.first_name || ""} ${user.last_name || ""}`.trim();
+    // Priority: profile.full_name > constructed from first_name + last_name > EMPTY (no fallback to username)
+    if (profile?.full_name && profile.full_name.trim()) {
+      return profile.full_name;
+    } else if (user?.first_name || user?.last_name) {
+      const firstName = user.first_name?.trim() || "";
+      const lastName = user.last_name?.trim() || "";
+      const constructed = `${firstName} ${lastName}`.trim();
+      return constructed; // Return constructed name even if empty
     }
-    return user?.username || "";
+    return ""; // Return empty string, NOT username
   });
   const [email, setEmail] = useState(user?.email || "");
   const [isLoading, setIsLoading] = useState(false);
@@ -82,13 +87,20 @@ export default function Profile() {
 
   // Update form data when user/profile data changes
   useEffect(() => {
-    if (profile?.full_name) {
-      setFullName(profile.full_name);
+    // Priority: profile.full_name > constructed from first_name + last_name > EMPTY (no username fallback)
+    let displayName = "";
+
+    if (profile?.full_name && profile.full_name.trim()) {
+      displayName = profile.full_name;
     } else if (user?.first_name || user?.last_name) {
-      setFullName(`${user.first_name || ""} ${user.last_name || ""}`.trim());
-    } else if (user?.username) {
-      setFullName(user.username);
+      const firstName = user.first_name?.trim() || "";
+      const lastName = user.last_name?.trim() || "";
+      displayName = `${firstName} ${lastName}`.trim();
+    } else {
+      displayName = ""; // Empty string, NOT username
     }
+
+    setFullName(displayName); // Set even if empty
 
     if (user?.email) {
       setEmail(user.email);

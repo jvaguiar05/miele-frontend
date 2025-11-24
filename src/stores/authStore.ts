@@ -232,7 +232,7 @@ export const useAuthStore = create<AuthState>()(
           // Fetch both user profile and RBAC information
           const [profileResponse, rbacResponse] = await Promise.all([
             api.get("/users/me/"),
-            api.get("/auth/rbac/")
+            api.get("/auth/rbac/"),
           ]);
 
           const profileData = profileResponse.data;
@@ -261,9 +261,10 @@ export const useAuthStore = create<AuthState>()(
             } as any,
             profile: {
               id: rbacData.user_id.toString(),
-              full_name: profileData.first_name && profileData.last_name
-                ? `${profileData.first_name} ${profileData.last_name}`.trim()
-                : profileData.username,
+              full_name:
+                profileData.first_name && profileData.last_name
+                  ? `${profileData.first_name} ${profileData.last_name}`.trim()
+                  : null, // Don't fallback to username - leave it null
               avatar_url: null,
               phone: null,
               created_at: profileData.date_joined,
