@@ -1,38 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { 
-  User, 
-  Shield, 
-  Key, 
-  LogOut, 
-  Trash2, 
+import {
+  User,
+  Shield,
+  Key,
+  LogOut,
+  Trash2,
   Save,
   Eye,
   EyeOff,
   RefreshCw,
   AlertTriangle,
-  Lock
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { useNavigate } from "react-router-dom";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Profile() {
   const { toast } = useToast();
-  const { user, profile, signOut, updateProfile: updateAuthProfile, isLoading: authLoading } = useAuthStore();
+  const {
+    user,
+    profile,
+    signOut,
+    updateProfile: updateAuthProfile,
+    isLoading: authLoading,
+  } = useAuthStore();
   const navigate = useNavigate();
-  
+
   // Profile state
-  const [fullName, setFullName] = useState(profile?.full_name || "");
+  const [fullName, setFullName] = useState(() => {
+    if (profile?.full_name) return profile.full_name;
+    if (user?.first_name || user?.last_name) {
+      return `${user.first_name || ""} ${user.last_name || ""}`.trim();
+    }
+    return user?.username || "";
+  });
   const [email, setEmail] = useState(user?.email || "");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,21 +69,37 @@ export default function Profile() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
-  
+
   // 2FA state
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [qrCode, setQrCode] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
-  
+
   // Confirmation states
-  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] =
+    useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+
+  // Update form data when user/profile data changes
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    } else if (user?.first_name || user?.last_name) {
+      setFullName(`${user.first_name || ""} ${user.last_name || ""}`.trim());
+    } else if (user?.username) {
+      setFullName(user.username);
+    }
+
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user, profile]);
 
   const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
       await updateAuthProfile({ full_name: fullName });
-      
+
       toast({
         title: "Perfil atualizado",
         description: "Suas informações foram atualizadas com sucesso.",
@@ -87,13 +131,13 @@ export default function Profile() {
     setIsPasswordLoading(true);
     setShowPasswordConfirmation(false);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       toast({
         title: "Senha alterada",
         description: "Sua senha foi alterada com sucesso.",
       });
-      
+
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -127,13 +171,13 @@ export default function Profile() {
 
   const handleDeleteAccount = async () => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       toast({
         title: "Conta excluída",
         description: "Sua conta foi excluída permanentemente.",
       });
-      
+
       await signOut();
       navigate("/login");
     } catch (error) {
@@ -147,11 +191,13 @@ export default function Profile() {
 
   const handleSetup2FA = async () => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setQrCode("https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/Miele:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Miele");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setQrCode(
+        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/Miele:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Miele"
+      );
       setTwoFactorEnabled(true);
-      
+
       toast({
         title: "2FA configurado",
         description: "Autenticação de dois fatores ativada com sucesso.",
@@ -218,7 +264,7 @@ export default function Profile() {
                     placeholder="seu@email.com"
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleSaveProfile}
                   disabled={isLoading || authLoading}
                   className="w-full"
@@ -245,9 +291,7 @@ export default function Profile() {
                   <Key className="h-5 w-5" />
                   Alterar Senha
                 </CardTitle>
-                <CardDescription>
-                  Mantenha sua conta segura
-                </CardDescription>
+                <CardDescription>Mantenha sua conta segura</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -265,7 +309,9 @@ export default function Profile() {
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
                     >
                       {showCurrentPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -275,7 +321,7 @@ export default function Profile() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">Nova senha</Label>
                   <div className="relative">
@@ -301,7 +347,7 @@ export default function Profile() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirmar nova senha</Label>
                   <div className="relative">
@@ -317,7 +363,9 @@ export default function Profile() {
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -328,10 +376,18 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <AlertDialog open={showPasswordConfirmation} onOpenChange={setShowPasswordConfirmation}>
-                  <Button 
+                <AlertDialog
+                  open={showPasswordConfirmation}
+                  onOpenChange={setShowPasswordConfirmation}
+                >
+                  <Button
                     onClick={handleChangePassword}
-                    disabled={isPasswordLoading || !currentPassword || !newPassword || !confirmPassword}
+                    disabled={
+                      isPasswordLoading ||
+                      !currentPassword ||
+                      !newPassword ||
+                      !confirmPassword
+                    }
                     className="w-full"
                   >
                     {isPasswordLoading ? (
@@ -353,14 +409,21 @@ export default function Profile() {
                         Confirmar alteração de senha
                       </AlertDialogTitle>
                       <AlertDialogDescription>
-                        Você está prestes a alterar sua senha. Esta ação irá desconectar você de todos os dispositivos. Tem certeza de que deseja continuar?
+                        Você está prestes a alterar sua senha. Esta ação irá
+                        desconectar você de todos os dispositivos. Tem certeza
+                        de que deseja continuar?
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => setShowPasswordConfirmation(false)}>
+                      <AlertDialogCancel
+                        onClick={() => setShowPasswordConfirmation(false)}
+                      >
                         Cancelar
                       </AlertDialogCancel>
-                      <AlertDialogAction onClick={confirmPasswordChange} className="bg-primary hover:bg-primary/90">
+                      <AlertDialogAction
+                        onClick={confirmPasswordChange}
+                        className="bg-primary hover:bg-primary/90"
+                      >
                         Confirmar alteração
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -397,15 +460,23 @@ export default function Profile() {
                 ) : (
                   <div className="space-y-4">
                     <div className="text-center">
-                      <p className="text-sm text-green-600 mb-2">✓ 2FA ativado</p>
+                      <p className="text-sm text-green-600 mb-2">
+                        ✓ 2FA ativado
+                      </p>
                       {qrCode && (
                         <div className="flex justify-center mb-4">
-                          <img src={qrCode} alt="QR Code" className="border rounded" />
+                          <img
+                            src={qrCode}
+                            alt="QR Code"
+                            className="border rounded"
+                          />
                         </div>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="verificationCode">Código de verificação</Label>
+                      <Label htmlFor="verificationCode">
+                        Código de verificação
+                      </Label>
                       <Input
                         id="verificationCode"
                         value={verificationCode}
@@ -425,14 +496,12 @@ export default function Profile() {
             <Card>
               <CardHeader>
                 <CardTitle>Ações da Conta</CardTitle>
-                <CardDescription>
-                  Gerencie sua sessão e conta
-                </CardDescription>
+                <CardDescription>Gerencie sua sessão e conta</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button 
+                <Button
                   onClick={handleLogout}
-                  variant="outline" 
+                  variant="outline"
                   className="w-full justify-start"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
@@ -459,18 +528,24 @@ export default function Profile() {
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </div>
                     <div className="flex-1 space-y-2">
-                      <h4 className="font-semibold text-sm">Exclusão permanente da conta</h4>
+                      <h4 className="font-semibold text-sm">
+                        Exclusão permanente da conta
+                      </h4>
                       <p className="text-sm text-muted-foreground">
-                        Esta ação irá excluir permanentemente sua conta e todos os dados associados. 
-                        Esta operação não pode ser desfeita.
+                        Esta ação irá excluir permanentemente sua conta e todos
+                        os dados associados. Esta operação não pode ser
+                        desfeita.
                       </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full justify-start">
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-start"
+                    >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Excluir conta permanentemente
                     </Button>
@@ -482,7 +557,9 @@ export default function Profile() {
                         Excluir conta permanentemente
                       </AlertDialogTitle>
                       <AlertDialogDescription className="space-y-3">
-                        <p>Esta ação é <strong>irreversível</strong> e irá:</p>
+                        <p>
+                          Esta ação é <strong>irreversível</strong> e irá:
+                        </p>
                         <ul className="list-disc list-inside space-y-1 text-sm">
                           <li>Excluir permanentemente sua conta</li>
                           <li>Remover todos os seus dados</li>
@@ -490,7 +567,11 @@ export default function Profile() {
                           <li>Revogar acesso a todos os serviços</li>
                         </ul>
                         <p className="pt-2 text-sm font-medium">
-                          Para confirmar, digite <span className="font-mono bg-muted px-1 rounded">EXCLUIR CONTA</span> abaixo:
+                          Para confirmar, digite{" "}
+                          <span className="font-mono bg-muted px-1 rounded">
+                            EXCLUIR CONTA
+                          </span>{" "}
+                          abaixo:
                         </p>
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -498,15 +579,19 @@ export default function Profile() {
                       <Input
                         placeholder="Digite EXCLUIR CONTA"
                         value={deleteConfirmationText}
-                        onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                        onChange={(e) =>
+                          setDeleteConfirmationText(e.target.value)
+                        }
                         className="font-mono"
                       />
                     </div>
                     <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => setDeleteConfirmationText("")}>
+                      <AlertDialogCancel
+                        onClick={() => setDeleteConfirmationText("")}
+                      >
                         Cancelar
                       </AlertDialogCancel>
-                      <AlertDialogAction 
+                      <AlertDialogAction
                         onClick={handleDeleteAccount}
                         disabled={deleteConfirmationText !== "EXCLUIR CONTA"}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"

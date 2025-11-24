@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import Cookies from "js-cookie";
 
 interface User {
-  id: number;
+  id: number | string;
   username: string;
   email: string;
   first_name: string;
@@ -18,6 +18,8 @@ interface User {
   is_superuser?: boolean;
   date_joined: string;
   last_login: string | null;
+  role?: string;
+  permissions?: any;
 }
 
 interface Profile {
@@ -227,38 +229,47 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          // Fetch user RBAC information
-          const response = await api.get("/auth/rbac/");
-          const userData = response.data;
+          // Fetch both user profile and RBAC information
+          const [profileResponse, rbacResponse] = await Promise.all([
+            api.get("/users/me/"),
+            api.get("/auth/rbac/")
+          ]);
 
-          // Map RBAC response to user object
+          const profileData = profileResponse.data;
+          const rbacData = rbacResponse.data;
+
+          // Map combined response to user object
           const user: User = {
-            id: userData.user_id,
-            username: userData.username,
-            email: userData.username, // Assuming username is email
-            first_name: "", // Will be filled from profile if available
-            last_name: "",
-            is_active: userData.approval_status === "approved",
-            is_staff: userData.role === "admin",
-            is_superuser: userData.role === "admin",
-            date_joined: new Date().toISOString(),
+            id: rbacData.user_id,
+            username: profileData.username,
+            email: profileData.email,
+            first_name: profileData.first_name,
+            last_name: profileData.last_name,
+            is_active: rbacData.approval_status === "approved",
+            is_staff: rbacData.role === "admin",
+            is_superuser: rbacData.role === "admin",
+            date_joined: profileData.date_joined,
             last_login: new Date().toISOString(),
           };
 
           set({
             user: {
               ...user,
-              // Store permissions for easy access
-              permissions: userData.permissions,
+              // Store permissions and role for easy access
+              permissions: rbacData.permissions,
+              role: rbacData.role,
             } as any,
             profile: {
-              id: userData.user_id.toString(),
-              full_name: userData.username,
+              id: rbacData.user_id.toString(),
+              full_name: profileData.first_name && profileData.last_name
+                ? `${profileData.first_name} ${profileData.last_name}`.trim()
+                : profileData.username,
               avatar_url: null,
               phone: null,
+              created_at: profileData.date_joined,
             },
             isAuthenticated: true,
-            isAdmin: userData.role === "admin",
+            isAdmin: rbacData.role === "admin",
           });
         } catch (error) {
           console.error("Error fetching user:", error);
@@ -291,7 +302,7 @@ export const useAuthStore = create<AuthState>()(
           if (data.phone) updateData.phone = data.phone;
           if (data.avatar_url) updateData.avatar = data.avatar_url;
 
-          await api.patch("/auth/me/", updateData);
+          await api.patch("/users/me/", updateData);
           await get().getCurrentUser();
           set({ isLoading: false });
         } catch (error) {

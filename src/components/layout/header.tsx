@@ -39,9 +39,24 @@ export default function Header() {
     return location.pathname.startsWith(path);
   };
 
-  // Mock user data - in production this would come from your auth store
-  const userRole = "Administrador";
-  const memberSince = "Jan 2024";
+  // Get user data from auth store
+  const getUserRole = () => {
+    if (!user?.role) return "Usuário";
+    
+    switch (user.role) {
+      case 'admin':
+        return "Administrador";
+      case 'employee':
+        return "Funcionário";
+      default:
+        return "Usuário";
+    }
+  };
+  
+  const userRole = getUserRole();
+  const memberSince = user?.date_joined ? 
+    new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' })
+      .format(new Date(user.date_joined)) : 'N/A';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
