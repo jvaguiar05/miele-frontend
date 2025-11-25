@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, FileText, Plus } from "lucide-react";
+import { ArrowLeft, Edit, FileText, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,13 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import PerdCompDetailModal from "@/components/perdcomps/PerdCompDetailModal";
 import FileManager from "./FileManager";
+import AddAnnotationForm from "./AddAnnotationForm";
 
 interface ClientDetailProps {
   clientId: string;
   client?: Client; // Use the Client type from the store
   onBack: () => void;
-  onEdit: (client: Client) => void | Promise<void>; // Allow both sync and async
+  onEdit: () => void; // Simplified - no client parameter
   onAddPerdComp: () => void;
 }
 
@@ -27,10 +28,34 @@ export default function ClientDetail({
   onAddPerdComp,
 }: ClientDetailProps) {
   const navigate = useNavigate();
-  const { selectedClient, fetchClientById } = useClientStore();
+  const { selectedClient, fetchClientById, deleteAnnotation } =
+    useClientStore();
+  const [showAddAnnotationForm, setShowAddAnnotationForm] = useState(false);
+  const [editingAnnotation, setEditingAnnotation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPerdComp, setSelectedPerdComp] = useState(null);
   const [isPerdCompModalOpen, setIsPerdCompModalOpen] = useState(false);
+
+  const handleDeleteAnnotation = async (annotationId: string) => {
+    if (confirm("Tem certeza que deseja excluir esta anotação?")) {
+      try {
+        await deleteAnnotation(annotationId);
+        fetchClientById(clientId); // Refresh to show updated annotations
+      } catch (error) {
+        console.error("Error deleting annotation:", error);
+      }
+    }
+  };
+
+  const handleEditAnnotation = (annotation: any) => {
+    setEditingAnnotation(annotation);
+    setShowAddAnnotationForm(true);
+  };
+
+  const handleFormClose = () => {
+    setShowAddAnnotationForm(false);
+    setEditingAnnotation(null);
+  };
 
   // Use provided client or selected client from store
   // After fetch completes, always prefer selectedClient as it has complete data
@@ -100,12 +125,10 @@ export default function ClientDetail({
           <h2 className="text-2xl font-bold">{displayClient.razao_social}</h2>
         </div>
         <Button
-          onClick={async () => {
-            console.log("Edit button clicked, selectedClient:", selectedClient); // Debug log
-            if (selectedClient) {
-              await onEdit(selectedClient);
-              onBack(); // Close the detail modal after starting edit
-            }
+          onClick={() => {
+            console.log("Edit button clicked - opening empty form"); // Debug log
+            onEdit();
+            onBack(); // Close the detail modal after starting edit
           }}
         >
           <Edit className="mr-2 h-4 w-4" />
@@ -371,76 +394,146 @@ export default function ClientDetail({
         </TabsContent>
 
         <TabsContent value="notes" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Anotações e Observações</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {displayClient?.annotations &&
-              displayClient.annotations.length > 0 ? (
-                <div className="space-y-4">
-                  {displayClient.annotations.map((annotation) => (
-                    <div
-                      key={annotation.id}
-                      className="border rounded-lg p-4 space-y-2"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">
-                            {annotation.user_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(annotation.created_at)}
-                          </p>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Anotações e Observações</h3>
+            {!showAddAnnotationForm && (
+              <Button
+                onClick={() => {
+                  setEditingAnnotation(null);
+                  setShowAddAnnotationForm(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Anotação
+              </Button>
+            )}
+          </div>
+
+          {showAddAnnotationForm && (
+            <AddAnnotationForm
+              clientId={clientId}
+              entityName={displayClient?.razao_social || "Cliente"}
+              editingAnnotation={editingAnnotation}
+              onAnnotationAdded={() => {
+                handleFormClose();
+                fetchClientById(clientId);
+              }}
+              onCancel={handleFormClose}
+            />
+          )}
+
+          {!showAddAnnotationForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Anotações e Observações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {displayClient?.annotations &&
+                displayClient.annotations.length > 0 ? (
+                  <div className="space-y-4">
+                    {displayClient.annotations.map((annotation) => (
+                      <div
+                        key={annotation.id}
+                        className="border rounded-lg p-4 space-y-2"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">
+                              {annotation.user_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(annotation.created_at)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {annotation.content.priority && (
+                              <Badge
+                                variant={
+                                  annotation.content.priority === "high" ||
+                                  annotation.content.priority === "alta" ||
+                                  annotation.content.priority === "Alta"
+                                    ? "destructive"
+                                    : annotation.content.priority ===
+                                        "medium" ||
+                                      annotation.content.priority === "media" ||
+                                      annotation.content.priority === "média" ||
+                                      annotation.content.priority === "Média"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className={
+                                  annotation.content.priority === "medium" ||
+                                  annotation.content.priority === "media" ||
+                                  annotation.content.priority === "média" ||
+                                  annotation.content.priority === "Média"
+                                    ? "bg-purple-600 hover:bg-purple-700"
+                                    : ""
+                                }
+                              >
+                                {annotation.content.priority === "alta"
+                                  ? "Alta"
+                                  : annotation.content.priority === "media"
+                                  ? "Média"
+                                  : annotation.content.priority === "baixa"
+                                  ? "Baixa"
+                                  : annotation.content.priority}
+                              </Badge>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditAnnotation(annotation)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleDeleteAnnotation(annotation.id)
+                              }
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        {annotation.content.priority && (
-                          <Badge
-                            variant={
-                              annotation.content.priority === "high"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {annotation.content.priority}
-                          </Badge>
-                        )}
-                      </div>
 
-                      <div className="space-y-2">
-                        <p className="text-sm">{annotation.content.text}</p>
+                        <div className="space-y-2">
+                          <p className="text-sm">{annotation.content.text}</p>
 
-                        {annotation.content.tags &&
-                          annotation.content.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {annotation.content.tags.map((tag, index) => (
-                                <Badge
-                                  key={index}
-                                  variant="outline"
-                                  className="text-xs"
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
+                          {annotation.content.tags &&
+                            annotation.content.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {annotation.content.tags.map((tag, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+
+                          {annotation.content.metadata?.category && (
+                            <p className="text-xs text-muted-foreground">
+                              Categoria: {annotation.content.metadata.category}
+                            </p>
                           )}
-
-                        {annotation.content.metadata?.category && (
-                          <p className="text-xs text-muted-foreground">
-                            Categoria: {annotation.content.metadata.category}
-                          </p>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  Nenhuma anotação ou observação foi adicionada para este
-                  cliente.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Nenhuma anotação ou observação foi adicionada para este
+                    cliente.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="files" className="space-y-4">

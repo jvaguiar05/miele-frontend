@@ -73,16 +73,12 @@ const clientSchema = z.object({
   municipio: z.string().optional(),
   uf: z.string().optional(),
   cep: z.string().optional(),
-
-  // Legacy
-  anotacoes_anteriores: z.string().optional(),
-  nova_anotacao: z.string().optional(),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
 interface ClientFormProps {
-  client?: Client | null;
+  client?: Client;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -120,7 +116,10 @@ const convertClientToForm = (client: Client): ClientFormData => {
 
     // Documents
     contrato_social: client.contrato_social || "",
-    ultima_alteracao_contratual: client.ultima_alteracao_contratual || "",
+    // Convert API date format (2023-06-14T21:00:00-03:00) to form input format (2023-06-14)
+    ultima_alteracao_contratual: client.ultima_alteracao_contratual
+      ? client.ultima_alteracao_contratual.split("T")[0]
+      : "",
     rg_cpf_socios: client.rg_cpf_socios || "",
     certificado_digital: client.certificado_digital || "",
 
@@ -128,10 +127,6 @@ const convertClientToForm = (client: Client): ClientFormData => {
     autorizado_para_envio: client.autorizado_para_envio || false,
     client_status: client.client_status || "pending",
     is_active: client.is_active !== false, // Default to true
-
-    // Legacy fields
-    anotacoes_anteriores: "",
-    nova_anotacao: "",
 
     // Handle nested address object
     logradouro: client.address?.logradouro || "",
@@ -272,94 +267,13 @@ export default function ClientForm({
     },
   });
 
-  // Reset form when client changes
+  // Populate form when client data is provided for editing
   useEffect(() => {
     if (client) {
-      console.log(
-        "Resetting form with client:",
-        JSON.stringify(client, null, 2)
-      ); // Debug log
       const formData = convertClientToForm(client);
-      console.log(
-        "Resetting form with converted data:",
-        JSON.stringify(formData, null, 2)
-      ); // Debug log
-
-      // Instead of using reset(), set each field individually to avoid defaultValues conflicts
-      console.log("Setting all form fields individually..."); // Debug log
-
-      // Set all fields explicitly
-      setValue("cnpj", formData.cnpj || "");
-      setValue("razao_social", formData.razao_social || "");
-      setValue("nome_fantasia", formData.nome_fantasia || "");
-      setValue("inscricao_estadual", formData.inscricao_estadual || "");
-      setValue("inscricao_municipal", formData.inscricao_municipal || "");
-      setValue("tipo_empresa", formData.tipo_empresa || "");
-      setValue("recuperacao_judicial", formData.recuperacao_judicial || false);
-
-      setValue("telefone_comercial", formData.telefone_comercial || "");
-      setValue("email_comercial", formData.email_comercial || "");
-      setValue("website", formData.website || "");
-      setValue("telefone_contato", formData.telefone_contato || "");
-      setValue("email_contato", formData.email_contato || "");
-
-      setValue("quadro_societario", formData.quadro_societario || "");
-      setValue("cargos", formData.cargos || "");
-      setValue("responsavel_financeiro", formData.responsavel_financeiro || "");
-      setValue("contador_responsavel", formData.contador_responsavel || "");
-
-      setValue("cnaes", formData.cnaes || "");
-      setValue("regime_tributacao", formData.regime_tributacao || "");
-
-      setValue("contrato_social", formData.contrato_social || "");
-      setValue(
-        "ultima_alteracao_contratual",
-        formData.ultima_alteracao_contratual || ""
-      );
-      setValue("rg_cpf_socios", formData.rg_cpf_socios || "");
-      setValue("certificado_digital", formData.certificado_digital || "");
-
-      setValue(
-        "autorizado_para_envio",
-        formData.autorizado_para_envio || false
-      );
-      setValue("atividades", formData.atividades || "");
-      setValue("client_status", formData.client_status || "pending");
-      setValue("is_active", formData.is_active !== false);
-
-      setValue("logradouro", formData.logradouro || "");
-      setValue("numero", formData.numero || "");
-      setValue("complemento", formData.complemento || "");
-      setValue("bairro", formData.bairro || "");
-      setValue("municipio", formData.municipio || "");
-      setValue("uf", formData.uf || "");
-      setValue("cep", formData.cep || "");
-
-      setValue("anotacoes_anteriores", formData.anotacoes_anteriores || "");
-      setValue("nova_anotacao", formData.nova_anotacao || "");
-
-      // Check form values after setting
-      setTimeout(() => {
-        console.log("Form watch values after setValue:", {
-          cnpj: watch("cnpj"),
-          tipo_empresa: watch("tipo_empresa"),
-          telefone_contato: watch("telefone_contato"),
-          telefone_comercial: watch("telefone_comercial"),
-          cep: watch("cep"),
-          ultima_alteracao_contratual: watch("ultima_alteracao_contratual"),
-        });
-
-        console.log("Complete form state sample:", {
-          cnpj: watch("cnpj"),
-          razao_social: watch("razao_social"),
-          nome_fantasia: watch("nome_fantasia"),
-          tipo_empresa: watch("tipo_empresa"),
-          telefone_contato: watch("telefone_contato"),
-          cep: watch("cep"),
-        });
-      }, 50);
+      reset(formData);
     } else {
-      console.log("Resetting form with default values"); // Debug log
+      // Reset to default values for new client
       reset({
         recuperacao_judicial: false,
         autorizado_para_envio: false,
@@ -367,29 +281,30 @@ export default function ClientForm({
         client_status: "pending",
       });
     }
-  }, [client, setValue, watch]);
+  }, [client, reset]);
 
   const onSubmit = async (data: ClientFormData) => {
     console.log("Form submitted with data:", data);
-    console.log("Client ID:", client?.id);
 
     try {
       const clientData = convertFormToClient(data);
 
       if (client?.id) {
+        // Update existing client
         await updateClient(client.id, clientData);
         toast({
           title: "Cliente atualizado",
-          description:
-            "As informações do cliente foram atualizadas com sucesso.",
+          description: "O cliente foi atualizado com sucesso.",
         });
       } else {
+        // Create new client
         await createClient(clientData);
         toast({
           title: "Cliente criado",
           description: "O cliente foi cadastrado com sucesso.",
         });
       }
+
       onSuccess();
     } catch (error: any) {
       console.error("Error saving client:", error);
@@ -400,7 +315,6 @@ export default function ClientForm({
       });
     }
   };
-
   const onInvalid = (errors: any) => {
     console.log("Form validation errors:", errors);
     toast({
@@ -421,13 +335,12 @@ export default function ClientForm({
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="contact">Contato</TabsTrigger>
           <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
           <TabsTrigger value="docs">Documentos</TabsTrigger>
           <TabsTrigger value="address">Endereço</TabsTrigger>
-          <TabsTrigger value="notes">Anotações</TabsTrigger>
         </TabsList>
 
         {/* Aba Geral */}
@@ -816,27 +729,6 @@ export default function ClientForm({
                 <SelectItem value="TO">TO</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </TabsContent>
-
-        {/* Aba Anotações */}
-        <TabsContent value="notes" className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="anotacoes_anteriores">
-              Anotações e Observações
-            </Label>
-            <Textarea
-              id="anotacoes_anteriores"
-              {...register("anotacoes_anteriores")}
-              rows={12}
-              placeholder="Adicione anotações, observações e informações importantes sobre este cliente..."
-              className="resize-none"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use este espaço para registrar informações importantes, histórico
-              de comunicações, pendências ou qualquer outra informação relevante
-              sobre este cliente.
-            </p>
           </div>
         </TabsContent>
       </Tabs>

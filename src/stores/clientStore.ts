@@ -93,6 +93,15 @@ interface ClientState {
   ) => Promise<void>;
   fetchClientById: (id: string | number) => Promise<Client>;
   fetchClientAnnotations: (clientId: string) => Promise<ClientAnnotation[]>;
+  createAnnotation: (
+    clientId: string,
+    annotationData: any
+  ) => Promise<ClientAnnotation>;
+  updateAnnotation: (
+    annotationId: string,
+    annotationData: any
+  ) => Promise<ClientAnnotation>;
+  deleteAnnotation: (annotationId: string) => Promise<void>;
   createClient: (clientData: Partial<Client>) => Promise<Client>;
   updateClient: (
     id: string | number,
@@ -203,6 +212,54 @@ export const useClientStore = create<ClientState>((set, get) => ({
       return response.data.results || [];
     } catch (error: any) {
       console.error("Error fetching client annotations:", error);
+      throw error;
+    }
+  },
+
+  createAnnotation: async (clientId: string, annotationData: any) => {
+    try {
+      console.log("Creating annotation for client:", clientId);
+      console.log("Annotation data:", annotationData);
+
+      const requestData = {
+        ...annotationData,
+        entity_type: "client",
+        entity_id: clientId,
+      };
+
+      console.log("Request data:", requestData);
+      const endpoint = `/clients/annotations/by-client/${clientId}/`;
+      console.log("API endpoint:", endpoint);
+
+      const response = await api.post(endpoint, requestData);
+      console.log("Annotation created successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating annotation:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      throw error;
+    }
+  },
+
+  updateAnnotation: async (annotationId: string, annotationData: any) => {
+    try {
+      const response = await api.put(
+        `/clients/annotations/${annotationId}/`,
+        annotationData
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating annotation:", error);
+      throw error;
+    }
+  },
+
+  deleteAnnotation: async (annotationId: string) => {
+    try {
+      await api.delete(`/clients/annotations/${annotationId}/`);
+    } catch (error: any) {
+      console.error("Error deleting annotation:", error);
       throw error;
     }
   },
