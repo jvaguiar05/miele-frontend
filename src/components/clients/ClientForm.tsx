@@ -332,9 +332,14 @@ export default function ClientForm({
       if (data.fantasia) setValue("nome_fantasia", data.fantasia);
       if (data.email) setValue("email_comercial", data.email);
       if (data.telefone) {
-        // Take the first phone number if multiple exist
-        const phone = data.telefone.split("/")[0].trim();
-        setValue("telefone_comercial", phone);
+        // Split phone numbers: first = contact, second = commercial
+        const phones = data.telefone.split("/").map((phone) => phone.trim());
+        if (phones.length >= 1) {
+          setValue("telefone_contato", phones[0]);
+        }
+        if (phones.length >= 2) {
+          setValue("telefone_comercial", phones[1]);
+        }
       }
 
       // Map address fields
@@ -382,6 +387,28 @@ export default function ClientForm({
           cnaes.push(...secundarias);
         }
         setValue("cnaes", cnaes.join(", "));
+      }
+
+      // Map Atividades (structured activity data for JSONB field)
+      if (data.atividade_principal || data.atividades_secundarias) {
+        const atividades = {
+          principal: data.atividade_principal?.[0] || null,
+          secundarias: data.atividades_secundarias || [],
+        };
+        setValue("atividades", JSON.stringify(atividades));
+      }
+
+      // Map QSA to Quadro Societário
+      if (data.qsa && data.qsa.length > 0) {
+        setValue("quadro_societario", JSON.stringify(data.qsa));
+      }
+
+      // Map ultima_atualizacao to Data da Última Alteração Contratual
+      if (data.ultima_atualizacao) {
+        // Convert ISO date to YYYY-MM-DD format for date input
+        const date = new Date(data.ultima_atualizacao);
+        const formattedDate = date.toISOString().split("T")[0];
+        setValue("ultima_alteracao_contratual", formattedDate);
       }
 
       toast({
