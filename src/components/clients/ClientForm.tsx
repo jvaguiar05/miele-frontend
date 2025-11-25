@@ -210,37 +210,25 @@ const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
       .filter(Boolean);
   }
 
-  // Handle address fields - structure them properly for the API
-  if (
-    clientData.logradouro ||
-    clientData.numero ||
-    clientData.complemento ||
-    clientData.bairro ||
-    clientData.municipio ||
-    clientData.uf ||
-    clientData.cep
-  ) {
-    clientData.address = {
-      logradouro: clientData.logradouro || null,
-      numero: clientData.numero || null,
-      complemento: clientData.complemento || null,
-      bairro: clientData.bairro || null,
-      municipio: clientData.municipio || null,
-      uf: clientData.uf || null,
-      cep: clientData.cep || null,
-    };
+  // Remove empty fields from the request body
+  const cleanedData: any = {};
 
-    // Remove individual address fields since they're now in the address object
-    delete clientData.logradouro;
-    delete clientData.numero;
-    delete clientData.complemento;
-    delete clientData.bairro;
-    delete clientData.municipio;
-    delete clientData.uf;
-    delete clientData.cep;
-  }
+  Object.keys(clientData).forEach((key) => {
+    const value = clientData[key];
 
-  return clientData;
+    // Keep the field if it has a meaningful value
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== "" &&
+      !(Array.isArray(value) && value.length === 0) &&
+      !(typeof value === "object" && Object.keys(value).length === 0)
+    ) {
+      cleanedData[key] = value;
+    }
+  });
+
+  return cleanedData;
 };
 
 export default function ClientForm({
