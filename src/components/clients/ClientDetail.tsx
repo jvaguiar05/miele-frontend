@@ -245,15 +245,44 @@ export default function ClientDetail({
                     <p className="text-sm text-muted-foreground mb-2">
                       Atividades
                     </p>
-                    <div className="text-sm">
+                    <div className="text-sm space-y-2">
                       {typeof displayClient.atividades === "object" ? (
-                        Object.entries(displayClient.atividades).map(
-                          ([key, value]) => (
-                            <p key={key}>
-                              <strong>{key}:</strong> {String(value)}
-                            </p>
-                          )
-                        )
+                        <>
+                          {/* Check if it's the new structured format */}
+                          {(displayClient.atividades as any).principal && (
+                            <div>
+                              <strong>Principal:</strong>{" "}
+                              {(displayClient.atividades as any).principal.text}
+                            </div>
+                          )}
+                          {(displayClient.atividades as any).secundarias &&
+                            Array.isArray(
+                              (displayClient.atividades as any).secundarias
+                            ) && (
+                              <div>
+                                <strong>Secundárias:</strong>
+                                <ul className="list-disc list-inside ml-4 mt-1">
+                                  {(
+                                    displayClient.atividades as any
+                                  ).secundarias.map(
+                                    (atividade: any, index: number) => (
+                                      <li key={index}>{atividade.text}</li>
+                                    )
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          {/* Fallback for legacy format */}
+                          {!(displayClient.atividades as any).principal &&
+                            !(displayClient.atividades as any).secundarias &&
+                            Object.entries(displayClient.atividades).map(
+                              ([key, value]) => (
+                                <p key={key}>
+                                  <strong>{key}:</strong> {String(value)}
+                                </p>
+                              )
+                            )}
+                        </>
                       ) : (
                         <p>{displayClient.atividades}</p>
                       )}

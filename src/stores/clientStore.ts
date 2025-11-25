@@ -47,7 +47,13 @@ export interface Client {
   rg_cpf_socios?: string | null;
   certificado_digital?: string | null;
   autorizado_para_envio?: boolean | null;
-  atividades?: { [key: string]: string } | null; // Object with key-value pairs
+  atividades?:
+    | {
+        principal?: { text: string } | null;
+        secundarias?: { text: string }[];
+      }
+    | { [key: string]: string }
+    | null; // Support both new structured format and legacy format
   client_status?: string | null;
   is_active?: boolean | null;
   address?: {

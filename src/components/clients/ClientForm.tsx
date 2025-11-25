@@ -392,8 +392,12 @@ export default function ClientForm({
       // Map Atividades (structured activity data for JSONB field)
       if (data.atividade_principal || data.atividades_secundarias) {
         const atividades = {
-          principal: data.atividade_principal?.[0] || null,
-          secundarias: data.atividades_secundarias || [],
+          principal: data.atividade_principal?.[0]
+            ? { text: data.atividade_principal[0].text }
+            : null,
+          secundarias: data.atividades_secundarias
+            ? data.atividades_secundarias.map((ativ) => ({ text: ativ.text }))
+            : [],
         };
         setValue("atividades", JSON.stringify(atividades));
       }
