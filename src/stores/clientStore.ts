@@ -1,6 +1,26 @@
 import { create } from "zustand";
 import api, { apiHelpers } from "@/lib/api";
 
+// Annotation interface matching Django API structure
+export interface ClientAnnotation {
+  id: string;
+  entity_name: string;
+  user_name: string;
+  content: {
+    tags?: string[];
+    text: string;
+    metadata?: {
+      category?: string;
+      created_by?: string;
+      [key: string]: any;
+    };
+    priority?: string;
+    [key: string]: any;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 // Client interface matching Django API structure
 export interface Client {
   id: string; // UUID
@@ -42,6 +62,7 @@ export interface Client {
     created_at?: string;
     updated_at?: string;
   } | null;
+  annotations?: ClientAnnotation[]; // Client annotations
   created_at?: string;
   updated_at?: string;
 }
@@ -71,6 +92,7 @@ interface ClientState {
     filters?: ClientFilters
   ) => Promise<void>;
   fetchClientById: (id: string | number) => Promise<Client>;
+  fetchClientAnnotations: (clientId: string) => Promise<ClientAnnotation[]>;
   createClient: (clientData: Partial<Client>) => Promise<Client>;
   updateClient: (
     id: string | number,
@@ -143,8 +165,20 @@ export const useClientStore = create<ClientState>((set, get) => ({
   fetchClientById: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
+      // Fetch complete client data
       const response = await api.get(`/clients/clients/${id}/`);
       const client = response.data;
+
+      // Fetch client annotations
+      try {
+        const annotationsResponse = await api.get(
+          `/clients/annotations/by-client/${id}/`
+        );
+        client.annotations = annotationsResponse.data.results || [];
+      } catch (annotationError) {
+        console.warn("Failed to fetch client annotations:", annotationError);
+        client.annotations = [];
+      }
 
       set({
         selectedClient: client,
@@ -157,6 +191,18 @@ export const useClientStore = create<ClientState>((set, get) => ({
         error: error.message || "Erro ao buscar cliente",
         isLoading: false,
       });
+      throw error;
+    }
+  },
+
+  fetchClientAnnotations: async (clientId: string) => {
+    try {
+      const response = await api.get(
+        `/clients/annotations/by-client/${clientId}/`
+      );
+      return response.data.results || [];
+    } catch (error: any) {
+      console.error("Error fetching client annotations:", error);
       throw error;
     }
   },

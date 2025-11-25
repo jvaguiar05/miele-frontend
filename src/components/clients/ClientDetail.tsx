@@ -15,7 +15,7 @@ interface ClientDetailProps {
   clientId: string;
   client?: Client; // Use the Client type from the store
   onBack: () => void;
-  onEdit: (client: Client) => void;
+  onEdit: (client: Client) => void | Promise<void>; // Allow both sync and async
   onAddPerdComp: () => void;
 }
 
@@ -33,25 +33,25 @@ export default function ClientDetail({
   const [isPerdCompModalOpen, setIsPerdCompModalOpen] = useState(false);
 
   // Use provided client or selected client from store
-  const displayClient = client || selectedClient;
+  // After fetch completes, always prefer selectedClient as it has complete data
+  const displayClient = loading
+    ? client || selectedClient
+    : selectedClient || client;
 
   useEffect(() => {
     const loadData = async () => {
-      // Only fetch if no client is provided
-      if (!client) {
-        setLoading(true);
-        try {
-          await fetchClientById(clientId);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false); // No need to load if client is already provided
+      // Always fetch complete data to ensure we have all information
+      setLoading(true);
+      try {
+        const fetchedClient = await fetchClientById(clientId);
+        console.log("Client fetched successfully:", fetchedClient); // Debug log
+      } finally {
+        setLoading(false);
       }
-      // Note: PerdComp loading will be implemented later
     };
+
     loadData();
-  }, [clientId, client, fetchClientById]);
+  }, [clientId, fetchClientById]);
 
   if (loading || !displayClient) {
     return (
@@ -99,7 +99,15 @@ export default function ClientDetail({
           </Button>
           <h2 className="text-2xl font-bold">{displayClient.razao_social}</h2>
         </div>
-        <Button onClick={() => onEdit(displayClient)}>
+        <Button
+          onClick={async () => {
+            console.log("Edit button clicked, selectedClient:", selectedClient); // Debug log
+            if (selectedClient) {
+              await onEdit(selectedClient);
+              onBack(); // Close the detail modal after starting edit
+            }
+          }}
+        >
           <Edit className="mr-2 h-4 w-4" />
           Editar
         </Button>
@@ -368,9 +376,69 @@ export default function ClientDetail({
               <CardTitle>Anotações e Observações</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground text-sm">
-                Nenhuma anotação ou observação foi adicionada para este cliente.
-              </p>
+              {displayClient?.annotations &&
+              displayClient.annotations.length > 0 ? (
+                <div className="space-y-4">
+                  {displayClient.annotations.map((annotation) => (
+                    <div
+                      key={annotation.id}
+                      className="border rounded-lg p-4 space-y-2"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">
+                            {annotation.user_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(annotation.created_at)}
+                          </p>
+                        </div>
+                        {annotation.content.priority && (
+                          <Badge
+                            variant={
+                              annotation.content.priority === "high"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {annotation.content.priority}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm">{annotation.content.text}</p>
+
+                        {annotation.content.tags &&
+                          annotation.content.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {annotation.content.tags.map((tag, index) => (
+                                <Badge
+                                  key={index}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                        {annotation.content.metadata?.category && (
+                          <p className="text-xs text-muted-foreground">
+                            Categoria: {annotation.content.metadata.category}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Nenhuma anotação ou observação foi adicionada para este
+                  cliente.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

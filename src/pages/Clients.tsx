@@ -155,9 +155,20 @@ export default function Clients() {
     setIsDetailOpen(true);
   };
 
-  const handleEdit = (client: Client) => {
-    setSelectedClient(client);
-    setIsFormOpen(true);
+  const handleEdit = async (client: Client) => {
+    try {
+      // Fetch complete client data before editing
+      const completeClient = await fetchClientById(client.id);
+      setSelectedClient(completeClient);
+      setIsFormOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch complete client data:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar dados completos do cliente",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -571,11 +582,7 @@ export default function Clients() {
               <ClientDetail
                 clientId={selectedClient.id}
                 client={selectedClient as any}
-                onEdit={(client) => {
-                  setSelectedClient(client);
-                  setIsDetailOpen(false);
-                  setIsFormOpen(true);
-                }}
+                onEdit={handleEdit}
                 onBack={() => setIsDetailOpen(false)}
                 onAddPerdComp={() => {
                   navigate(`/perdcomps?newWithClient=${selectedClient.id}`);

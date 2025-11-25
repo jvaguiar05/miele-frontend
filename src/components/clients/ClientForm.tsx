@@ -23,159 +23,60 @@ const clientSchema = z.object({
   // Dados principais
   cnpj: z.string().min(14, "CNPJ inválido"),
   razao_social: z.string().min(3, "Razão social é obrigatória"),
-  nome_fantasia: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  inscricao_estadual: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  inscricao_municipal: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  nome_fantasia: z.string().optional(),
+  inscricao_estadual: z.string().optional(),
+  inscricao_municipal: z.string().optional(),
   tipo_empresa: z.string().min(1, "Tipo de empresa é obrigatório"),
   recuperacao_judicial: z.boolean().default(false),
 
   // Contatos comerciais
-  telefone_comercial: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  email_comercial: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  website: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  telefone_comercial: z.string().optional(),
+  email_comercial: z.string().optional(),
+  website: z.string().optional(),
 
   // Contatos diretos
-  telefone_contato: z.string().min(10, "Telefone é obrigatório"),
-  email_contato: z.string().email("Email inválido"),
+  telefone_contato: z.string().optional(),
+  email_contato: z
+    .string()
+    .optional()
+    .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+      message: "Email inválido",
+    }),
 
   // Dados societários
-  quadro_societario: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  cargos: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  responsavel_financeiro: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  contador_responsavel: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  quadro_societario: z.string().optional(),
+  cargos: z.string().optional(),
+  responsavel_financeiro: z.string().optional(),
+  contador_responsavel: z.string().optional(),
 
   // Dados fiscais
-  cnaes: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  regime_tributacao: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  cnaes: z.string().optional(),
+  regime_tributacao: z.string().optional(),
 
   // Documentos
-  contrato_social: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  ultima_alteracao_contratual: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  rg_cpf_socios: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  certificado_digital: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  contrato_social: z.string().optional(),
+  ultima_alteracao_contratual: z.string().optional(),
+  rg_cpf_socios: z.string().optional(),
+  certificado_digital: z.string().optional(),
 
   // Controles
   autorizado_para_envio: z.boolean().default(false),
-  atividades: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  atividades: z.string().optional(),
   client_status: z.string().optional(),
   is_active: z.boolean().default(true),
 
   // Endereço
-  logradouro: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  numero: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  complemento: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  bairro: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  municipio: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  uf: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  cep: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  logradouro: z.string().optional(),
+  numero: z.string().optional(),
+  complemento: z.string().optional(),
+  bairro: z.string().optional(),
+  municipio: z.string().optional(),
+  uf: z.string().optional(),
+  cep: z.string().optional(),
 
   // Legacy
-  anotacoes_anteriores: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  nova_anotacao: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  anotacoes_anteriores: z.string().optional(),
+  nova_anotacao: z.string().optional(),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
@@ -188,25 +89,87 @@ interface ClientFormProps {
 
 // Helper functions to convert between form data and API data
 const convertClientToForm = (client: Client): ClientFormData => {
-  return {
-    ...client,
+  console.log("Converting client to form:", JSON.stringify(client, null, 2)); // Debug log
+  console.log("Client CNPJ:", client.cnpj); // Debug specific field
+  console.log("Client telefone_contato:", client.telefone_contato); // Debug specific field
+  console.log("Client tipo_empresa:", client.tipo_empresa); // Debug specific field
+  console.log("Client address:", client.address); // Debug address object
+
+  const formData: any = {
+    // Basic fields
+    id: client.id,
+    razao_social: client.razao_social || "",
+    nome_fantasia: client.nome_fantasia || "",
+    cnpj: client.cnpj || "",
+    inscricao_estadual: client.inscricao_estadual || "",
+    inscricao_municipal: client.inscricao_municipal || "",
+    tipo_empresa: client.tipo_empresa || "",
+    recuperacao_judicial: client.recuperacao_judicial || false,
+
+    // Contact fields
+    telefone_comercial: client.telefone_comercial || "",
+    email_comercial: client.email_comercial || "",
+    website: client.website || "",
+    telefone_contato: client.telefone_contato || "",
+    email_contato: client.email_contato || "",
+
+    // Company data
+    responsavel_financeiro: client.responsavel_financeiro || "",
+    contador_responsavel: client.contador_responsavel || "",
+    regime_tributacao: client.regime_tributacao || "",
+
+    // Documents
+    contrato_social: client.contrato_social || "",
+    ultima_alteracao_contratual: client.ultima_alteracao_contratual || "",
+    rg_cpf_socios: client.rg_cpf_socios || "",
+    certificado_digital: client.certificado_digital || "",
+
+    // Control fields
+    autorizado_para_envio: client.autorizado_para_envio || false,
+    client_status: client.client_status || "pending",
+    is_active: client.is_active !== false, // Default to true
+
+    // Legacy fields
+    anotacoes_anteriores: "",
+    nova_anotacao: "",
+
+    // Handle nested address object
+    logradouro: client.address?.logradouro || "",
+    numero: client.address?.numero || "",
+    complemento: client.address?.complemento || "",
+    bairro: client.address?.bairro || "",
+    municipio: client.address?.municipio || "",
+    uf: client.address?.uf || "",
+    cep: client.address?.cep || "",
+
+    // Handle complex object fields - convert to strings for form
     quadro_societario: Array.isArray(client.quadro_societario)
       ? JSON.stringify(client.quadro_societario)
-      : typeof client.quadro_societario === "object"
+      : typeof client.quadro_societario === "object" && client.quadro_societario
       ? JSON.stringify(client.quadro_societario)
       : client.quadro_societario || "",
+
     cargos:
       typeof client.cargos === "object" && client.cargos
         ? JSON.stringify(client.cargos)
         : client.cargos || "",
+
     atividades:
       typeof client.atividades === "object" && client.atividades
         ? JSON.stringify(client.atividades)
         : client.atividades || "",
+
     cnaes: Array.isArray(client.cnaes)
       ? client.cnaes.join(", ")
       : client.cnaes || "",
-  } as ClientFormData;
+  };
+
+  console.log("Converted form data:", JSON.stringify(formData, null, 2)); // Debug log
+  console.log("Form CNPJ:", formData.cnpj); // Debug specific field
+  console.log("Form telefone_contato:", formData.telefone_contato); // Debug specific field
+  console.log("Form tipo_empresa:", formData.tipo_empresa); // Debug specific field
+  console.log("Form CEP:", formData.cep); // Debug specific field
+  return formData as ClientFormData;
 };
 
 const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
@@ -251,6 +214,36 @@ const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
       .filter(Boolean);
   }
 
+  // Handle address fields - structure them properly for the API
+  if (
+    clientData.logradouro ||
+    clientData.numero ||
+    clientData.complemento ||
+    clientData.bairro ||
+    clientData.municipio ||
+    clientData.uf ||
+    clientData.cep
+  ) {
+    clientData.address = {
+      logradouro: clientData.logradouro || null,
+      numero: clientData.numero || null,
+      complemento: clientData.complemento || null,
+      bairro: clientData.bairro || null,
+      municipio: clientData.municipio || null,
+      uf: clientData.uf || null,
+      cep: clientData.cep || null,
+    };
+
+    // Remove individual address fields since they're now in the address object
+    delete clientData.logradouro;
+    delete clientData.numero;
+    delete clientData.complemento;
+    delete clientData.bairro;
+    delete clientData.municipio;
+    delete clientData.uf;
+    delete clientData.cep;
+  }
+
   return clientData;
 };
 
@@ -282,8 +275,91 @@ export default function ClientForm({
   // Reset form when client changes
   useEffect(() => {
     if (client) {
-      reset(convertClientToForm(client));
+      console.log(
+        "Resetting form with client:",
+        JSON.stringify(client, null, 2)
+      ); // Debug log
+      const formData = convertClientToForm(client);
+      console.log(
+        "Resetting form with converted data:",
+        JSON.stringify(formData, null, 2)
+      ); // Debug log
+
+      // Instead of using reset(), set each field individually to avoid defaultValues conflicts
+      console.log("Setting all form fields individually..."); // Debug log
+
+      // Set all fields explicitly
+      setValue("cnpj", formData.cnpj || "");
+      setValue("razao_social", formData.razao_social || "");
+      setValue("nome_fantasia", formData.nome_fantasia || "");
+      setValue("inscricao_estadual", formData.inscricao_estadual || "");
+      setValue("inscricao_municipal", formData.inscricao_municipal || "");
+      setValue("tipo_empresa", formData.tipo_empresa || "");
+      setValue("recuperacao_judicial", formData.recuperacao_judicial || false);
+
+      setValue("telefone_comercial", formData.telefone_comercial || "");
+      setValue("email_comercial", formData.email_comercial || "");
+      setValue("website", formData.website || "");
+      setValue("telefone_contato", formData.telefone_contato || "");
+      setValue("email_contato", formData.email_contato || "");
+
+      setValue("quadro_societario", formData.quadro_societario || "");
+      setValue("cargos", formData.cargos || "");
+      setValue("responsavel_financeiro", formData.responsavel_financeiro || "");
+      setValue("contador_responsavel", formData.contador_responsavel || "");
+
+      setValue("cnaes", formData.cnaes || "");
+      setValue("regime_tributacao", formData.regime_tributacao || "");
+
+      setValue("contrato_social", formData.contrato_social || "");
+      setValue(
+        "ultima_alteracao_contratual",
+        formData.ultima_alteracao_contratual || ""
+      );
+      setValue("rg_cpf_socios", formData.rg_cpf_socios || "");
+      setValue("certificado_digital", formData.certificado_digital || "");
+
+      setValue(
+        "autorizado_para_envio",
+        formData.autorizado_para_envio || false
+      );
+      setValue("atividades", formData.atividades || "");
+      setValue("client_status", formData.client_status || "pending");
+      setValue("is_active", formData.is_active !== false);
+
+      setValue("logradouro", formData.logradouro || "");
+      setValue("numero", formData.numero || "");
+      setValue("complemento", formData.complemento || "");
+      setValue("bairro", formData.bairro || "");
+      setValue("municipio", formData.municipio || "");
+      setValue("uf", formData.uf || "");
+      setValue("cep", formData.cep || "");
+
+      setValue("anotacoes_anteriores", formData.anotacoes_anteriores || "");
+      setValue("nova_anotacao", formData.nova_anotacao || "");
+
+      // Check form values after setting
+      setTimeout(() => {
+        console.log("Form watch values after setValue:", {
+          cnpj: watch("cnpj"),
+          tipo_empresa: watch("tipo_empresa"),
+          telefone_contato: watch("telefone_contato"),
+          telefone_comercial: watch("telefone_comercial"),
+          cep: watch("cep"),
+          ultima_alteracao_contratual: watch("ultima_alteracao_contratual"),
+        });
+
+        console.log("Complete form state sample:", {
+          cnpj: watch("cnpj"),
+          razao_social: watch("razao_social"),
+          nome_fantasia: watch("nome_fantasia"),
+          tipo_empresa: watch("tipo_empresa"),
+          telefone_contato: watch("telefone_contato"),
+          cep: watch("cep"),
+        });
+      }, 50);
     } else {
+      console.log("Resetting form with default values"); // Debug log
       reset({
         recuperacao_judicial: false,
         autorizado_para_envio: false,
@@ -291,7 +367,7 @@ export default function ClientForm({
         client_status: "pending",
       });
     }
-  }, [client, reset]);
+  }, [client, setValue, watch]);
 
   const onSubmit = async (data: ClientFormData) => {
     console.log("Form submitted with data:", data);
