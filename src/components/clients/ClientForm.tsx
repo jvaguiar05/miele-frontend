@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search } from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
 
 const clientSchema = z.object({
@@ -250,6 +251,7 @@ export default function ClientForm({
   const { createClient, updateClient } = useClientStore();
   const { toast } = useToast();
   const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
+  const [isSearchingCNPJ, setIsSearchingCNPJ] = useState(false);
 
   const {
     register,
@@ -268,6 +270,137 @@ export default function ClientForm({
       client_status: "pending",
     },
   });
+
+  // Function to search CNPJ data
+  const searchCNPJData = async () => {
+    const cnpjValue = getValues("cnpj");
+    if (!cnpjValue) {
+      toast({
+        title: "CNPJ obrigatório",
+        description: "Digite um CNPJ para buscar os dados.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Clean CNPJ (remove formatting)
+    const cleanCNPJ = cnpjValue.replace(/\D/g, "");
+    if (cleanCNPJ.length !== 14) {
+      toast({
+        title: "CNPJ inválido",
+        description: "O CNPJ deve ter 14 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSearchingCNPJ(true);
+    try {
+      // Use allorigins.win as it's working reliably
+      const proxyUrl = "https://api.allorigins.win/raw?url=";
+      const apiUrl = `https://www.receitaws.com.br/v1/cnpj/${cleanCNPJ}`;
+      const requestUrl = `${proxyUrl}${encodeURIComponent(apiUrl)}`;
+
+      console.log(`Fetching CNPJ data from: ${requestUrl}`);
+
+      const response = await fetch(requestUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("✅ CNPJ data received:", data);
+
+      if (data.status === "ERROR") {
+        toast({
+          title: "CNPJ não encontrado",
+          description:
+            data.message || "Não foi possível encontrar dados para este CNPJ.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Map API response to form fields
+      if (data.nome) setValue("razao_social", data.nome);
+      if (data.fantasia) setValue("nome_fantasia", data.fantasia);
+      if (data.email) setValue("email_comercial", data.email);
+      if (data.telefone) {
+        // Take the first phone number if multiple exist
+        const phone = data.telefone.split("/")[0].trim();
+        setValue("telefone_comercial", phone);
+      }
+
+      // Map address fields
+      if (data.logradouro) setValue("logradouro", data.logradouro);
+      if (data.numero) setValue("numero", data.numero);
+      if (data.complemento) setValue("complemento", data.complemento);
+      if (data.bairro) setValue("bairro", data.bairro);
+      if (data.municipio) setValue("municipio", data.municipio);
+      if (data.uf) setValue("uf", data.uf);
+      if (data.cep) {
+        const cleanCEP = data.cep.replace(/\D/g, "");
+        setValue("cep", cleanCEP);
+      }
+
+      // Map company type based on porte
+      if (data.porte) {
+        let tipoEmpresaValue = "";
+        switch (data.porte.toUpperCase()) {
+          case "MICRO EMPRESA":
+            tipoEmpresaValue = "ME";
+            break;
+          case "EMPRESA DE PEQUENO PORTE":
+            tipoEmpresaValue = "EPP";
+            break;
+          case "DEMAIS":
+            tipoEmpresaValue = "LTDA";
+            break;
+          default:
+            tipoEmpresaValue = "LTDA";
+        }
+        setValue("tipo_empresa", tipoEmpresaValue);
+        setTipoEmpresa(tipoEmpresaValue);
+      }
+
+      // Map CNAEs
+      if (data.atividade_principal && data.atividade_principal.length > 0) {
+        const cnaes = [data.atividade_principal[0].code];
+        if (
+          data.atividades_secundarias &&
+          data.atividades_secundarias.length > 0
+        ) {
+          const secundarias = data.atividades_secundarias
+            .slice(0, 3)
+            .map((ativ) => ativ.code);
+          cnaes.push(...secundarias);
+        }
+        setValue("cnaes", cnaes.join(", "));
+      }
+
+      toast({
+        title: "Dados encontrados!",
+        description:
+          "As informações do CNPJ foram preenchidas automaticamente.",
+      });
+    } catch (error) {
+      console.error("Error fetching CNPJ data:", error);
+      toast({
+        title: "Erro na consulta",
+        description:
+          "Não foi possível consultar os dados do CNPJ. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearchingCNPJ(false);
+    }
+  };
 
   // Populate form when client data is provided for editing
   useEffect(() => {
@@ -352,13 +485,27 @@ export default function ClientForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
-              <Input
-                id="cnpj"
-                {...register("cnpj")}
-                placeholder="00.000.000/0000-00"
-                className={errors.cnpj ? "border-destructive" : ""}
-                readOnly={!!client}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="cnpj"
+                  {...register("cnpj")}
+                  placeholder="00.000.000/0000-00"
+                  className={errors.cnpj ? "border-destructive" : ""}
+                  readOnly={!!client}
+                />
+                {!client && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={searchCNPJData}
+                    disabled={isSearchingCNPJ}
+                    className="shrink-0"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               {errors.cnpj && (
                 <p className="text-sm text-destructive">
                   {errors.cnpj.message}
