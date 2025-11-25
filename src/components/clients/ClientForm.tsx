@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -249,6 +249,7 @@ export default function ClientForm({
 }: ClientFormProps) {
   const { createClient, updateClient } = useClientStore();
   const { toast } = useToast();
+  const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
 
   const {
     register,
@@ -256,6 +257,7 @@ export default function ClientForm({
     formState: { errors, isSubmitting },
     setValue,
     watch,
+    getValues,
     reset,
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -272,6 +274,7 @@ export default function ClientForm({
     if (client) {
       const formData = convertClientToForm(client);
       reset(formData);
+      setTipoEmpresa(formData.tipo_empresa || "");
     } else {
       // Reset to default values for new client
       reset({
@@ -280,6 +283,7 @@ export default function ClientForm({
         is_active: true,
         client_status: "pending",
       });
+      setTipoEmpresa("");
     }
   }, [client, reset]);
 
@@ -348,12 +352,12 @@ export default function ClientForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
-              <MaskedInput
+              <Input
                 id="cnpj"
-                mask="99.999.999/9999-99"
                 {...register("cnpj")}
                 placeholder="00.000.000/0000-00"
                 className={errors.cnpj ? "border-destructive" : ""}
+                readOnly={!!client}
               />
               {errors.cnpj && (
                 <p className="text-sm text-destructive">
@@ -365,8 +369,11 @@ export default function ClientForm({
             <div className="space-y-2">
               <Label htmlFor="tipo_empresa">Tipo de Empresa *</Label>
               <Select
-                onValueChange={(value) => setValue("tipo_empresa", value)}
-                defaultValue={watch("tipo_empresa")}
+                onValueChange={(value) => {
+                  setValue("tipo_empresa", value);
+                  setTipoEmpresa(value);
+                }}
+                value={tipoEmpresa}
               >
                 <SelectTrigger
                   className={errors.tipo_empresa ? "border-destructive" : ""}
@@ -475,9 +482,8 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="telefone_contato">Telefone de Contato *</Label>
-              <MaskedInput
+              <Input
                 id="telefone_contato"
-                mask="(99) 99999-9999"
                 {...register("telefone_contato")}
                 placeholder="(00) 00000-0000"
                 className={errors.telefone_contato ? "border-destructive" : ""}
@@ -502,9 +508,8 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="telefone_comercial">Telefone Comercial</Label>
-              <MaskedInput
+              <Input
                 id="telefone_comercial"
-                mask="(99) 9999-9999"
                 {...register("telefone_comercial")}
                 placeholder="(00) 0000-0000"
               />
@@ -559,7 +564,7 @@ export default function ClientForm({
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
               <Select
                 onValueChange={(value) => setValue("regime_tributacao", value)}
-                defaultValue={watch("regime_tributacao")}
+                value={watch("regime_tributacao") || ""}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o regime" />
@@ -653,12 +658,7 @@ export default function ClientForm({
         <TabsContent value="address" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cep">CEP</Label>
-            <MaskedInput
-              id="cep"
-              mask="99999-999"
-              {...register("cep")}
-              placeholder="00000-000"
-            />
+            <Input id="cep" {...register("cep")} placeholder="00000-000" />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -694,7 +694,7 @@ export default function ClientForm({
             <Label htmlFor="uf">UF</Label>
             <Select
               onValueChange={(value) => setValue("uf", value)}
-              defaultValue={watch("uf")}
+              value={watch("uf") || ""}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o estado" />
