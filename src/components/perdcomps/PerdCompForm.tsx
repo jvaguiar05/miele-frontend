@@ -172,6 +172,7 @@ export default function PerdCompForm({
         }
       : {
           client_id: clientId || "",
+          cnpj: "", // Will be populated by useEffect when client loads
           status: "RASCUNHO" as any,
           valor_pedido: "0.00",
           valor_compensado: "0.00",
@@ -226,10 +227,10 @@ export default function PerdCompForm({
           const client = await fetchClientById(targetClientId);
           setSelectedClientData(client);
 
-          // If we have a perdcomp with cnpj, use it; otherwise use client's cnpj
+          // Always set the client's CNPJ for new perdcomps, or perdcomp's CNPJ for edits
           if (perdcomp?.cnpj) {
             setValue("cnpj", perdcomp.cnpj);
-          } else if (client.cnpj) {
+          } else if (client?.cnpj) {
             setValue("cnpj", client.cnpj);
           }
         } catch (error) {
@@ -239,6 +240,23 @@ export default function PerdCompForm({
     };
     loadClientData();
   }, [clientId, perdcomp, fetchClientById, setValue]);
+
+  // Handle client selection change
+  const handleClientChange = async (clientId: string) => {
+    setValue("client_id", clientId);
+    
+    try {
+      const client = await fetchClientById(clientId);
+      setSelectedClientData(client);
+      
+      // Auto-populate CNPJ when client is selected
+      if (client?.cnpj) {
+        setValue("cnpj", client.cnpj);
+      }
+    } catch (error) {
+      console.error("Error loading client data:", error);
+    }
+  };
 
   const onSubmit = async (data: PerdCompFormData) => {
     try {
@@ -296,7 +314,7 @@ export default function PerdCompForm({
           <div className="space-y-2">
             <Label htmlFor="client_id">Cliente *</Label>
             <Select
-              onValueChange={(value) => setValue("client_id", value)}
+              onValueChange={handleClientChange}
               defaultValue={perdcomp?.client_id?.toString() || clientId}
               disabled={!!clientId && !perdcomp}
             >
@@ -326,11 +344,19 @@ export default function PerdCompForm({
             <MaskedInput
               id="cnpj"
               mask="99.999.999/9999-99"
-              {...register("cnpj")}
+              {...(!!clientId && !perdcomp ? {} : register("cnpj"))}
+              value={!!clientId && !perdcomp ? selectedClientData?.cnpj || watch("cnpj") || "" : watch("cnpj") || ""}
               placeholder="00.000.000/0000-00"
               disabled={!!clientId && !perdcomp}
-              className={!!clientId && !perdcomp ? "bg-muted" : ""}
+              className={!!clientId && !perdcomp ? "bg-muted cursor-not-allowed" : ""}
+              readOnly={!!clientId && !perdcomp}
+              {...(!!clientId && !perdcomp ? {} : { onChange: (e) => setValue("cnpj", e.target.value) })}
             />
+            {!!clientId && !perdcomp && (
+              <p className="text-xs text-muted-foreground">
+                CNPJ preenchido automaticamente com base no cliente selecionado
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
