@@ -1,6 +1,26 @@
 import { create } from "zustand";
 import api, { apiHelpers } from "@/lib/api";
 
+// Annotation interface matching Django API structure
+export interface PerdCompAnnotation {
+  id: string;
+  entity_name: string;
+  user_name: string;
+  content: {
+    tags?: string[];
+    text: string;
+    metadata?: {
+      category?: string;
+      created_by?: string;
+      [key: string]: any;
+    };
+    priority?: string;
+    [key: string]: any;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 // PerdComp status enum aligned with Django model
 export type PerDcompStatus =
   | "RASCUNHO"
@@ -54,6 +74,7 @@ export interface PerdComp {
 
   // Anotações
   anotacoes?: string;
+  annotations?: PerdCompAnnotation[]; // PerdComp annotations
 
   // Controles
   is_active?: boolean;
@@ -102,6 +123,20 @@ interface PerdCompState {
   setCurrentPage: (page: number) => void;
   setFilters: (filters: PerdCompFilters) => void;
   clearFilters: () => void;
+
+  // Annotation actions
+  fetchPerdCompAnnotations: (
+    perdcompId: string
+  ) => Promise<PerdCompAnnotation[]>;
+  createAnnotation: (
+    perdcompId: string,
+    annotationData: any
+  ) => Promise<PerdCompAnnotation>;
+  updateAnnotation: (
+    annotationId: string,
+    annotationData: any
+  ) => Promise<PerdCompAnnotation>;
+  deleteAnnotation: (annotationId: string) => Promise<void>;
 
   // Status actions
   transmitirPerdComp: (id: string | number) => Promise<PerdComp>;
@@ -188,6 +223,17 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
       const response = await api.get(endpoint);
       const perdcomp = response.data;
+
+      // Fetch perdcomp annotations
+      try {
+        const annotationsResponse = await api.get(
+          `/perdcomps/annotations/by-perdcomp/${perdcomp.id}/`
+        );
+        perdcomp.annotations = annotationsResponse.data.results || [];
+      } catch (annotationError) {
+        console.warn("Failed to fetch perdcomp annotations:", annotationError);
+        perdcomp.annotations = [];
+      }
 
       set({
         selectedPerdComp: perdcomp,
@@ -409,5 +455,66 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
   atualizarStatus: async (id: string | number, status: PerDcompStatus) => {
     return await get().updatePerdComp(id, { status });
+  },
+
+  // Annotation functions
+  fetchPerdCompAnnotations: async (perdcompId: string) => {
+    try {
+      const response = await api.get(
+        `/perdcomps/annotations/by-perdcomp/${perdcompId}/`
+      );
+      return response.data.results || [];
+    } catch (error: any) {
+      console.error("Error fetching perdcomp annotations:", error);
+      throw error;
+    }
+  },
+
+  createAnnotation: async (perdcompId: string, annotationData: any) => {
+    try {
+      console.log("Creating annotation for perdcomp:", perdcompId);
+      console.log("Annotation data:", annotationData);
+
+      const requestData = {
+        ...annotationData,
+        entity_type: "perdcomp",
+        entity_id: perdcompId,
+      };
+
+      console.log("Request data:", requestData);
+      const endpoint = `/perdcomps/annotations/by-perdcomp/${perdcompId}/`;
+      console.log("API endpoint:", endpoint);
+
+      const response = await api.post(endpoint, requestData);
+      console.log("Annotation created successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating annotation:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      throw error;
+    }
+  },
+
+  updateAnnotation: async (annotationId: string, annotationData: any) => {
+    try {
+      const response = await api.put(
+        `/perdcomps/annotations/${annotationId}/`,
+        annotationData
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating annotation:", error);
+      throw error;
+    }
+  },
+
+  deleteAnnotation: async (annotationId: string) => {
+    try {
+      await api.delete(`/perdcomps/annotations/${annotationId}/`);
+    } catch (error: any) {
+      console.error("Error deleting annotation:", error);
+      throw error;
+    }
   },
 }));
