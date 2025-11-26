@@ -28,6 +28,12 @@ const registerSchema = z
       .trim()
       .email("Email inválido")
       .max(255, "Email deve ter no máximo 255 caracteres"),
+    username: z
+      .string()
+      .trim()
+      .min(3, "Nome de usuário deve ter pelo menos 3 caracteres")
+      .max(30, "Nome de usuário deve ter no máximo 30 caracteres")
+      .regex(/^[a-zA-Z0-9_]+$/, "Nome de usuário deve conter apenas letras, números e underscore"),
     password: z
       .string()
       .min(6, "Senha deve ter pelo menos 6 caracteres")
@@ -60,7 +66,8 @@ export default function Register() {
         data.email,
         data.password,
         data.firstName,
-        data.lastName
+        data.lastName,
+        data.username
       );
 
       toast({
@@ -155,6 +162,22 @@ export default function Register() {
               {errors.email && (
                 <p className="text-sm text-destructive">
                   {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">Nome de usuário</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="joaosilva"
+                {...register("username")}
+                className={errors.username ? "border-destructive" : ""}
+              />
+              {errors.username && (
+                <p className="text-sm text-destructive">
+                  {errors.username.message}
                 </p>
               )}
             </div>

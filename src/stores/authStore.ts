@@ -41,7 +41,8 @@ interface AuthState {
     email: string,
     password: string,
     firstName: string,
-    lastName: string
+    lastName: string,
+    username: string
   ) => Promise<{
     message: string;
     username: string;
@@ -71,12 +72,13 @@ export const useAuthStore = create<AuthState>()(
         email: string,
         password: string,
         firstName: string,
-        lastName: string
+        lastName: string,
+        username: string
       ) => {
         set({ isLoading: true });
         try {
           const response = await api.post("/auth/register/", {
-            username: email,
+            username,
             email,
             password,
             confirm_password: password,
