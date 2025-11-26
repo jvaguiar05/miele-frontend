@@ -1,6 +1,26 @@
 import { create } from "zustand";
 import api, { apiHelpers } from "@/lib/api";
 
+// Annotation interface matching Django API structure
+export interface ClientAnnotation {
+  id: string;
+  entity_name: string;
+  user_name: string;
+  content: {
+    tags?: string[];
+    text: string;
+    metadata?: {
+      category?: string;
+      created_by?: string;
+      [key: string]: any;
+    };
+    priority?: string;
+    [key: string]: any;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 // Client interface matching Django API structure
 export interface Client {
   id: string; // UUID
@@ -27,7 +47,13 @@ export interface Client {
   rg_cpf_socios?: string | null;
   certificado_digital?: string | null;
   autorizado_para_envio?: boolean | null;
-  atividades?: { [key: string]: string } | null; // Object with key-value pairs
+  atividades?:
+    | {
+        principal?: { text: string } | null;
+        secundarias?: { text: string }[];
+      }
+    | { [key: string]: string }
+    | null; // Support both new structured format and legacy format
   client_status?: string | null;
   is_active?: boolean | null;
   address?: {
@@ -42,6 +68,7 @@ export interface Client {
     created_at?: string;
     updated_at?: string;
   } | null;
+  annotations?: ClientAnnotation[]; // Client annotations
   created_at?: string;
   updated_at?: string;
 }
@@ -71,6 +98,16 @@ interface ClientState {
     filters?: ClientFilters
   ) => Promise<void>;
   fetchClientById: (id: string | number) => Promise<Client>;
+  fetchClientAnnotations: (clientId: string) => Promise<ClientAnnotation[]>;
+  createAnnotation: (
+    clientId: string,
+    annotationData: any
+  ) => Promise<ClientAnnotation>;
+  updateAnnotation: (
+    annotationId: string,
+    annotationData: any
+  ) => Promise<ClientAnnotation>;
+  deleteAnnotation: (annotationId: string) => Promise<void>;
   createClient: (clientData: Partial<Client>) => Promise<Client>;
   updateClient: (
     id: string | number,
@@ -143,8 +180,20 @@ export const useClientStore = create<ClientState>((set, get) => ({
   fetchClientById: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
+      // Fetch complete client data
       const response = await api.get(`/clients/clients/${id}/`);
       const client = response.data;
+
+      // Fetch client annotations
+      try {
+        const annotationsResponse = await api.get(
+          `/clients/annotations/by-client/${id}/`
+        );
+        client.annotations = annotationsResponse.data.results || [];
+      } catch (annotationError) {
+        console.warn("Failed to fetch client annotations:", annotationError);
+        client.annotations = [];
+      }
 
       set({
         selectedClient: client,
@@ -157,6 +206,66 @@ export const useClientStore = create<ClientState>((set, get) => ({
         error: error.message || "Erro ao buscar cliente",
         isLoading: false,
       });
+      throw error;
+    }
+  },
+
+  fetchClientAnnotations: async (clientId: string) => {
+    try {
+      const response = await api.get(
+        `/clients/annotations/by-client/${clientId}/`
+      );
+      return response.data.results || [];
+    } catch (error: any) {
+      console.error("Error fetching client annotations:", error);
+      throw error;
+    }
+  },
+
+  createAnnotation: async (clientId: string, annotationData: any) => {
+    try {
+      console.log("Creating annotation for client:", clientId);
+      console.log("Annotation data:", annotationData);
+
+      const requestData = {
+        ...annotationData,
+        entity_type: "client",
+        entity_id: clientId,
+      };
+
+      console.log("Request data:", requestData);
+      const endpoint = `/clients/annotations/by-client/${clientId}/`;
+      console.log("API endpoint:", endpoint);
+
+      const response = await api.post(endpoint, requestData);
+      console.log("Annotation created successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating annotation:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      throw error;
+    }
+  },
+
+  updateAnnotation: async (annotationId: string, annotationData: any) => {
+    try {
+      const response = await api.put(
+        `/clients/annotations/${annotationId}/`,
+        annotationData
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating annotation:", error);
+      throw error;
+    }
+  },
+
+  deleteAnnotation: async (annotationId: string) => {
+    try {
+      await api.delete(`/clients/annotations/${annotationId}/`);
+    } catch (error: any) {
+      console.error("Error deleting annotation:", error);
       throw error;
     }
   },

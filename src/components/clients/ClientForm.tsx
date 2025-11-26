@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,196 +17,155 @@ import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search } from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
 
 const clientSchema = z.object({
   // Dados principais
   cnpj: z.string().min(14, "CNPJ inválido"),
   razao_social: z.string().min(3, "Razão social é obrigatória"),
-  nome_fantasia: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  inscricao_estadual: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  inscricao_municipal: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  nome_fantasia: z.string().optional(),
+  inscricao_estadual: z.string().optional(),
+  inscricao_municipal: z.string().optional(),
   tipo_empresa: z.string().min(1, "Tipo de empresa é obrigatório"),
   recuperacao_judicial: z.boolean().default(false),
 
   // Contatos comerciais
-  telefone_comercial: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  email_comercial: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  website: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  telefone_comercial: z.string().optional(),
+  email_comercial: z.string().optional(),
+  website: z.string().optional(),
 
   // Contatos diretos
-  telefone_contato: z.string().min(10, "Telefone é obrigatório"),
-  email_contato: z.string().email("Email inválido"),
+  telefone_contato: z.string().optional(),
+  email_contato: z
+    .string()
+    .optional()
+    .refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+      message: "Email inválido",
+    }),
 
   // Dados societários
-  quadro_societario: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  cargos: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  responsavel_financeiro: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  contador_responsavel: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  quadro_societario: z.string().optional(),
+  cargos: z.string().optional(),
+  responsavel_financeiro: z.string().optional(),
+  contador_responsavel: z.string().optional(),
 
   // Dados fiscais
-  cnaes: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  regime_tributacao: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  cnaes: z.string().optional(),
+  regime_tributacao: z.string().optional(),
 
   // Documentos
-  contrato_social: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  ultima_alteracao_contratual: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  rg_cpf_socios: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  certificado_digital: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  contrato_social: z.string().optional(),
+  ultima_alteracao_contratual: z.string().optional(),
+  rg_cpf_socios: z.string().optional(),
+  certificado_digital: z.string().optional(),
 
   // Controles
   autorizado_para_envio: z.boolean().default(false),
-  atividades: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  atividades: z.string().optional(),
   client_status: z.string().optional(),
   is_active: z.boolean().default(true),
 
   // Endereço
-  logradouro: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  numero: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  complemento: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  bairro: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  municipio: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  uf: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  cep: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-
-  // Legacy
-  anotacoes_anteriores: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
-  nova_anotacao: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => val || undefined),
+  logradouro: z.string().optional(),
+  numero: z.string().optional(),
+  complemento: z.string().optional(),
+  bairro: z.string().optional(),
+  municipio: z.string().optional(),
+  uf: z.string().optional(),
+  cep: z.string().optional(),
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
 interface ClientFormProps {
-  client?: Client | null;
+  client?: Client;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 // Helper functions to convert between form data and API data
 const convertClientToForm = (client: Client): ClientFormData => {
-  return {
-    ...client,
+  console.log("Converting client to form:", JSON.stringify(client, null, 2)); // Debug log
+  console.log("Client CNPJ:", client.cnpj); // Debug specific field
+  console.log("Client telefone_contato:", client.telefone_contato); // Debug specific field
+  console.log("Client tipo_empresa:", client.tipo_empresa); // Debug specific field
+  console.log("Client address:", client.address); // Debug address object
+
+  const formData: any = {
+    // Basic fields
+    id: client.id,
+    razao_social: client.razao_social || "",
+    nome_fantasia: client.nome_fantasia || "",
+    cnpj: client.cnpj || "",
+    inscricao_estadual: client.inscricao_estadual || "",
+    inscricao_municipal: client.inscricao_municipal || "",
+    tipo_empresa: client.tipo_empresa || "",
+    recuperacao_judicial: client.recuperacao_judicial || false,
+
+    // Contact fields
+    telefone_comercial: client.telefone_comercial || "",
+    email_comercial: client.email_comercial || "",
+    website: client.website || "",
+    telefone_contato: client.telefone_contato || "",
+    email_contato: client.email_contato || "",
+
+    // Company data
+    responsavel_financeiro: client.responsavel_financeiro || "",
+    contador_responsavel: client.contador_responsavel || "",
+    regime_tributacao: client.regime_tributacao || "",
+
+    // Documents
+    contrato_social: client.contrato_social || "",
+    // Convert API date format (2023-06-14T21:00:00-03:00) to form input format (2023-06-14)
+    ultima_alteracao_contratual: client.ultima_alteracao_contratual
+      ? client.ultima_alteracao_contratual.split("T")[0]
+      : "",
+    rg_cpf_socios: client.rg_cpf_socios || "",
+    certificado_digital: client.certificado_digital || "",
+
+    // Control fields
+    autorizado_para_envio: client.autorizado_para_envio || false,
+    client_status: client.client_status || "pending",
+    is_active: client.is_active !== false, // Default to true
+
+    // Handle nested address object
+    logradouro: client.address?.logradouro || "",
+    numero: client.address?.numero || "",
+    complemento: client.address?.complemento || "",
+    bairro: client.address?.bairro || "",
+    municipio: client.address?.municipio || "",
+    uf: client.address?.uf || "",
+    cep: client.address?.cep || "",
+
+    // Handle complex object fields - convert to strings for form
     quadro_societario: Array.isArray(client.quadro_societario)
       ? JSON.stringify(client.quadro_societario)
-      : typeof client.quadro_societario === "object"
+      : typeof client.quadro_societario === "object" && client.quadro_societario
       ? JSON.stringify(client.quadro_societario)
       : client.quadro_societario || "",
+
     cargos:
       typeof client.cargos === "object" && client.cargos
         ? JSON.stringify(client.cargos)
         : client.cargos || "",
+
     atividades:
       typeof client.atividades === "object" && client.atividades
         ? JSON.stringify(client.atividades)
         : client.atividades || "",
+
     cnaes: Array.isArray(client.cnaes)
       ? client.cnaes.join(", ")
       : client.cnaes || "",
-  } as ClientFormData;
+  };
+
+  console.log("Converted form data:", JSON.stringify(formData, null, 2)); // Debug log
+  console.log("Form CNPJ:", formData.cnpj); // Debug specific field
+  console.log("Form telefone_contato:", formData.telefone_contato); // Debug specific field
+  console.log("Form tipo_empresa:", formData.tipo_empresa); // Debug specific field
+  console.log("Form CEP:", formData.cep); // Debug specific field
+  return formData as ClientFormData;
 };
 
 const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
@@ -251,7 +210,25 @@ const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
       .filter(Boolean);
   }
 
-  return clientData;
+  // Remove empty fields from the request body
+  const cleanedData: any = {};
+
+  Object.keys(clientData).forEach((key) => {
+    const value = clientData[key];
+
+    // Keep the field if it has a meaningful value
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== "" &&
+      !(Array.isArray(value) && value.length === 0) &&
+      !(typeof value === "object" && Object.keys(value).length === 0)
+    ) {
+      cleanedData[key] = value;
+    }
+  });
+
+  return cleanedData;
 };
 
 export default function ClientForm({
@@ -261,6 +238,8 @@ export default function ClientForm({
 }: ClientFormProps) {
   const { createClient, updateClient } = useClientStore();
   const { toast } = useToast();
+  const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
+  const [isSearchingCNPJ, setIsSearchingCNPJ] = useState(false);
 
   const {
     register,
@@ -268,6 +247,7 @@ export default function ClientForm({
     formState: { errors, isSubmitting },
     setValue,
     watch,
+    getValues,
     reset,
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -279,41 +259,208 @@ export default function ClientForm({
     },
   });
 
-  // Reset form when client changes
+  // Function to search CNPJ data
+  const searchCNPJData = async () => {
+    const cnpjValue = getValues("cnpj");
+    if (!cnpjValue) {
+      toast({
+        title: "CNPJ obrigatório",
+        description: "Digite um CNPJ para buscar os dados.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Clean CNPJ (remove formatting)
+    const cleanCNPJ = cnpjValue.replace(/\D/g, "");
+    if (cleanCNPJ.length !== 14) {
+      toast({
+        title: "CNPJ inválido",
+        description: "O CNPJ deve ter 14 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSearchingCNPJ(true);
+    try {
+      // Use allorigins.win as it's working reliably
+      const proxyUrl = "https://api.allorigins.win/raw?url=";
+      const apiUrl = `https://www.receitaws.com.br/v1/cnpj/${cleanCNPJ}`;
+      const requestUrl = `${proxyUrl}${encodeURIComponent(apiUrl)}`;
+
+      console.log(`Fetching CNPJ data from: ${requestUrl}`);
+
+      const response = await fetch(requestUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("✅ CNPJ data received:", data);
+
+      if (data.status === "ERROR") {
+        toast({
+          title: "CNPJ não encontrado",
+          description:
+            data.message || "Não foi possível encontrar dados para este CNPJ.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Map API response to form fields
+      if (data.nome) setValue("razao_social", data.nome);
+      if (data.fantasia) setValue("nome_fantasia", data.fantasia);
+      if (data.email) setValue("email_comercial", data.email);
+      if (data.telefone) {
+        // Split phone numbers: first = contact, second = commercial
+        const phones = data.telefone.split("/").map((phone) => phone.trim());
+        if (phones.length >= 1) {
+          setValue("telefone_contato", phones[0]);
+        }
+        if (phones.length >= 2) {
+          setValue("telefone_comercial", phones[1]);
+        }
+      }
+
+      // Map address fields
+      if (data.logradouro) setValue("logradouro", data.logradouro);
+      if (data.numero) setValue("numero", data.numero);
+      if (data.complemento) setValue("complemento", data.complemento);
+      if (data.bairro) setValue("bairro", data.bairro);
+      if (data.municipio) setValue("municipio", data.municipio);
+      if (data.uf) setValue("uf", data.uf);
+      if (data.cep) {
+        const cleanCEP = data.cep.replace(/\D/g, "");
+        setValue("cep", cleanCEP);
+      }
+
+      // Map company type based on porte
+      if (data.porte) {
+        let tipoEmpresaValue = "";
+        switch (data.porte.toUpperCase()) {
+          case "MICRO EMPRESA":
+            tipoEmpresaValue = "ME";
+            break;
+          case "EMPRESA DE PEQUENO PORTE":
+            tipoEmpresaValue = "EPP";
+            break;
+          case "DEMAIS":
+            tipoEmpresaValue = "LTDA";
+            break;
+          default:
+            tipoEmpresaValue = "LTDA";
+        }
+        setValue("tipo_empresa", tipoEmpresaValue);
+        setTipoEmpresa(tipoEmpresaValue);
+      }
+
+      // Map CNAEs
+      if (data.atividade_principal && data.atividade_principal.length > 0) {
+        const cnaes = [data.atividade_principal[0].code];
+        if (
+          data.atividades_secundarias &&
+          data.atividades_secundarias.length > 0
+        ) {
+          const secundarias = data.atividades_secundarias
+            .slice(0, 3)
+            .map((ativ) => ativ.code);
+          cnaes.push(...secundarias);
+        }
+        setValue("cnaes", cnaes.join(", "));
+      }
+
+      // Map Atividades (structured activity data for JSONB field)
+      if (data.atividade_principal || data.atividades_secundarias) {
+        const atividades = {
+          principal: data.atividade_principal?.[0]
+            ? { text: data.atividade_principal[0].text }
+            : null,
+          secundarias: data.atividades_secundarias
+            ? data.atividades_secundarias.map((ativ) => ({ text: ativ.text }))
+            : [],
+        };
+        setValue("atividades", JSON.stringify(atividades));
+      }
+
+      // Map QSA to Quadro Societário
+      if (data.qsa && data.qsa.length > 0) {
+        setValue("quadro_societario", JSON.stringify(data.qsa));
+      }
+
+      // Map ultima_atualizacao to Data da Última Alteração Contratual
+      if (data.ultima_atualizacao) {
+        // Convert ISO date to YYYY-MM-DD format for date input
+        const date = new Date(data.ultima_atualizacao);
+        const formattedDate = date.toISOString().split("T")[0];
+        setValue("ultima_alteracao_contratual", formattedDate);
+      }
+
+      toast({
+        title: "Dados encontrados!",
+        description:
+          "As informações do CNPJ foram preenchidas automaticamente.",
+      });
+    } catch (error) {
+      console.error("Error fetching CNPJ data:", error);
+      toast({
+        title: "Erro na consulta",
+        description:
+          "Não foi possível consultar os dados do CNPJ. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearchingCNPJ(false);
+    }
+  };
+
+  // Populate form when client data is provided for editing
   useEffect(() => {
     if (client) {
-      reset(convertClientToForm(client));
+      const formData = convertClientToForm(client);
+      reset(formData);
+      setTipoEmpresa(formData.tipo_empresa || "");
     } else {
+      // Reset to default values for new client
       reset({
         recuperacao_judicial: false,
         autorizado_para_envio: false,
         is_active: true,
         client_status: "pending",
       });
+      setTipoEmpresa("");
     }
   }, [client, reset]);
 
   const onSubmit = async (data: ClientFormData) => {
     console.log("Form submitted with data:", data);
-    console.log("Client ID:", client?.id);
 
     try {
       const clientData = convertFormToClient(data);
 
       if (client?.id) {
+        // Update existing client
         await updateClient(client.id, clientData);
         toast({
           title: "Cliente atualizado",
-          description:
-            "As informações do cliente foram atualizadas com sucesso.",
+          description: "O cliente foi atualizado com sucesso.",
         });
       } else {
+        // Create new client
         await createClient(clientData);
         toast({
           title: "Cliente criado",
           description: "O cliente foi cadastrado com sucesso.",
         });
       }
+
       onSuccess();
     } catch (error: any) {
       console.error("Error saving client:", error);
@@ -324,7 +471,6 @@ export default function ClientForm({
       });
     }
   };
-
   const onInvalid = (errors: any) => {
     console.log("Form validation errors:", errors);
     toast({
@@ -345,13 +491,12 @@ export default function ClientForm({
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="contact">Contato</TabsTrigger>
           <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
           <TabsTrigger value="docs">Documentos</TabsTrigger>
           <TabsTrigger value="address">Endereço</TabsTrigger>
-          <TabsTrigger value="notes">Anotações</TabsTrigger>
         </TabsList>
 
         {/* Aba Geral */}
@@ -359,13 +504,27 @@ export default function ClientForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
-              <MaskedInput
-                id="cnpj"
-                mask="99.999.999/9999-99"
-                {...register("cnpj")}
-                placeholder="00.000.000/0000-00"
-                className={errors.cnpj ? "border-destructive" : ""}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="cnpj"
+                  {...register("cnpj")}
+                  placeholder="00.000.000/0000-00"
+                  className={errors.cnpj ? "border-destructive" : ""}
+                  readOnly={!!client}
+                />
+                {!client && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={searchCNPJData}
+                    disabled={isSearchingCNPJ}
+                    className="shrink-0"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               {errors.cnpj && (
                 <p className="text-sm text-destructive">
                   {errors.cnpj.message}
@@ -376,8 +535,11 @@ export default function ClientForm({
             <div className="space-y-2">
               <Label htmlFor="tipo_empresa">Tipo de Empresa *</Label>
               <Select
-                onValueChange={(value) => setValue("tipo_empresa", value)}
-                defaultValue={watch("tipo_empresa")}
+                onValueChange={(value) => {
+                  setValue("tipo_empresa", value);
+                  setTipoEmpresa(value);
+                }}
+                value={tipoEmpresa}
               >
                 <SelectTrigger
                   className={errors.tipo_empresa ? "border-destructive" : ""}
@@ -486,9 +648,8 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="telefone_contato">Telefone de Contato *</Label>
-              <MaskedInput
+              <Input
                 id="telefone_contato"
-                mask="(99) 99999-9999"
                 {...register("telefone_contato")}
                 placeholder="(00) 00000-0000"
                 className={errors.telefone_contato ? "border-destructive" : ""}
@@ -513,9 +674,8 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="telefone_comercial">Telefone Comercial</Label>
-              <MaskedInput
+              <Input
                 id="telefone_comercial"
-                mask="(99) 9999-9999"
                 {...register("telefone_comercial")}
                 placeholder="(00) 0000-0000"
               />
@@ -570,7 +730,7 @@ export default function ClientForm({
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
               <Select
                 onValueChange={(value) => setValue("regime_tributacao", value)}
-                defaultValue={watch("regime_tributacao")}
+                value={watch("regime_tributacao") || ""}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o regime" />
@@ -664,12 +824,7 @@ export default function ClientForm({
         <TabsContent value="address" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cep">CEP</Label>
-            <MaskedInput
-              id="cep"
-              mask="99999-999"
-              {...register("cep")}
-              placeholder="00000-000"
-            />
+            <Input id="cep" {...register("cep")} placeholder="00000-000" />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -705,7 +860,7 @@ export default function ClientForm({
             <Label htmlFor="uf">UF</Label>
             <Select
               onValueChange={(value) => setValue("uf", value)}
-              defaultValue={watch("uf")}
+              value={watch("uf") || ""}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o estado" />
@@ -740,27 +895,6 @@ export default function ClientForm({
                 <SelectItem value="TO">TO</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </TabsContent>
-
-        {/* Aba Anotações */}
-        <TabsContent value="notes" className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="anotacoes_anteriores">
-              Anotações e Observações
-            </Label>
-            <Textarea
-              id="anotacoes_anteriores"
-              {...register("anotacoes_anteriores")}
-              rows={12}
-              placeholder="Adicione anotações, observações e informações importantes sobre este cliente..."
-              className="resize-none"
-            />
-            <p className="text-xs text-muted-foreground">
-              Use este espaço para registrar informações importantes, histórico
-              de comunicações, pendências ou qualquer outra informação relevante
-              sobre este cliente.
-            </p>
           </div>
         </TabsContent>
       </Tabs>

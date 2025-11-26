@@ -571,11 +571,7 @@ export default function Clients() {
               <ClientDetail
                 clientId={selectedClient.id}
                 client={selectedClient as any}
-                onEdit={(client) => {
-                  setSelectedClient(client);
-                  setIsDetailOpen(false);
-                  setIsFormOpen(true);
-                }}
+                onEdit={() => handleEdit(selectedClient)}
                 onBack={() => setIsDetailOpen(false)}
                 onAddPerdComp={() => {
                   navigate(`/perdcomps?newWithClient=${selectedClient.id}`);
