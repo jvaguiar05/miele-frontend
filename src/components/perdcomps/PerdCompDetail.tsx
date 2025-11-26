@@ -65,7 +65,7 @@ export default function PerdCompDetail({
       }
     };
     loadData();
-  }, [perdcompId]);
+  }, [perdcompId, fetchPerdCompById, fetchClientById]);
 
   if (loading || !selectedPerdComp) {
     return (

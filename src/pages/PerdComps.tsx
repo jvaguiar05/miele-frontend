@@ -1,13 +1,49 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Upload, Download, FileText, Search, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Plus,
+  Upload,
+  Download,
+  FileText,
+  Search,
+  Check,
+  ChevronsUpDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import PerdCompTable from "@/components/perdcomps/PerdCompTable";
 import PerdCompForm from "@/components/perdcomps/PerdCompForm";
@@ -32,22 +68,24 @@ export default function PerdCompsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editingPerdComp, setEditingPerdComp] = useState<PerdComp | null>(null);
-  const [preSelectedClientId, setPreSelectedClientId] = useState<string | null>(null);
+  const [preSelectedClientId, setPreSelectedClientId] = useState<string | null>(
+    null
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterClient, setFilterClient] = useState<string>("all");
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [clientSearchQuery, setClientSearchQuery] = useState("");
-  
-  const { 
-    perdcomps, 
-    fetchPerdComps, 
+
+  const {
+    perdcomps,
+    fetchPerdComps,
     searchPerdComps,
     isLoading,
     currentPage,
     totalPages,
     setCurrentPage,
-    selectedPerdComp: storePerdComp
+    selectedPerdComp: storePerdComp,
   } = usePerdCompStore();
   const { clients, fetchClients } = useClientStore();
   const { toast } = useToast();
@@ -82,9 +120,9 @@ export default function PerdCompsPage() {
       if (!searchQuery) {
         fetchPerdComps(currentPage);
       }
-      
+
       // Check if we need to open the form with a pre-selected client
-      const newWithClient = searchParams.get('newWithClient');
+      const newWithClient = searchParams.get("newWithClient");
       if (newWithClient) {
         setPreSelectedClientId(newWithClient);
         setIsFormOpen(true);
@@ -114,15 +152,26 @@ export default function PerdCompsPage() {
     setEditingPerdComp(null);
     setPreSelectedClientId(null);
     fetchPerdComps();
+    // If we have an ID in the route (detail view is open), navigate back to main page
+    if (id) {
+      navigate("/perdcomps");
+    }
   };
 
-  const filteredClients = clients.filter(client =>
-    clientSearchQuery === "" || 
-    (client.nome_fantasia?.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
-     client.razao_social?.toLowerCase().includes(clientSearchQuery.toLowerCase()))
+  const filteredClients = clients.filter(
+    (client) =>
+      clientSearchQuery === "" ||
+      client.nome_fantasia
+        ?.toLowerCase()
+        .includes(clientSearchQuery.toLowerCase()) ||
+      client.razao_social
+        ?.toLowerCase()
+        .includes(clientSearchQuery.toLowerCase())
   );
 
-  const selectedClient = clients.find(client => client.id.toString() === filterClient);
+  const selectedClient = clients.find(
+    (client) => client.id.toString() === filterClient
+  );
 
   const handleClientSelect = (clientId: string) => {
     setFilterClient(clientId);
@@ -144,15 +193,19 @@ export default function PerdCompsPage() {
     });
   };
 
-  const filteredPerdComps = perdcomps.filter(pc => {
-    const matchesStatus = filterStatus === "all" || 
+  const filteredPerdComps = perdcomps.filter((pc) => {
+    const matchesStatus =
+      filterStatus === "all" ||
       (filterStatus === "approved" && pc.status === "DEFERIDO") ||
-      (filterStatus === "pending" && (pc.status === "RASCUNHO" || pc.status === "TRANSMITIDO" || pc.status === "EM_PROCESSAMENTO")) ||
+      (filterStatus === "pending" &&
+        (pc.status === "RASCUNHO" ||
+          pc.status === "TRANSMITIDO" ||
+          pc.status === "EM_PROCESSAMENTO")) ||
       (filterStatus === "rejected" && pc.status === "INDEFERIDO");
-    
-    const matchesClient = filterClient === "all" || 
-      pc.client_id === filterClient;
-    
+
+    const matchesClient =
+      filterClient === "all" || pc.client_id === Number(filterClient);
+
     return matchesStatus && matchesClient;
   });
 
@@ -216,22 +269,40 @@ export default function PerdCompsPage() {
           <Card className="p-4 bg-card/50 backdrop-blur border-primary/10">
             <p className="text-sm text-muted-foreground">Pendentes</p>
             <p className="text-2xl font-bold text-yellow-600">
-              {perdcomps.filter(p => p.status === "RASCUNHO" || p.status === "TRANSMITIDO" || p.status === "EM_PROCESSAMENTO").length}
+              {
+                perdcomps.filter(
+                  (p) =>
+                    p.status === "RASCUNHO" ||
+                    p.status === "TRANSMITIDO" ||
+                    p.status === "EM_PROCESSAMENTO"
+                ).length
+              }
             </p>
           </Card>
           <Card className="p-4 bg-card/50 backdrop-blur border-primary/10">
             <p className="text-sm text-muted-foreground">Deferidos</p>
             <p className="text-2xl font-bold text-green-600">
-              {perdcomps.filter(p => p.status === "DEFERIDO" || p.status === "PARCIALMENTE_DEFERIDO").length}
+              {
+                perdcomps.filter(
+                  (p) =>
+                    p.status === "DEFERIDO" ||
+                    p.status === "PARCIALMENTE_DEFERIDO"
+                ).length
+              }
             </p>
           </Card>
           <Card className="p-4 bg-card/50 backdrop-blur border-primary/10">
             <p className="text-sm text-muted-foreground">Valor Total</p>
             <p className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { 
-                style: 'currency', 
-                currency: 'BRL' 
-              }).format(perdcomps.reduce((acc, p) => acc + parseFloat(p.valor_pedido || '0'), 0))}
+              {new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(
+                perdcomps.reduce(
+                  (acc, p) => acc + parseFloat(p.valor_pedido || "0"),
+                  0
+                )
+              )}
             </p>
           </Card>
         </div>
@@ -269,10 +340,10 @@ export default function PerdCompsPage() {
                   <div className="flex items-center gap-2">
                     <Search className="h-4 w-4 text-muted-foreground" />
                     <span className="truncate">
-                      {selectedClient 
-                        ? (selectedClient.nome_fantasia || selectedClient.razao_social)
-                        : "Buscar cliente..."
-                      }
+                      {selectedClient
+                        ? selectedClient.nome_fantasia ||
+                          selectedClient.razao_social
+                        : "Buscar cliente..."}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -303,12 +374,18 @@ export default function PerdCompsPage() {
                       {filteredClients.map((client) => (
                         <CommandItem
                           key={client.id}
-                          value={client.nome_fantasia || client.razao_social || ""}
-                          onSelect={() => handleClientSelect(client.id.toString())}
+                          value={
+                            client.nome_fantasia || client.razao_social || ""
+                          }
+                          onSelect={() =>
+                            handleClientSelect(client.id.toString())
+                          }
                         >
                           <Check
                             className={`mr-2 h-4 w-4 ${
-                              filterClient === client.id.toString() ? "opacity-100" : "opacity-0"
+                              filterClient === client.id.toString()
+                                ? "opacity-100"
+                                : "opacity-0"
                             }`}
                           />
                           {client.nome_fantasia || client.razao_social}
@@ -329,7 +406,7 @@ export default function PerdCompsPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : (
-            <PerdCompTable 
+            <PerdCompTable
               perdcomps={filteredPerdComps}
               onEdit={handleEdit}
               onView={handleView}
@@ -345,10 +422,14 @@ export default function PerdCompsPage() {
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => handlePageChange(currentPage - 1)}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    className={
+                      currentPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
-                
+
                 {[...Array(totalPages)].map((_, i) => {
                   const page = i + 1;
                   if (
@@ -371,15 +452,23 @@ export default function PerdCompsPage() {
                     page === currentPage - 2 ||
                     page === currentPage + 2
                   ) {
-                    return <span key={page} className="px-1">...</span>;
+                    return (
+                      <span key={page} className="px-1">
+                        ...
+                      </span>
+                    );
                   }
                   return null;
                 })}
-                
+
                 <PaginationItem>
                   <PaginationNext
                     onClick={() => handlePageChange(currentPage + 1)}
-                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    className={
+                      currentPage === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -389,7 +478,20 @@ export default function PerdCompsPage() {
       </div>
 
       {/* Form Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) {
+            setPreSelectedClientId(null);
+            setEditingPerdComp(null);
+            // If we have an ID in the route (detail view was open), navigate back to main page
+            if (id) {
+              navigate("/perdcomps");
+            }
+          }
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -404,18 +506,25 @@ export default function PerdCompsPage() {
               setIsFormOpen(false);
               setPreSelectedClientId(null);
               setEditingPerdComp(null);
+              // If we have an ID in the route (detail view was open), navigate back to main page
+              if (id) {
+                navigate("/perdcomps");
+              }
             }}
           />
         </DialogContent>
       </Dialog>
 
       {/* Detail Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={(open) => {
-        setIsDetailOpen(open);
-        if (!open && id) {
-          navigate('/perdcomps');
-        }
-      }}>
+      <Dialog
+        open={isDetailOpen}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open && id) {
+            navigate("/perdcomps");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           {id && (
             <PerdCompDetail
@@ -429,7 +538,7 @@ export default function PerdCompsPage() {
               onBack={() => {
                 setIsDetailOpen(false);
                 if (id) {
-                  navigate('/perdcomps');
+                  navigate("/perdcomps");
                 }
               }}
             />

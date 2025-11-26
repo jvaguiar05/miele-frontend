@@ -299,12 +299,12 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id || perdcomp.public_id === id
+          perdcomp.id.toString() === id.toString() || perdcomp.public_id === id
             ? updatedPerdComp
             : perdcomp
         ),
         selectedPerdComp:
-          state.selectedPerdComp?.id === id ||
+          state.selectedPerdComp?.id.toString() === id.toString() ||
           state.selectedPerdComp?.public_id === id
             ? updatedPerdComp
             : state.selectedPerdComp,

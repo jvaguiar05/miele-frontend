@@ -241,9 +241,6 @@ export default function PerdCompForm({
   }, [clientId, perdcomp, fetchClientById, setValue]);
 
   const onSubmit = async (data: PerdCompFormData) => {
-    console.log("Form submitted with data:", data);
-    console.log("PerdComp ID:", perdcomp?.id);
-
     try {
       // Convert client_id from string to number and prepare data for API
       const apiData = {
@@ -276,7 +273,6 @@ export default function PerdCompForm({
   };
 
   const onInvalid = (errors: any) => {
-    console.log("Form validation errors:", errors);
     toast({
       title: "Erro de validação",
       description:
