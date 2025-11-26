@@ -348,11 +348,11 @@ export default function PerdCompsPage() {
                   variant="outline"
                   role="combobox"
                   aria-expanded={clientSearchOpen}
-                  className="w-full md:w-[200px] justify-between"
+                  className="w-full md:w-[250px] justify-between"
                 >
-                  <div className="flex items-center gap-2">
-                    <Search className="h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="truncate text-sm">
                       {selectedClient
                         ? selectedClient.nome_fantasia ||
                           selectedClient.razao_social
@@ -362,7 +362,7 @@ export default function PerdCompsPage() {
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0 z-50 bg-popover border shadow-md">
+              <PopoverContent className="w-[300px] max-w-[90vw] p-0 z-50 bg-popover border shadow-md">
                 <Command>
                   <CommandInput
                     placeholder="Buscar cliente..."
@@ -393,15 +393,18 @@ export default function PerdCompsPage() {
                           onSelect={() =>
                             handleClientSelect(client.id.toString())
                           }
+                          className="cursor-pointer"
                         >
                           <Check
-                            className={`mr-2 h-4 w-4 ${
+                            className={`mr-2 h-4 w-4 shrink-0 ${
                               filterClient === client.id.toString()
                                 ? "opacity-100"
                                 : "opacity-0"
                             }`}
                           />
-                          {client.nome_fantasia || client.razao_social}
+                          <span className="truncate text-sm">
+                            {client.nome_fantasia || client.razao_social}
+                          </span>
                         </CommandItem>
                       ))}
                     </CommandGroup>
