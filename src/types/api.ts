@@ -88,18 +88,22 @@ export interface Client {
   website?: string | null;
   telefone_contato?: string | null;
   email_contato?: string | null;
-  quadro_societario?: Record<string, unknown>; // JSON field
-  cargos?: Record<string, unknown>; // JSON field
+  quadro_societario?: Array<{
+    nome: string;
+    cargo: string;
+  }>; // Merged JSONB field
   responsavel_financeiro?: string | null;
   contador_responsavel?: string | null;
-  cnaes?: Record<string, unknown>[]; // JSON field
+  atividades?: Array<{
+    cnae: string;
+    descricao: string;
+  }>; // Merged JSONB field
   regime_tributacao?: Record<string, unknown>; // JSON field
   contrato_social?: string | null;
   ultima_alteracao_contratual?: string | null;
   rg_cpf_socios?: string | null;
   certificado_digital?: string | null;
   autorizado_para_envio?: boolean | null;
-  atividades?: Record<string, unknown>[]; // JSON field
   client_status?: Record<string, unknown>; // JSON field
   is_active?: boolean | null;
 

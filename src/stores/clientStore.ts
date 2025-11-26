@@ -36,24 +36,22 @@ export interface Client {
   website?: string | null;
   telefone_contato?: string | null;
   email_contato?: string | null;
-  quadro_societario?: any[]; // Array of objects
-  cargos?: { [key: string]: string }; // Object with key-value pairs
+  quadro_societario?: Array<{
+    nome: string;
+    cargo: string;
+  }>; // Merged JSONB field with person and role info
   responsavel_financeiro?: string | null;
   contador_responsavel?: string | null;
-  cnaes?: string[]; // Array of strings
   regime_tributacao?: string | null;
   contrato_social?: string | null;
   ultima_alteracao_contratual?: string | null;
   rg_cpf_socios?: string | null;
   certificado_digital?: string | null;
   autorizado_para_envio?: boolean | null;
-  atividades?:
-    | {
-        principal?: { text: string } | null;
-        secundarias?: { text: string }[];
-      }
-    | { [key: string]: string }
-    | null; // Support both new structured format and legacy format
+  atividades?: Array<{
+    cnae: string;
+    descricao: string;
+  }>; // Merged JSONB field with CNAE and description
   client_status?: string | null;
   is_active?: boolean | null;
   address?: {

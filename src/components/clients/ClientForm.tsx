@@ -44,14 +44,13 @@ const clientSchema = z.object({
       message: "Email inválido",
     }),
 
-  // Dados societários
-  quadro_societario: z.string().optional(),
-  cargos: z.string().optional(),
+  // Dados societários e atividades (merged JSONB fields)
+  quadro_societario: z.string().optional(), // JSON string for form input
+  atividades: z.string().optional(), // JSON string for form input
   responsavel_financeiro: z.string().optional(),
   contador_responsavel: z.string().optional(),
 
   // Dados fiscais
-  cnaes: z.string().optional(),
   regime_tributacao: z.string().optional(),
 
   // Documentos
@@ -62,7 +61,6 @@ const clientSchema = z.object({
 
   // Controles
   autorizado_para_envio: z.boolean().default(false),
-  atividades: z.string().optional(),
   client_status: z.string().optional(),
   is_active: z.boolean().default(true),
 
@@ -138,26 +136,18 @@ const convertClientToForm = (client: Client): ClientFormData => {
     uf: client.address?.uf || "",
     cep: client.address?.cep || "",
 
-    // Handle complex object fields - convert to strings for form
+    // Handle complex JSONB fields - convert to strings for form
     quadro_societario: Array.isArray(client.quadro_societario)
       ? JSON.stringify(client.quadro_societario)
       : typeof client.quadro_societario === "object" && client.quadro_societario
       ? JSON.stringify(client.quadro_societario)
       : client.quadro_societario || "",
 
-    cargos:
-      typeof client.cargos === "object" && client.cargos
-        ? JSON.stringify(client.cargos)
-        : client.cargos || "",
-
-    atividades:
-      typeof client.atividades === "object" && client.atividades
-        ? JSON.stringify(client.atividades)
-        : client.atividades || "",
-
-    cnaes: Array.isArray(client.cnaes)
-      ? client.cnaes.join(", ")
-      : client.cnaes || "",
+    atividades: Array.isArray(client.atividades)
+      ? JSON.stringify(client.atividades)
+      : typeof client.atividades === "object" && client.atividades
+      ? JSON.stringify(client.atividades)
+      : client.atividades || "",
   };
 
   console.log("Converted form data:", JSON.stringify(formData, null, 2)); // Debug log
@@ -179,19 +169,14 @@ const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
     try {
       clientData.quadro_societario = JSON.parse(clientData.quadro_societario);
     } catch {
-      // If not valid JSON, convert to array
+      // If not valid JSON, convert to array with nome/cargo structure
       clientData.quadro_societario = clientData.quadro_societario
         .split(",")
-        .map((s: string) => s.trim())
-        .filter(Boolean);
-    }
-  }
-
-  if (clientData.cargos && typeof clientData.cargos === "string") {
-    try {
-      clientData.cargos = JSON.parse(clientData.cargos);
-    } catch {
-      clientData.cargos = { principal: clientData.cargos };
+        .map((s: string) => ({
+          nome: s.trim(),
+          cargo: "Não informado",
+        }))
+        .filter((item: any) => item.nome);
     }
   }
 
@@ -199,15 +184,15 @@ const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
     try {
       clientData.atividades = JSON.parse(clientData.atividades);
     } catch {
-      clientData.atividades = { principal: clientData.atividades };
+      // If not valid JSON, convert to array with cnae/descricao structure
+      clientData.atividades = clientData.atividades
+        .split(",")
+        .map((s: string) => ({
+          cnae: s.trim(),
+          descricao: "Descrição não informada",
+        }))
+        .filter((item: any) => item.cnae);
     }
-  }
-
-  if (clientData.cnaes && typeof clientData.cnaes === "string") {
-    clientData.cnaes = clientData.cnaes
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean);
   }
 
   // Remove empty fields from the request body
@@ -362,37 +347,42 @@ export default function ClientForm({
         setTipoEmpresa(tipoEmpresaValue);
       }
 
-      // Map CNAEs
-      if (data.atividade_principal && data.atividade_principal.length > 0) {
-        const cnaes = [data.atividade_principal[0].code];
+      // Map CNAEs and Atividades to new merged structure
+      if (data.atividade_principal || data.atividades_secundarias) {
+        const atividades = [];
+
+        // Add principal activity
+        if (data.atividade_principal && data.atividade_principal.length > 0) {
+          atividades.push({
+            cnae: data.atividade_principal[0].code,
+            descricao: data.atividade_principal[0].text,
+          });
+        }
+
+        // Add secondary activities
         if (
           data.atividades_secundarias &&
           data.atividades_secundarias.length > 0
         ) {
           const secundarias = data.atividades_secundarias
-            .slice(0, 3)
-            .map((ativ) => ativ.code);
-          cnaes.push(...secundarias);
+            .slice(0, 4) // Limit to first 4 secondary activities
+            .map((ativ) => ({
+              cnae: ativ.code,
+              descricao: ativ.text,
+            }));
+          atividades.push(...secundarias);
         }
-        setValue("cnaes", cnaes.join(", "));
-      }
 
-      // Map Atividades (structured activity data for JSONB field)
-      if (data.atividade_principal || data.atividades_secundarias) {
-        const atividades = {
-          principal: data.atividade_principal?.[0]
-            ? { text: data.atividade_principal[0].text }
-            : null,
-          secundarias: data.atividades_secundarias
-            ? data.atividades_secundarias.map((ativ) => ({ text: ativ.text }))
-            : [],
-        };
         setValue("atividades", JSON.stringify(atividades));
       }
 
-      // Map QSA to Quadro Societário
+      // Map QSA to Quadro Societário with new structure
       if (data.qsa && data.qsa.length > 0) {
-        setValue("quadro_societario", JSON.stringify(data.qsa));
+        const quadroSocietario = data.qsa.map((socio) => ({
+          nome: socio.nome,
+          cargo: socio.qual,
+        }));
+        setValue("quadro_societario", JSON.stringify(quadroSocietario));
       }
 
       // Map ultima_atualizacao to Data da Última Alteração Contratual
@@ -715,17 +705,7 @@ export default function ClientForm({
 
         {/* Aba Fiscal */}
         <TabsContent value="fiscal" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cnaes">CNAEs (separe por vírgula)</Label>
-              <Textarea
-                id="cnaes"
-                {...register("cnaes")}
-                placeholder="Ex: 6201-5/00, 6202-3/00"
-                rows={3}
-              />
-            </div>
-
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
               <Select
@@ -746,33 +726,31 @@ export default function ClientForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="quadro_societario">Quadro Societário (JSON)</Label>
-            <Textarea
-              id="quadro_societario"
-              {...register("quadro_societario")}
-              placeholder='Ex: [{"nome": "João Silva", "cpf": "000.000.000-00", "participacao": "50%"}]'
-              rows={5}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cargos">Cargos e Responsabilidades (JSON)</Label>
-            <Textarea
-              id="cargos"
-              {...register("cargos")}
-              placeholder='Ex: {"diretor": "João Silva", "gerente": "Maria Santos"}'
-              rows={4}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="atividades">Atividades da Empresa (JSON)</Label>
             <Textarea
               id="atividades"
               {...register("atividades")}
-              placeholder='Ex: {"principal": "Desenvolvimento de software", "secundarias": ["Consultoria", "Treinamento"]}'
-              rows={4}
+              placeholder='Ex: [{"cnae": "6201-5/00", "descricao": "Desenvolvimento de software"}, {"cnae": "6202-3/00", "descricao": "Consultoria em TI"}]'
+              rows={6}
             />
+            <p className="text-sm text-muted-foreground">
+              Formato: Array de objetos com CNAE e descrição. Será preenchido
+              automaticamente ao buscar dados do CNPJ.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="quadro_societario">Quadro Societário (JSON)</Label>
+            <Textarea
+              id="quadro_societario"
+              {...register("quadro_societario")}
+              placeholder='Ex: [{"nome": "João Silva", "cargo": "Administrador"}, {"nome": "Maria Santos", "cargo": "Sócia"}]'
+              rows={6}
+            />
+            <p className="text-sm text-muted-foreground">
+              Formato: Array de objetos com nome e cargo. Será preenchido
+              automaticamente ao buscar dados do CNPJ.
+            </p>
           </div>
         </TabsContent>
 

@@ -201,14 +201,6 @@ export default function ClientDetail({
                   <p>{displayClient.regime_tributacao || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">CNAEs</p>
-                  <p>
-                    {Array.isArray(displayClient.cnaes)
-                      ? displayClient.cnaes.join(", ")
-                      : displayClient.cnaes || "-"}
-                  </p>
-                </div>
-                <div>
                   <p className="text-sm text-muted-foreground">
                     Recuperação Judicial
                   </p>
@@ -246,9 +238,45 @@ export default function ClientDetail({
                       Atividades
                     </p>
                     <div className="text-sm space-y-2">
-                      {typeof displayClient.atividades === "object" ? (
+                      {Array.isArray(displayClient.atividades) ? (
+                        displayClient.atividades.map((ativ, index) => {
+                          // Handle different object formats
+                          if (typeof ativ === "object" && ativ !== null) {
+                            // Use type assertion for flexible property access
+                            const ativObj = ativ as any;
+                            // Try to extract CNAE and description from various possible formats
+                            const cnae =
+                              ativObj.cnae ||
+                              ativObj.code ||
+                              ativObj.codigo ||
+                              `Item ${index + 1}`;
+                            const descricao =
+                              ativObj.descricao ||
+                              ativObj.description ||
+                              ativObj.text ||
+                              ativObj.atividade ||
+                              "Descrição não disponível";
+
+                            return (
+                              <div key={index} className="text-sm">
+                                <span className="font-medium">{cnae}</span>
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  - {descricao}
+                                </span>
+                              </div>
+                            );
+                          }
+                          // Handle string format
+                          return (
+                            <div key={index} className="text-sm">
+                              {String(ativ)}
+                            </div>
+                          );
+                        })
+                      ) : typeof displayClient.atividades === "object" ? (
                         <>
-                          {/* Check if it's the new structured format */}
+                          {/* Legacy format support */}
                           {(displayClient.atividades as any).principal && (
                             <div>
                               <strong>Principal:</strong>{" "}
@@ -272,7 +300,7 @@ export default function ClientDetail({
                                 </ul>
                               </div>
                             )}
-                          {/* Fallback for legacy format */}
+                          {/* Fallback for other object formats */}
                           {!(displayClient.atividades as any).principal &&
                             !(displayClient.atividades as any).secundarias &&
                             Object.entries(displayClient.atividades).map(
@@ -284,7 +312,7 @@ export default function ClientDetail({
                             )}
                         </>
                       ) : (
-                        <p>{displayClient.atividades}</p>
+                        <p>{String(displayClient.atividades)}</p>
                       )}
                     </div>
                   </div>
@@ -389,7 +417,7 @@ export default function ClientDetail({
                           <strong>
                             {socio?.nome || `Sócio ${index + 1}`}:
                           </strong>{" "}
-                          {socio?.participacao || "N/A"}
+                          {socio?.cargo || "N/A"}
                         </p>
                       )
                     )}
@@ -397,21 +425,6 @@ export default function ClientDetail({
                 ) : (
                   <p>{displayClient.quadro_societario || "Não informado"}</p>
                 )}
-                {displayClient.cargos &&
-                  typeof displayClient.cargos === "object" && (
-                    <div className="mt-2">
-                      <p className="text-sm text-muted-foreground mb-1">
-                        Cargos:
-                      </p>
-                      {Object.entries(displayClient.cargos).map(
-                        ([cargo, pessoa]) => (
-                          <p key={cargo} className="text-sm">
-                            <strong>{cargo}:</strong> {String(pessoa)}
-                          </p>
-                        )
-                      )}
-                    </div>
-                  )}
                 {displayClient.contador_responsavel && (
                   <p className="text-sm text-muted-foreground">
                     Contador: {displayClient.contador_responsavel}
