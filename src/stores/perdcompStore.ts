@@ -34,24 +34,17 @@ export type PerDcompStatus =
 
 // PerdComp interface matching Django API structure
 export interface PerdComp {
-  id: number;
-  public_id?: string;
+  id: string; // UUID from API
+  public_id?: string; // Keep for backward compatibility
   created_by?: number;
-  client_id: number;
-
-  // Dados do cliente (desnormalizado ou via relation)
+  client_name?: string; // From API response
+  created_by_name?: string; // From API response
   cnpj?: string;
-  client?: {
-    id: number;
-    cnpj: string;
-    razao_social: string;
-    nome_fantasia: string;
-  };
 
   // Identificação do processo
   numero: string;
   numero_perdcomp?: string;
-  processo_protocolo?: string;
+  processo_protocolo?: number; // Number in API response
 
   // Datas importantes
   data_transmissao?: string;
@@ -81,14 +74,19 @@ export interface PerdComp {
   created_at?: string;
   updated_at?: string;
   deleted_at?: string;
+
+  // Additional fields from API response
+  esta_vencido?: boolean;
+  pode_ser_editado?: boolean;
+  pode_ser_cancelado?: boolean;
 }
 
 interface PerdCompFilters {
-  client_id?: number;
   status?: PerDcompStatus | "all";
   tributo_pedido?: string;
   data_transmissao_after?: string;
   data_transmissao_before?: string;
+  cnpj?: string; // For client filtering
   data_vencimento_after?: string;
   data_vencimento_before?: string;
   is_active?: boolean;

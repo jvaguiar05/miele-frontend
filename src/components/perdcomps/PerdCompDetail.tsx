@@ -24,7 +24,7 @@ export default function PerdCompDetail({
 }: PerdCompDetailProps) {
   const { selectedPerdComp, fetchPerdCompById, deleteAnnotation } =
     usePerdCompStore();
-  const { fetchClientById } = useClientStore();
+  const { fetchClientById, clients, fetchClients } = useClientStore();
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAddAnnotationForm, setShowAddAnnotationForm] = useState(false);
@@ -56,16 +56,26 @@ export default function PerdCompDetail({
       setLoading(true);
       try {
         const perdcomp = await fetchPerdCompById(perdcompId);
-        if (perdcomp?.client_id) {
-          const clientData = await fetchClientById(perdcomp.client_id);
-          setClient(clientData);
+        // Find client by CNPJ if available
+        if (perdcomp?.cnpj && clients.length > 0) {
+          const clientData = clients.find((c) => c.cnpj === perdcomp.cnpj);
+          if (clientData) {
+            setClient(clientData);
+          }
         }
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, [perdcompId, fetchPerdCompById, fetchClientById]);
+  }, [perdcompId, fetchPerdCompById, clients]);
+
+  // Load clients if not already loaded
+  useEffect(() => {
+    if (clients.length === 0) {
+      fetchClients();
+    }
+  }, [clients, fetchClients]);
 
   if (loading || !selectedPerdComp) {
     return (

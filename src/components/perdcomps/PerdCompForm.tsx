@@ -139,11 +139,11 @@ export default function PerdCompForm({
     resolver: zodResolver(perdcompSchema),
     defaultValues: perdcomp
       ? {
-          client_id: perdcomp.client_id?.toString() || "",
+          client_id: "", // Will be set when we find the client by CNPJ
           cnpj: perdcomp.cnpj,
           numero: perdcomp.numero,
           numero_perdcomp: perdcomp.numero_perdcomp,
-          processo_protocolo: perdcomp.processo_protocolo,
+          processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
           // Convert dates from YYYY-MM-DD to YYYY-MM-DDTHH:mm for datetime-local inputs
           data_transmissao: perdcomp.data_transmissao
             ? perdcomp.data_transmissao.includes("T")
@@ -196,11 +196,11 @@ export default function PerdCompForm({
       };
 
       reset({
-        client_id: perdcomp.client_id?.toString() || "",
+        client_id: "", // Will be set when client is selected
         cnpj: perdcomp.cnpj,
         numero: perdcomp.numero,
         numero_perdcomp: perdcomp.numero_perdcomp,
-        processo_protocolo: perdcomp.processo_protocolo,
+        processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
         data_transmissao: formatDateForInput(perdcomp.data_transmissao),
         data_vencimento: formatDateForInput(perdcomp.data_vencimento),
         data_competencia: formatDateForInput(perdcomp.data_competencia),
@@ -220,17 +220,23 @@ export default function PerdCompForm({
   // Fetch client data when clientId is provided OR when perdcomp is loaded
   useEffect(() => {
     const loadClientData = async () => {
-      const targetClientId = perdcomp?.client_id?.toString() || clientId;
-
-      if (targetClientId) {
-        try {
-          const client = await fetchClientById(targetClientId);
+      // If editing a PerdComp, find client by CNPJ
+      if (perdcomp?.cnpj && clients.length > 0) {
+        const client = clients.find((c) => c.cnpj === perdcomp.cnpj);
+        if (client) {
           setSelectedClientData(client);
+          setValue("client_id", client.id);
+          return;
+        }
+      }
 
-          // Always set the client's CNPJ for new perdcomps, or perdcomp's CNPJ for edits
-          if (perdcomp?.cnpj) {
-            setValue("cnpj", perdcomp.cnpj);
-          } else if (client?.cnpj) {
+      // If creating new with pre-selected client
+      if (clientId) {
+        try {
+          const client = await fetchClientById(clientId);
+          setSelectedClientData(client);
+          setValue("client_id", clientId);
+          if (client?.cnpj) {
             setValue("cnpj", client.cnpj);
           }
         } catch (error) {
@@ -239,16 +245,16 @@ export default function PerdCompForm({
       }
     };
     loadClientData();
-  }, [clientId, perdcomp, fetchClientById, setValue]);
+  }, [clientId, perdcomp, fetchClientById, setValue, clients]);
 
   // Handle client selection change
   const handleClientChange = async (clientId: string) => {
     setValue("client_id", clientId);
-    
+
     try {
       const client = await fetchClientById(clientId);
       setSelectedClientData(client);
-      
+
       // Auto-populate CNPJ when client is selected
       if (client?.cnpj) {
         setValue("cnpj", client.cnpj);
@@ -260,11 +266,43 @@ export default function PerdCompForm({
 
   const onSubmit = async (data: PerdCompFormData) => {
     try {
-      // Convert client_id from string to number and prepare data for API
-      const apiData = {
+      // Validate that CNPJ is present for API requirements
+      if (!data.cnpj || data.cnpj.trim() === "") {
+        toast({
+          title: "Erro",
+          description: "CNPJ é obrigatório. Selecione um cliente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Transform data to match API expectations
+      const apiData: any = {
         ...data,
-        client_id: Number(data.client_id),
+        client_cnpj: data.cnpj, // Send CNPJ for backend identification
+        cnpj: undefined, // Remove separate cnpj field since it's now client_cnpj
       };
+
+      // Convert processo_protocolo to number for API if it exists and is not empty
+      if (data.processo_protocolo && data.processo_protocolo.trim() !== "") {
+        const protocoloNumber = Number(data.processo_protocolo);
+        if (!isNaN(protocoloNumber)) {
+          apiData.processo_protocolo = protocoloNumber;
+        }
+      }
+
+      // Remove undefined/null fields to clean up the payload
+      Object.keys(apiData).forEach((key) => {
+        if (
+          apiData[key] === undefined ||
+          apiData[key] === null ||
+          apiData[key] === ""
+        ) {
+          delete apiData[key];
+        }
+      });
+
+      console.log("Sending PerdComp data to API:", apiData);
 
       if (perdcomp?.id) {
         await updatePerdComp(perdcomp.id, apiData);
@@ -315,7 +353,7 @@ export default function PerdCompForm({
             <Label htmlFor="client_id">Cliente *</Label>
             <Select
               onValueChange={handleClientChange}
-              defaultValue={perdcomp?.client_id?.toString() || clientId}
+              defaultValue={selectedClientData?.id || clientId}
               disabled={!!clientId && !perdcomp}
             >
               <SelectTrigger
@@ -345,12 +383,20 @@ export default function PerdCompForm({
               id="cnpj"
               mask="99.999.999/9999-99"
               {...(!!clientId && !perdcomp ? {} : register("cnpj"))}
-              value={!!clientId && !perdcomp ? selectedClientData?.cnpj || watch("cnpj") || "" : watch("cnpj") || ""}
+              value={
+                !!clientId && !perdcomp
+                  ? selectedClientData?.cnpj || watch("cnpj") || ""
+                  : watch("cnpj") || ""
+              }
               placeholder="00.000.000/0000-00"
               disabled={!!clientId && !perdcomp}
-              className={!!clientId && !perdcomp ? "bg-muted cursor-not-allowed" : ""}
+              className={
+                !!clientId && !perdcomp ? "bg-muted cursor-not-allowed" : ""
+              }
               readOnly={!!clientId && !perdcomp}
-              {...(!!clientId && !perdcomp ? {} : { onChange: (e) => setValue("cnpj", e.target.value) })}
+              {...(!!clientId && !perdcomp
+                ? {}
+                : { onChange: (e) => setValue("cnpj", e.target.value) })}
             />
             {!!clientId && !perdcomp && (
               <p className="text-xs text-muted-foreground">

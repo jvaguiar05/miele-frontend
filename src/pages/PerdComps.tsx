@@ -173,10 +173,25 @@ export default function PerdCompsPage() {
     (client) => client.id.toString() === filterClient
   );
 
+  // Handle client filter change - use backend search
   const handleClientSelect = (clientId: string) => {
     setFilterClient(clientId);
     setClientSearchOpen(false);
     setClientSearchQuery("");
+
+    // Apply filter via backend search
+    if (clientId === "all") {
+      // Clear search, fetch all
+      setSearchQuery("");
+      fetchPerdComps(1, "");
+    } else {
+      // Find client CNPJ and search by it
+      const selectedClient = clients.find((c) => c.id === clientId);
+      if (selectedClient) {
+        setSearchQuery(selectedClient.cnpj);
+        searchPerdComps(selectedClient.cnpj);
+      }
+    }
   };
 
   const handleExportExcel = () => {
@@ -193,6 +208,7 @@ export default function PerdCompsPage() {
     });
   };
 
+  // Apply status filter client-side (can be moved to backend later)
   const filteredPerdComps = perdcomps.filter((pc) => {
     const matchesStatus =
       filterStatus === "all" ||
@@ -203,10 +219,7 @@ export default function PerdCompsPage() {
           pc.status === "EM_PROCESSAMENTO")) ||
       (filterStatus === "rejected" && pc.status === "INDEFERIDO");
 
-    const matchesClient =
-      filterClient === "all" || pc.client_id === Number(filterClient);
-
-    return matchesStatus && matchesClient;
+    return matchesStatus;
   });
 
   const handlePageChange = (page: number) => {
