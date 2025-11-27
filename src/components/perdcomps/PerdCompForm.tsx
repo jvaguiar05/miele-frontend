@@ -32,7 +32,11 @@ const perdcompSchema = z.object({
     .transform((val) => val || undefined),
 
   // Identificação
-  numero: z.string().min(1, "Número é obrigatório"),
+  numero: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || undefined),
   numero_perdcomp: z
     .string()
     .optional()
@@ -407,7 +411,7 @@ export default function PerdCompForm({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="numero">Número do Documento *</Label>
+              <Label htmlFor="numero">Número do Documento</Label>
               <Input
                 id="numero"
                 {...register("numero")}

@@ -622,7 +622,7 @@ export default function ClientForm({
         <TabsContent value="contact" className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email_contato">Email de Contato *</Label>
+              <Label htmlFor="email_contato">Email de Contato</Label>
               <Input
                 id="email_contato"
                 type="email"
@@ -637,7 +637,7 @@ export default function ClientForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telefone_contato">Telefone de Contato *</Label>
+              <Label htmlFor="telefone_contato">Telefone de Contato</Label>
               <Input
                 id="telefone_contato"
                 {...register("telefone_contato")}
