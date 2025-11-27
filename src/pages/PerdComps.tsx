@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 import {
   Plus,
   Upload,
@@ -64,6 +69,7 @@ import {
 export default function PerdCompsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -117,7 +123,12 @@ export default function PerdCompsPage() {
       // If there's an ID in the route, open the detail view
       setIsDetailOpen(true);
     } else {
-      if (!searchQuery) {
+      // Check if we received a client CNPJ to filter by
+      const clientCnpj = location.state?.clientCnpj;
+      if (clientCnpj && !searchQuery) {
+        setSearchQuery(clientCnpj);
+        // The debouncedSearch will trigger and filter by this CNPJ
+      } else if (!searchQuery) {
         fetchPerdComps(currentPage);
       }
 

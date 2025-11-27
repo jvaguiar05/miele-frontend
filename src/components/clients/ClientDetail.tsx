@@ -1,11 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, FileText, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  FileText,
+  Plus,
+  Trash2,
+  Calendar,
+  DollarSign,
+  Eye,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientStore, type Client } from "@/stores/clientStore";
+import { usePerdCompStore, type PerdComp } from "@/stores/perdcompStore";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import PerdCompDetailModal from "@/components/perdcomps/PerdCompDetailModal";
@@ -30,11 +40,18 @@ export default function ClientDetail({
   const navigate = useNavigate();
   const { selectedClient, fetchClientById, deleteAnnotation } =
     useClientStore();
+  const {
+    perdcomps,
+    isLoading: perdcompsLoading,
+    fetchPerdComps,
+  } = usePerdCompStore();
   const [showAddAnnotationForm, setShowAddAnnotationForm] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPerdComp, setSelectedPerdComp] = useState(null);
   const [isPerdCompModalOpen, setIsPerdCompModalOpen] = useState(false);
+  const [clientPerdComps, setClientPerdComps] = useState<PerdComp[]>([]);
+  const [loadingPerdComps, setLoadingPerdComps] = useState(false);
 
   const handleDeleteAnnotation = async (annotationId: string) => {
     if (confirm("Tem certeza que deseja excluir esta anotação?")) {
@@ -45,6 +62,29 @@ export default function ClientDetail({
         console.error("Error deleting annotation:", error);
       }
     }
+  };
+
+  // Function to fetch PerdComps for this client
+  const fetchClientPerdComps = async (cnpj: string) => {
+    if (!cnpj) return;
+
+    setLoadingPerdComps(true);
+    try {
+      // Use the store's fetchPerdComps with search parameter
+      await fetchPerdComps(1, cnpj, { is_active: true });
+      // The store updates its perdcomps state, we can use it directly
+      setClientPerdComps(perdcomps);
+    } catch (error) {
+      console.error("Error fetching client PerdComps:", error);
+      setClientPerdComps([]);
+    } finally {
+      setLoadingPerdComps(false);
+    }
+  };
+
+  // Function to navigate to PerdComp detail page
+  const handleViewPerdComp = (perdcompId: string) => {
+    navigate(`/perdcomps/${perdcompId}`);
   };
 
   const handleEditAnnotation = (annotation: any) => {
@@ -70,6 +110,11 @@ export default function ClientDetail({
       try {
         const fetchedClient = await fetchClientById(clientId);
         console.log("Client fetched successfully:", fetchedClient); // Debug log
+
+        // Fetch PerdComps for this client if CNPJ is available
+        if (fetchedClient?.cnpj) {
+          fetchClientPerdComps(fetchedClient.cnpj);
+        }
       } finally {
         setLoading(false);
       }
@@ -77,6 +122,11 @@ export default function ClientDetail({
 
     loadData();
   }, [clientId, fetchClientById]);
+
+  // Update local perdcomps state when store state changes
+  useEffect(() => {
+    setClientPerdComps(perdcomps);
+  }, [perdcomps]);
 
   if (loading || !displayClient) {
     return (
@@ -596,16 +646,166 @@ export default function ClientDetail({
             </Button>
           </div>
 
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>Nenhum PER/DCOMP encontrado para este cliente</p>
-              <Button className="mt-4" onClick={onAddPerdComp}>
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar Primeiro PER/DCOMP
-              </Button>
-            </CardContent>
-          </Card>
+          {loadingPerdComps ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">
+                  Carregando PER/DCOMPs...
+                </p>
+              </CardContent>
+            </Card>
+          ) : clientPerdComps.length > 0 ? (
+            <div className="space-y-3">
+              {clientPerdComps.map((perdcomp) => (
+                <Card
+                  key={perdcomp.id}
+                  className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/30"
+                >
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-lg text-foreground">
+                            {perdcomp.numero || "Documento sem número"}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Tributo: {perdcomp.tributo_pedido}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          className="text-xs font-medium"
+                          variant={
+                            perdcomp.status === "DEFERIDO"
+                              ? "default"
+                              : perdcomp.status === "INDEFERIDO"
+                              ? "destructive"
+                              : perdcomp.status === "TRANSMITIDO"
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {perdcomp.status}
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewPerdComp(perdcomp.id)}
+                          className="shrink-0"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver Detalhes
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span className="text-xs font-medium uppercase tracking-wide">
+                            Competência
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-foreground pl-6">
+                          {perdcomp.competencia}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <DollarSign className="h-4 w-4" />
+                          <span className="text-xs font-medium uppercase tracking-wide">
+                            Valor Solicitado
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-primary pl-6">
+                          {formatCurrency(Number(perdcomp.valor_pedido) || 0)}
+                        </p>
+                      </div>
+
+                      {perdcomp.data_vencimento && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span className="text-xs font-medium uppercase tracking-wide">
+                              Vencimento
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-foreground pl-6">
+                            {formatDate(perdcomp.data_vencimento)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {(perdcomp.data_transmissao ||
+                      perdcomp.processo_protocolo) && (
+                      <div className="mt-4 pt-4 border-t border-muted/30">
+                        <div className="flex gap-6 text-xs text-muted-foreground">
+                          {perdcomp.data_transmissao && (
+                            <div>
+                              <span className="font-medium">
+                                Transmitido em:
+                              </span>{" "}
+                              {formatDate(perdcomp.data_transmissao)}
+                            </div>
+                          )}
+                          {perdcomp.processo_protocolo && (
+                            <div>
+                              <span className="font-medium">Protocolo:</span>{" "}
+                              {perdcomp.processo_protocolo}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+
+              {clientPerdComps.length === 20 && (
+                <Card>
+                  <CardContent className="py-4 text-center">
+                    <p className="text-muted-foreground text-sm">
+                      Mostrando os primeiros 20 resultados. Para ver todos os
+                      PER/DCOMPs,
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto"
+                        onClick={() =>
+                          navigate("/perdcomps", {
+                            state: {
+                              clientCnpj: (client || selectedClient)?.cnpj,
+                            },
+                          })
+                        }
+                      >
+                        acesse a página de PER/DCOMPs
+                      </Button>
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>Nenhum PER/DCOMP encontrado para este cliente</p>
+                <Button className="mt-4" onClick={onAddPerdComp}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar Primeiro PER/DCOMP
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
