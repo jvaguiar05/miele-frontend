@@ -23,6 +23,7 @@ export interface ActivityLog {
   entity_id?: string;
   entity_name?: string;
   details?: any | null;
+  resource_display_name?: string;
 }
 
 export type ActivityPeriod = "today" | "week" | "month";
