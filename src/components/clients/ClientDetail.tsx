@@ -72,8 +72,15 @@ export default function ClientDetail({
     try {
       // Use the store's fetchPerdComps with search parameter
       await fetchPerdComps(1, cnpj, { is_active: true });
-      // The store updates its perdcomps state, we can use it directly
-      setClientPerdComps(perdcomps);
+
+      // Get current perdcomps from store and filter by client CNPJ
+      const currentPerdComps = usePerdCompStore.getState().perdcomps;
+
+      const filteredPerdComps = currentPerdComps.filter(
+        (perdcomp) => perdcomp.cnpj === cnpj
+      );
+
+      setClientPerdComps(filteredPerdComps);
     } catch (error) {
       console.error("Error fetching client PerdComps:", error);
       setClientPerdComps([]);
@@ -122,11 +129,6 @@ export default function ClientDetail({
 
     loadData();
   }, [clientId, fetchClientById]);
-
-  // Update local perdcomps state when store state changes
-  useEffect(() => {
-    setClientPerdComps(perdcomps);
-  }, [perdcomps]);
 
   if (loading || !displayClient) {
     return (
@@ -722,11 +724,30 @@ export default function ClientDetail({
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <DollarSign className="h-4 w-4" />
                           <span className="text-xs font-medium uppercase tracking-wide">
-                            Valor Solicitado
+                            Valor Pedido
                           </span>
                         </div>
                         <p className="text-sm font-bold text-primary pl-6">
-                          {formatCurrency(Number(perdcomp.valor_pedido) || 0)}
+                          {(() => {
+                            if (!perdcomp.valor_pedido) return "R$ 0,00";
+
+                            // Convert to string and try to parse as number
+                            const valueStr = String(perdcomp.valor_pedido);
+                            let numericValue = parseFloat(valueStr);
+
+                            // If direct parsing fails, clean the string first
+                            if (isNaN(numericValue)) {
+                              const cleanValue = valueStr
+                                .replace(/[^0-9.,]/g, "")
+                                .replace(",", ".");
+                              numericValue = parseFloat(cleanValue);
+                            }
+
+                            const finalValue = isNaN(numericValue)
+                              ? 0
+                              : numericValue;
+                            return formatCurrency(finalValue);
+                          })()}
                         </p>
                       </div>
 
