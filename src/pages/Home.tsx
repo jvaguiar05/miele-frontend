@@ -375,8 +375,20 @@ export default function Home() {
     }
   };
 
-  const displayName =
-    user?.first_name || user?.username || user?.email || "Usuário";
+  const handleCardClick = (href: string) => {
+    if (href === "/activity") {
+      // Scroll to recent activities section instead of navigating
+      const element = document.getElementById("recent-activities");
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    } else {
+      navigate(href);
+    }
+  };
 
   // Helper functions for contextual greeting
   const getGreeting = () => {
@@ -402,6 +414,8 @@ export default function Home() {
 
   const greeting = getGreeting();
   const motivationalMsg = getMotivationalMessage();
+  const displayName =
+    user?.first_name || user?.username || user?.email || "Usuário";
 
   return (
     <div className="min-h-screen bg-background">
@@ -579,7 +593,7 @@ export default function Home() {
               >
                 <Card
                   className="h-full cursor-pointer border border-border/70 shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-300"
-                  onClick={() => navigate(card.href)}
+                  onClick={() => handleCardClick(card.href)}
                 >
                   <CardContent className="p-6 flex flex-col h-full">
                     <div className="flex items-center gap-3 mb-4">
@@ -721,6 +735,7 @@ export default function Home() {
 
         {/* Recent Activity */}
         <motion.section
+          id="recent-activities"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
