@@ -6,14 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -23,29 +15,79 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActivityStore, ActivityLog } from "@/stores/activityStore";
-import { Clock, FileText, Users, ArrowRight, Info } from "lucide-react";
+import {
+  Clock,
+  FileText,
+  Users,
+  ArrowRight,
+  Info,
+  RefreshCw,
+} from "lucide-react";
 
 export function ActivityTable() {
   const navigate = useNavigate();
-  const {
-    activities,
-    loading,
-    totalCount,
-    currentPage,
-    pageSize,
-    fetchActivities,
-    setCurrentPage,
-  } = useActivityStore();
+  const { activities, loading, totalCount, fetchRecentActivities } =
+    useActivityStore();
   const [selectedActivity, setSelectedActivity] = useState<ActivityLog | null>(
     null
   );
   const [showPreview, setShowPreview] = useState(false);
-
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const [period, setPeriod] = useState<"today" | "week" | "month">("today");
 
   useEffect(() => {
-    fetchActivities(1);
-  }, []);
+    // 1. carrega filtro salvo e busca atividades
+    const savedFilter =
+      (localStorage.getItem("dashboard-filter") as
+        | "today"
+        | "week"
+        | "month") || "today";
+
+    setPeriod(savedFilter);
+    fetchRecentActivities(savedFilter);
+
+    // 2. helper para aplicar o filtro vindo de qualquer lugar
+    let lastFilter = savedFilter;
+
+    const applyFilterFromStorage = () => {
+      const currentFilter =
+        (localStorage.getItem("dashboard-filter") as
+          | "today"
+          | "week"
+          | "month") || "today";
+
+      if (currentFilter !== lastFilter) {
+        lastFilter = currentFilter;
+        setPeriod(currentFilter);
+        fetchRecentActivities(currentFilter);
+      }
+    };
+
+    // 3. listener para mudanças entre abas
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === "dashboard-filter") {
+        applyFilterFromStorage();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // 4. polling simples pra pegar mudanças na MESMA aba
+    const intervalId = setInterval(applyFilterFromStorage, 500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(intervalId);
+    };
+  }, [fetchRecentActivities]);
+
+  const refreshActivities = () => {
+    const currentFilter =
+      (localStorage.getItem("dashboard-filter") as
+        | "today"
+        | "week"
+        | "month") || "today";
+    fetchRecentActivities(currentFilter);
+  };
 
   const getIcon = (entityType: string) => {
     switch (entityType) {
@@ -70,10 +112,16 @@ export function ActivityTable() {
   };
 
   const getActionColor = (action: string) => {
-    if (action.includes("cadastrado") || action.includes("criado"))
+    if (
+      action.includes("CREATE") ||
+      action.includes("cadastrado") ||
+      action.includes("criado")
+    )
       return "default";
-    if (action.includes("atualizado")) return "secondary";
-    if (action.includes("removido")) return "destructive";
+    if (action.includes("UPDATE") || action.includes("atualizado"))
+      return "secondary";
+    if (action.includes("DELETE") || action.includes("removido"))
+      return "destructive";
     return "outline";
   };
 
@@ -121,10 +169,26 @@ export function ActivityTable() {
     }
   };
 
+  const getPeriodLabel = () => {
+    switch (period) {
+      case "today":
+        return "Hoje";
+      case "week":
+        return "Esta semana";
+      case "month":
+        return "Este mês";
+      default:
+        return "Hoje";
+    }
+  };
+
   if (loading && activities.length === 0) {
     return (
       <Card className="p-6 border-border/50 bg-card/50 backdrop-blur">
-        <h2 className="text-xl font-semibold mb-4">Atividade Recente</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Atividade Recente</h2>
+          <Skeleton className="h-6 w-24" />
+        </div>
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-16 w-full" />
@@ -137,111 +201,72 @@ export function ActivityTable() {
   return (
     <>
       <Card className="p-6 border-border/50 bg-card/50 backdrop-blur">
-        {activities.length === 0 ? (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Atividade Recente</h2>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              {getPeriodLabel()} • {totalCount} itens
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshActivities}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+            </Button>
+          </div>
+        </div>
+
+        {activities.length === 0 && !loading ? (
           <div className="text-center py-8 text-muted-foreground">
-            Nenhuma atividade registrada ainda.
+            Nenhuma atividade registrada para {getPeriodLabel().toLowerCase()}.
           </div>
         ) : (
-          <>
-            <ScrollArea className="h-[400px] pr-4">
-              <div className="space-y-3">
-                {activities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    onClick={() => handleActivityClick(activity)}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        {getIcon(activity.entity_type)}
-                      </div>
-                      <div>
-                        <p className="font-medium">{activity.action}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {activity.entity_name && (
-                            <span className="text-sm text-muted-foreground">
-                              {activity.entity_name}
-                            </span>
-                          )}
-                          <Badge variant="outline" className="text-xs">
-                            {getEntityTypeLabel(activity.entity_type)}
-                          </Badge>
-                        </div>
-                      </div>
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-3">
+              {activities.map((activity) => (
+                <div
+                  key={activity.id}
+                  onClick={() => handleActivityClick(activity)}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      {getIcon(
+                        activity.entity_type ||
+                          activity.resource_type.split(".")[1]
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {formatTime(activity.created_at)}
-                      </span>
-                      <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div>
+                      <p className="font-medium">{activity.action}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {activity.entity_name && (
+                          <span className="text-sm text-muted-foreground">
+                            {activity.entity_name}
+                          </span>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {getEntityTypeLabel(
+                            activity.entity_type ||
+                              activity.resource_type.split(".")[1]
+                          )}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
-
-            {totalPages > 1 && (
-              <div className="mt-4 pt-4 border-t border-border/50">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() =>
-                          currentPage > 1 && setCurrentPage(currentPage - 1)
-                        }
-                        className={
-                          currentPage === 1
-                            ? "pointer-events-none opacity-50"
-                            : "cursor-pointer"
-                        }
-                      />
-                    </PaginationItem>
-
-                    {[...Array(totalPages)].map((_, i) => {
-                      const page = i + 1;
-                      if (
-                        page === 1 ||
-                        page === totalPages ||
-                        (page >= currentPage - 1 && page <= currentPage + 1)
-                      ) {
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(page)}
-                              isActive={currentPage === page}
-                              className="cursor-pointer"
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      } else if (
-                        page === currentPage - 2 ||
-                        page === currentPage + 2
-                      ) {
-                        return <span key={page}>...</span>;
-                      }
-                      return null;
-                    })}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() =>
-                          currentPage < totalPages &&
-                          setCurrentPage(currentPage + 1)
-                        }
-                        className={
-                          currentPage === totalPages
-                            ? "pointer-events-none opacity-50"
-                            : "cursor-pointer"
-                        }
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {formatTime(activity.timestamp || activity.created_at)}
+                    </span>
+                    <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         )}
       </Card>
 
@@ -264,26 +289,44 @@ export function ActivityTable() {
                 <div>
                   <p className="text-sm text-muted-foreground">Tipo</p>
                   <Badge variant={getActionColor(selectedActivity.action)}>
-                    {getEntityTypeLabel(selectedActivity.entity_type)}
+                    {getEntityTypeLabel(
+                      selectedActivity.entity_type ||
+                        selectedActivity.resource_type.split(".")[1]
+                    )}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Entidade</p>
                   <p className="font-medium">
-                    {selectedActivity.entity_name || "N/A"}
+                    {selectedActivity.entity_name ||
+                      selectedActivity.user_name ||
+                      "N/A"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Data/Hora</p>
                   <p className="font-medium">
                     {format(
-                      new Date(selectedActivity.created_at),
+                      new Date(
+                        selectedActivity.timestamp ||
+                          selectedActivity.created_at
+                      ),
                       "dd/MM/yyyy 'às' HH:mm",
                       { locale: ptBR }
                     )}
                   </p>
                 </div>
               </div>
+
+              {selectedActivity.user_email && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Usuário</p>
+                  <p className="font-medium">{selectedActivity.user_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedActivity.user_email}
+                  </p>
+                </div>
+              )}
 
               {selectedActivity.metadata &&
                 Object.keys(selectedActivity.metadata).length > 0 && (
@@ -317,7 +360,11 @@ export function ActivityTable() {
                   variant="default"
                 >
                   <span>
-                    Acessar {getEntityTypeLabel(selectedActivity.entity_type)}
+                    Acessar{" "}
+                    {getEntityTypeLabel(
+                      selectedActivity.entity_type ||
+                        selectedActivity.resource_type.split(".")[1]
+                    )}
                   </span>
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
