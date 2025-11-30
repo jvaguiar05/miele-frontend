@@ -23,6 +23,11 @@ import {
   ArrowRight,
   Info,
   RefreshCw,
+  LogIn,
+  LogOut,
+  User,
+  AtSign,
+  MapPin,
 } from "lucide-react";
 
 export function ActivityTable() {
@@ -55,12 +60,110 @@ export function ActivityTable() {
     }
   };
 
+  const getDisplayName = (activity: any) => {
+    const userName =
+      activity.user_name ||
+      activity.user_email ||
+      `Usuário ${activity.user_id}` ||
+      "N/A";
+
+    // Para atividades de login/logout, mostra nome + username
+    if (
+      activity.action?.toLowerCase().includes("login") ||
+      activity.action?.toLowerCase().includes("logout")
+    ) {
+      const username =
+        activity.new_data?.username ||
+        activity.old_data?.username ||
+        activity.metadata?.username;
+      if (username) {
+        return `${userName} • ${username}`;
+      }
+      return userName;
+    }
+
+    // Para atividades relacionadas a usuários (CREATE, UPDATE, PATCH, DELETE)
+    if (
+      activity.entity_type === "user" ||
+      activity.resource_type?.includes("user")
+    ) {
+      const userData = activity.new_data || activity.old_data || {};
+      const username = userData.username;
+
+      if (username) {
+        return `${userName} • ${username}`;
+      }
+      return userName;
+    }
+
+    // Para atividades relacionadas a clientes (CREATE, UPDATE, PATCH, DELETE)
+    if (
+      activity.entity_type === "client" ||
+      activity.resource_type?.includes("client") ||
+      activity.resource_type?.includes("Cliente")
+    ) {
+      const clientData = activity.new_data || activity.old_data || {};
+      const cnpj =
+        clientData.cnpj || clientData.document || clientData.cnpj_cpf;
+      const razaoSocial =
+        clientData.razao_social ||
+        clientData.company_name ||
+        clientData.name ||
+        clientData.nome ||
+        activity.resource_display_name;
+
+      // Para CREATE, mostra CNPJ + Razão Social se disponível
+      if (activity.action?.includes("CREATE") && cnpj && razaoSocial) {
+        return `${userName} • ${cnpj} • ${razaoSocial}`;
+      }
+
+      // Para UPDATE/PATCH/DELETE, mostra apenas nome + razão social
+      if (razaoSocial) {
+        return `${userName} • ${razaoSocial}`;
+      } else if (cnpj) {
+        return `${userName} • ${cnpj}`;
+      }
+    }
+
+    // Para atividades relacionadas a perdcomps (CREATE, UPDATE, PATCH, DELETE)
+    if (
+      activity.entity_type === "perdcomp" ||
+      activity.resource_type?.includes("perdcomp")
+    ) {
+      const perdcompData = activity.new_data || activity.old_data || {};
+      const resourceDisplayName = activity.resource_display_name; // Ex: "PER/DCOMP 001/02"
+      const numero = perdcompData.numero || perdcompData.number; // Número da perdcomp
+      const clientCnpj = perdcompData.cnpj; // CNPJ do cliente
+
+      // Para CREATE, mostra número + CNPJ se disponível
+      if (activity.action?.includes("CREATE")) {
+        if (resourceDisplayName && clientCnpj) {
+          return `${userName} • ${resourceDisplayName} • ${clientCnpj}`;
+        } else if (numero && clientCnpj) {
+          return `${userName} • ${numero} • ${clientCnpj}`;
+        }
+      }
+
+      // Para UPDATE/PATCH/DELETE, mostra apenas nome + número
+      if (resourceDisplayName) {
+        return `${userName} • ${resourceDisplayName}`;
+      } else if (numero) {
+        return `${userName} • ${numero}`;
+      }
+    }
+
+    // Fallback padrão
+    return userName;
+  };
+
   const getEntityTypeLabel = (entityType: string) => {
     switch (entityType) {
       case "client":
         return "Cliente";
       case "perdcomp":
         return "PER/DCOMP";
+      case "user":
+        return "Usuário";
       default:
         return entityType;
     }
@@ -198,11 +301,9 @@ export function ActivityTable() {
                     <div>
                       <p className="font-medium">{activity.action}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        {activity.entity_name && (
-                          <span className="text-sm text-muted-foreground">
-                            {activity.entity_name}
-                          </span>
-                        )}
+                        <span className="text-sm text-muted-foreground">
+                          {getDisplayName(activity)}
+                        </span>
                         <Badge variant="outline" className="text-xs">
                           {getEntityTypeLabel(
                             activity.entity_type ||
@@ -236,93 +337,175 @@ export function ActivityTable() {
 
           {selectedActivity && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Ação</p>
-                  <p className="font-medium">{selectedActivity.action}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tipo</p>
-                  <Badge variant={getActionColor(selectedActivity.action)}>
-                    {getEntityTypeLabel(
-                      selectedActivity.entity_type ||
-                        selectedActivity.resource_type.split(".")[1]
-                    )}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Entidade</p>
-                  <p className="font-medium">
-                    {selectedActivity.entity_name ||
-                      selectedActivity.user_name ||
-                      "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Data/Hora</p>
-                  <p className="font-medium">
-                    {format(
-                      new Date(
-                        selectedActivity.timestamp ||
-                          selectedActivity.created_at
-                      ),
-                      "dd/MM/yyyy 'às' HH:mm",
-                      { locale: ptBR }
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {selectedActivity.user_email && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Usuário</p>
-                  <p className="font-medium">{selectedActivity.user_name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedActivity.user_email}
-                  </p>
-                </div>
-              )}
-
-              {selectedActivity.metadata &&
-                Object.keys(selectedActivity.metadata).length > 0 && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Informações Adicionais
-                    </p>
-                    <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                      {Object.entries(selectedActivity.metadata).map(
-                        ([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-sm text-muted-foreground capitalize">
-                              {key.replace(/_/g, " ")}:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {typeof value === "object"
-                                ? JSON.stringify(value)
-                                : String(value)}
-                            </span>
-                          </div>
-                        )
+              {/* UI especial para LOGIN/LOGOUT */}
+              {selectedActivity.action?.toLowerCase().includes("login") ||
+              selectedActivity.action?.toLowerCase().includes("logout") ? (
+                <div className="space-y-6">
+                  {/* Header da atividade */}
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5">
+                    <div className="p-3 rounded-full bg-primary/20">
+                      {selectedActivity.action
+                        ?.toLowerCase()
+                        .includes("login") ? (
+                        <LogIn className="h-5 w-5 text-primary" />
+                      ) : (
+                        <LogOut className="h-5 w-5 text-primary" />
                       )}
                     </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">
+                        {selectedActivity.action}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {format(
+                          new Date(
+                            selectedActivity.timestamp ||
+                              selectedActivity.created_at
+                          ),
+                          "dd/MM/yyyy 'às' HH:mm",
+                          { locale: ptBR }
+                        )}
+                      </p>
+                    </div>
                   </div>
-                )}
 
-              {selectedActivity.entity_id && (
-                <Button
-                  onClick={handleNavigateToEntity}
-                  className="w-full"
-                  variant="default"
-                >
-                  <span>
-                    Acessar{" "}
-                    {getEntityTypeLabel(
-                      selectedActivity.entity_type ||
-                        selectedActivity.resource_type.split(".")[1]
+                  {/* Informações do usuário */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 rounded-lg border">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">
+                          {selectedActivity.user_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedActivity.metadata?.username}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Email se disponível */}
+                    {selectedActivity.user_email && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg border">
+                        <AtSign className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">
+                            {selectedActivity.user_email}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Endereço de email
+                          </p>
+                        </div>
+                      </div>
                     )}
-                  </span>
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+
+                    {/* IP Address se disponível */}
+                    {selectedActivity.ip_address && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg border">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">
+                            {selectedActivity.ip_address}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Endereço IP
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* UI padrão para outras atividades */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Ação</p>
+                      <p className="font-medium">{selectedActivity.action}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tipo</p>
+                      <Badge variant={getActionColor(selectedActivity.action)}>
+                        {getEntityTypeLabel(
+                          selectedActivity.entity_type ||
+                            selectedActivity.resource_type.split(".")[1]
+                        )}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Entidade</p>
+                      <p className="font-medium">
+                        {getDisplayName(selectedActivity)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Data/Hora</p>
+                      <p className="font-medium">
+                        {format(
+                          new Date(
+                            selectedActivity.timestamp ||
+                              selectedActivity.created_at
+                          ),
+                          "dd/MM/yyyy 'às' HH:mm",
+                          { locale: ptBR }
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedActivity.user_email && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Usuário</p>
+                      <p className="font-medium">
+                        {selectedActivity.user_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedActivity.user_email}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedActivity.metadata &&
+                    Object.keys(selectedActivity.metadata).length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Informações Adicionais
+                        </p>
+                        <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                          {Object.entries(selectedActivity.metadata).map(
+                            ([key, value]) => (
+                              <div key={key} className="flex justify-between">
+                                <span className="text-sm text-muted-foreground capitalize">
+                                  {key.replace(/_/g, " ")}:
+                                </span>
+                                <span className="text-sm font-medium">
+                                  {typeof value === "object"
+                                    ? JSON.stringify(value)
+                                    : String(value)}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  {selectedActivity.entity_id && (
+                    <Button
+                      onClick={handleNavigateToEntity}
+                      className="w-full"
+                      variant="default"
+                    >
+                      <span>
+                        Acessar{" "}
+                        {getEntityTypeLabel(
+                          selectedActivity.entity_type ||
+                            selectedActivity.resource_type.split(".")[1]
+                        )}
+                      </span>
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           )}
