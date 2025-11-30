@@ -172,6 +172,20 @@ export default function Clients() {
     ).length;
   };
 
+  const handleExportExcel = () => {
+    toast({
+      title: "Exportando dados",
+      description: "O arquivo Excel será baixado em breve.",
+    });
+  };
+
+  const handleImportExcel = () => {
+    toast({
+      title: "Importar Excel",
+      description: "Funcionalidade em desenvolvimento.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="container mx-auto px-4 py-8">
@@ -195,20 +209,30 @@ export default function Clients() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="icon">
-                <Upload className="h-4 w-4" />
+              <Button
+                onClick={handleImportExcel}
+                variant="outline"
+                className="gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Importar
               </Button>
-              <Button variant="outline" size="icon">
-                <Download className="h-4 w-4" />
+              <Button
+                onClick={handleExportExcel}
+                variant="outline"
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Exportar
               </Button>
               <Button
                 onClick={() => {
                   setSelectedClient(null);
                   setIsFormOpen(true);
                 }}
-                className="bg-gradient-to-r from-primary to-primary/80"
+                className="bg-gradient-to-r from-primary to-primary/80 gap-2"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="w-4 h-4" />
                 Novo Cliente
               </Button>
             </div>

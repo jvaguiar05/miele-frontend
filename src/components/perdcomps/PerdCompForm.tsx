@@ -13,6 +13,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   usePerdCompStore,
   type PerDcompStatus,
   type PerdComp,
@@ -20,8 +33,9 @@ import {
 import { useClientStore } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { MaskedInput } from "@/components/ui/input-mask";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 
 const perdcompSchema = z.object({
   client_id: z.string().min(1, "Cliente é obrigatório"),
@@ -126,11 +140,53 @@ export default function PerdCompForm({
   const { createPerdComp, updatePerdComp } = usePerdCompStore();
   const { clients, fetchClients, fetchClientById } = useClientStore();
   const { toast } = useToast();
+
   const [selectedClientData, setSelectedClientData] = useState<any>(null);
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [searchedClients, setSearchedClients] = useState<any[]>([]);
+  const [isSearchingClients, setIsSearchingClients] = useState(false);
+
+  // Debounced client search effect
+  const debouncedClientSearch = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return async (query: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(async () => {
+          if (query.trim()) {
+            setIsSearchingClients(true);
+            try {
+              // Use the clientStore's searchClients method
+              const { searchClients } = useClientStore.getState();
+              await searchClients(query.trim());
+
+              // Get the searched results from the store
+              const { clients } = useClientStore.getState();
+              setSearchedClients(clients);
+            } catch (error) {
+              console.error("Error searching clients:", error);
+              setSearchedClients([]);
+            } finally {
+              setIsSearchingClients(false);
+            }
+          } else {
+            setSearchedClients([]);
+            setIsSearchingClients(false);
+          }
+        }, 300);
+      };
+    })(),
+    []
+  );
 
   useEffect(() => {
     fetchClients();
   }, [fetchClients]);
+
+  useEffect(() => {
+    debouncedClientSearch(clientSearchQuery);
+  }, [clientSearchQuery, debouncedClientSearch]);
 
   const {
     register,
@@ -251,21 +307,42 @@ export default function PerdCompForm({
     loadClientData();
   }, [clientId, perdcomp, fetchClientById, setValue, clients]);
 
+  // Use searched clients if search query exists, otherwise show recent clients
+  const displayClients = clientSearchQuery.trim()
+    ? searchedClients
+    : clients.slice(0, 10); // Show only first 10 clients when no search
+
   // Handle client selection change
   const handleClientChange = async (clientId: string) => {
     setValue("client_id", clientId);
 
-    try {
-      const client = await fetchClientById(clientId);
-      setSelectedClientData(client);
+    // Find client in both regular clients and searched clients
+    const client =
+      clients.find((c) => c.id === clientId) ||
+      searchedClients.find((c) => c.id === clientId);
 
+    if (client) {
+      setSelectedClientData(client);
       // Auto-populate CNPJ when client is selected
       if (client?.cnpj) {
         setValue("cnpj", client.cnpj);
       }
-    } catch (error) {
-      console.error("Error loading client data:", error);
+    } else {
+      try {
+        const fetchedClient = await fetchClientById(clientId);
+        setSelectedClientData(fetchedClient);
+        // Auto-populate CNPJ when client is selected
+        if (fetchedClient?.cnpj) {
+          setValue("cnpj", fetchedClient.cnpj);
+        }
+      } catch (error) {
+        console.error("Error loading client data:", error);
+      }
     }
+
+    setClientSearchOpen(false);
+    setClientSearchQuery("");
+    setSearchedClients([]);
   };
 
   const onSubmit = async (data: PerdCompFormData) => {
@@ -355,25 +432,101 @@ export default function PerdCompForm({
         <TabsContent value="general" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="client_id">Cliente *</Label>
-            <Select
-              onValueChange={handleClientChange}
-              defaultValue={selectedClientData?.id || clientId}
-              disabled={!!clientId && !perdcomp}
-            >
-              <SelectTrigger
-                className={errors.client_id ? "border-destructive" : ""}
-              >
-                <SelectValue placeholder="Selecione o cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.nome_fantasia || client.razao_social} -{" "}
-                    {client.cnpj}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={clientSearchOpen}
+                  className={`w-full justify-between ${
+                    errors.client_id ? "border-destructive" : ""
+                  }`}
+                  disabled={!!clientId && !perdcomp}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="truncate text-sm">
+                      {selectedClientData
+                        ? selectedClientData.nome_fantasia ||
+                          selectedClientData.razao_social
+                        : "Selecione o cliente"}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] max-w-[90vw] p-0 z-50 bg-popover border shadow-md">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Buscar por CNPJ, nome fantasia ou razão social..."
+                    value={clientSearchQuery}
+                    onValueChange={setClientSearchQuery}
+                  />
+                  <CommandList
+                    className="max-h-[300px] overflow-y-auto overscroll-contain"
+                    style={{ scrollBehavior: "auto" }}
+                  >
+                    {isSearchingClients ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Buscando...
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {displayClients.length === 0 &&
+                        clientSearchQuery.trim() ? (
+                          <CommandEmpty>
+                            Nenhum cliente encontrado.
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {displayClients.map((client) => {
+                              const displayName =
+                                client.nome_fantasia ||
+                                client.razao_social ||
+                                "Cliente sem nome";
+                              const searchText = `${client.cnpj} ${
+                                client.nome_fantasia || ""
+                              } ${client.razao_social || ""}`;
+
+                              return (
+                                <CommandItem
+                                  key={client.id}
+                                  value={searchText}
+                                  onSelect={() =>
+                                    handleClientChange(client.id.toString())
+                                  }
+                                  className="cursor-pointer py-3 px-2"
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 shrink-0 ${
+                                      selectedClientData?.id ===
+                                      client.id.toString()
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    }`}
+                                  />
+                                  <div className="flex flex-col items-start min-w-0 flex-1 gap-1">
+                                    <span className="text-sm font-medium leading-tight break-words">
+                                      {displayName}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground leading-tight">
+                                      CNPJ: {client.cnpj}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        )}
+                      </>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {errors.client_id && (
               <p className="text-sm text-destructive">
                 {errors.client_id.message}
