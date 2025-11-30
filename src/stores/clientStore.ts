@@ -320,7 +320,10 @@ export const useClientStore = create<ClientState>((set, get) => ({
       return updatedClient;
     } catch (error: any) {
       set({
-        error: error.message || "Erro ao atualizar cliente",
+        error:
+          error.response?.data?.detail ||
+          error.message ||
+          "Erro ao atualizar cliente",
         isLoading: false,
       });
       throw error;
