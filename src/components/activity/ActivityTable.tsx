@@ -15,6 +15,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActivityStore, ActivityLog } from "@/stores/activityStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import {
   Clock,
   FileText,
@@ -28,65 +29,19 @@ export function ActivityTable() {
   const navigate = useNavigate();
   const { activities, loading, totalCount, fetchRecentActivities } =
     useActivityStore();
+  const period = useSettingsStore((state) => state.period);
   const [selectedActivity, setSelectedActivity] = useState<ActivityLog | null>(
     null
   );
   const [showPreview, setShowPreview] = useState(false);
-  const [period, setPeriod] = useState<"today" | "week" | "month">("today");
 
   useEffect(() => {
-    // 1. carrega filtro salvo e busca atividades
-    const savedFilter =
-      (localStorage.getItem("dashboard-filter") as
-        | "today"
-        | "week"
-        | "month") || "today";
-
-    setPeriod(savedFilter);
-    fetchRecentActivities(savedFilter);
-
-    // 2. helper para aplicar o filtro vindo de qualquer lugar
-    let lastFilter = savedFilter;
-
-    const applyFilterFromStorage = () => {
-      const currentFilter =
-        (localStorage.getItem("dashboard-filter") as
-          | "today"
-          | "week"
-          | "month") || "today";
-
-      if (currentFilter !== lastFilter) {
-        lastFilter = currentFilter;
-        setPeriod(currentFilter);
-        fetchRecentActivities(currentFilter);
-      }
-    };
-
-    // 3. listener para mudanças entre abas
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === "dashboard-filter") {
-        applyFilterFromStorage();
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-
-    // 4. polling simples pra pegar mudanças na MESMA aba
-    const intervalId = setInterval(applyFilterFromStorage, 500);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(intervalId);
-    };
-  }, [fetchRecentActivities]);
+    // Buscar atividades sempre que o período mudar via Zustand
+    fetchRecentActivities(period);
+  }, [period, fetchRecentActivities]);
 
   const refreshActivities = () => {
-    const currentFilter =
-      (localStorage.getItem("dashboard-filter") as
-        | "today"
-        | "week"
-        | "month") || "today";
-    fetchRecentActivities(currentFilter);
+    fetchRecentActivities(period);
   };
 
   const getIcon = (entityType: string) => {

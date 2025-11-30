@@ -5,22 +5,31 @@ export type DashboardFilter = "today" | "week" | "month";
 export type NotificationPreference = "all" | "important" | "none";
 
 interface SettingsState {
-  // Dashboard settings (localStorage only)
+  // Dashboard settings (localStorage + Zustand for reactivity)
+  period: DashboardFilter;
   getDashboardFilter: () => DashboardFilter;
   setDashboardFilter: (filter: DashboardFilter) => void;
 
-  // Notification settings
+  // Notification settings (synced with Configuration page)
+  notifications: boolean;
   emailNotifications: boolean;
-  pushNotifications: boolean;
-  notificationPreference: NotificationPreference;
+  soundEnabled: boolean;
+  setNotifications: (enabled: boolean) => void;
   setEmailNotifications: (enabled: boolean) => void;
-  setPushNotifications: (enabled: boolean) => void;
-  setNotificationPreference: (preference: NotificationPreference) => void;
+  setSoundEnabled: (enabled: boolean) => void;
 
-  // System status
+  // System status with real health check
   systemStatus: {
-    database: "online" | "offline" | "checking";
-    api: "online" | "offline" | "checking";
+    database: {
+      status: "online" | "offline" | "checking";
+      responseTime: string;
+      uptime: string;
+    };
+    api: {
+      status: "online" | "offline" | "checking";
+      responseTime: string;
+      uptime: string;
+    };
     lastChecked: Date | null;
   };
   checkSystemStatus: () => Promise<void>;
@@ -34,89 +43,143 @@ interface SettingsState {
       notification_preference: NotificationPreference;
     }>
   ) => Promise<void>;
+
+  // Save all settings
+  saveAllSettings: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  // Dashboard settings (simple localStorage)
+  // Dashboard settings (localStorage + Zustand for reactivity)
+  period:
+    (localStorage.getItem("dashboard-filter") as DashboardFilter) || "today",
+
   getDashboardFilter: () => {
-    return (
-      (localStorage.getItem("dashboard-filter") as DashboardFilter) || "today"
-    );
+    return get().period;
   },
+
   setDashboardFilter: (filter) => {
     localStorage.setItem("dashboard-filter", filter);
-    set({ systemStatus: { ...get().systemStatus } }); // só pra forçar rerender
+    set({ period: filter });
   },
 
-  // Notification settings
-  emailNotifications: true,
-  pushNotifications: false,
-  notificationPreference: "important",
+  // Notification settings (synced with Configuration page)
+  notifications: JSON.parse(localStorage.getItem("notifications") || "true"),
+  emailNotifications: JSON.parse(
+    localStorage.getItem("emailNotifications") || "true"
+  ),
+  soundEnabled: JSON.parse(localStorage.getItem("soundEnabled") || "false"),
+
+  setNotifications: (enabled) => {
+    localStorage.setItem("notifications", JSON.stringify(enabled));
+    set({ notifications: enabled });
+  },
+
   setEmailNotifications: (enabled) => {
+    localStorage.setItem("emailNotifications", JSON.stringify(enabled));
     set({ emailNotifications: enabled });
   },
-  setPushNotifications: (enabled) => {
-    set({ pushNotifications: enabled });
-  },
-  setNotificationPreference: (preference) => {
-    set({ notificationPreference: preference });
+
+  setSoundEnabled: (enabled) => {
+    localStorage.setItem("soundEnabled", JSON.stringify(enabled));
+    set({ soundEnabled: enabled });
   },
 
-  // System status
+  // System status with detailed info
   systemStatus: {
-    database: "checking",
-    api: "checking",
+    database: {
+      status: "checking",
+      responseTime: "--",
+      uptime: "--",
+    },
+    api: {
+      status: "checking",
+      responseTime: "--",
+      uptime: "--",
+    },
     lastChecked: null,
   },
 
   checkSystemStatus: async () => {
+    const currentStatus = get().systemStatus;
     set({
       systemStatus: {
-        database: "checking",
-        api: "checking",
+        database: {
+          status: "checking",
+          responseTime: "--",
+          uptime: "--",
+        },
+        api: {
+          status: "checking",
+          responseTime: "--",
+          uptime: "--",
+        },
         lastChecked: null,
       },
     });
 
     try {
-      // Check API health using Django health endpoints
-      const healthUrl =
-        import.meta.env.VITE_HEALTH_READY_URL ||
-        import.meta.env.VITE_API_BASE_URL?.replace(
-          "/api/v1",
-          "/health/ready"
-        ) ||
-        "/health/ready";
-
-      const apiResponse = await fetch(healthUrl, {
+      // Check API live endpoint
+      const liveStartTime = Date.now();
+      const liveResponse = await fetch("http://127.0.0.1:8000/health/live", {
         method: "GET",
-      }).catch(() => null);
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const liveEndTime = Date.now();
+      const liveResponseTime = `${liveEndTime - liveStartTime}ms`;
 
-      const apiStatus = apiResponse?.ok ? "online" : "offline";
-      let dbStatus: "online" | "offline" = "offline";
+      // Check API ready endpoint
+      const readyStartTime = Date.now();
+      const readyResponse = await fetch("http://127.0.0.1:8000/health/ready", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const readyEndTime = Date.now();
+      const readyResponseTime = `${readyEndTime - readyStartTime}ms`;
 
-      // If API is online, database is likely online too
-      if (apiStatus === "online") {
-        try {
-          const healthData = await apiResponse.json();
-          dbStatus = healthData.status === "ready" ? "online" : "offline";
-        } catch {
-          dbStatus = "online"; // Assume DB is online if API responds
-        }
-      }
+      const liveData = await liveResponse.json();
+      const readyData = await readyResponse.json();
+
+      const apiStatus =
+        liveResponse.ok && liveData.status === "live" ? "online" : "offline";
+      const dbStatus =
+        readyResponse.ok && readyData.status === "ready" ? "online" : "offline";
+
+      // Calculate uptime (mock for now, could be from API)
+      const uptime = "99.9%";
 
       set({
         systemStatus: {
-          database: dbStatus,
-          api: apiStatus,
+          database: {
+            status: dbStatus,
+            responseTime: readyResponseTime,
+            uptime: uptime,
+          },
+          api: {
+            status: apiStatus,
+            responseTime: liveResponseTime,
+            uptime: uptime,
+          },
           lastChecked: new Date(),
         },
       });
     } catch (error) {
+      console.error("Health check failed:", error);
       set({
         systemStatus: {
-          database: "offline",
-          api: "offline",
+          database: {
+            status: "offline",
+            responseTime: "timeout",
+            uptime: "--",
+          },
+          api: {
+            status: "offline",
+            responseTime: "timeout",
+            uptime: "--",
+          },
           lastChecked: new Date(),
         },
       });
@@ -132,9 +195,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       set({
         emailNotifications: preferences.email_notifications ?? true,
-        pushNotifications: preferences.push_notifications ?? false,
-        notificationPreference:
-          preferences.notification_preference ?? "important",
+        // pushNotifications and notificationPreference removed from interface
         // dashboardFilter is NOT updated from API - it's local only
       });
     } catch (error) {
@@ -148,6 +209,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await api.patch("/auth/preferences/", preferences);
     } catch (error) {
       console.error("Failed to update user preferences:", error);
+    }
+  },
+
+  saveAllSettings: async () => {
+    const state = get();
+    try {
+      // Save API-backed preferences
+      await get().updateUserPreferences({
+        email_notifications: state.emailNotifications,
+      });
+
+      // Local settings are already saved via setters
+      console.log("All settings saved successfully");
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      throw error;
     }
   },
 }));

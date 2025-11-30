@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSettingsStore, DashboardFilter } from "@/stores/settingsStore";
 import { motion } from "framer-motion";
+import { format } from "date-fns";
 import {
   Settings,
   Monitor,
@@ -11,6 +12,9 @@ import {
   RefreshCw,
   Wifi,
   Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,23 +42,33 @@ export default function Configuration() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
 
-  // Settings state
-  const [notifications, setNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  // Settings state from Zustand
+  const {
+    notifications,
+    emailNotifications,
+    soundEnabled,
+    period: dashboardFilter,
+    systemStatus,
+    setNotifications,
+    setEmailNotifications,
+    setSoundEnabled,
+    setDashboardFilter,
+    checkSystemStatus,
+    saveAllSettings,
+  } = useSettingsStore();
+
   const [isLoading, setIsLoading] = useState(false);
-  const dashboardFilter = useSettingsStore((state) =>
-    state.getDashboardFilter()
-  );
-  const setDashboardFilter = useSettingsStore(
-    (state) => state.setDashboardFilter
-  );
+  const [isCheckingConnectivity, setIsCheckingConnectivity] = useState(false);
+
+  useEffect(() => {
+    // Carregar status inicial do sistema
+    checkSystemStatus();
+  }, [checkSystemStatus]);
 
   const handleSaveSettings = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await saveAllSettings();
 
       toast({
         title: "Configurações salvas",
@@ -71,17 +85,23 @@ export default function Configuration() {
     }
   };
 
-  const systemStatus = {
-    database: {
-      status: "Conectado",
-      responseTime: "12ms",
-      uptime: "99.98%",
-    },
-    api: {
-      status: "Online",
-      responseTime: "45ms",
-      uptime: "99.95%",
-    },
+  const handleTestConnectivity = async () => {
+    setIsCheckingConnectivity(true);
+    try {
+      await checkSystemStatus();
+      toast({
+        title: "Teste concluído",
+        description: "Conectividade verificada com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no teste",
+        description: "Falha ao verificar conectividade.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingConnectivity(false);
+    }
   };
 
   return (
@@ -253,9 +273,19 @@ export default function Configuration() {
                     Status da conexão
                   </Label>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-muted-foreground">
-                      {systemStatus.database.status}
+                    {systemStatus.database.status === "checking" ? (
+                      <Clock className="h-4 w-4 animate-spin text-yellow-500" />
+                    ) : systemStatus.database.status === "online" ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {systemStatus.database.status === "checking"
+                        ? "Verificando..."
+                        : systemStatus.database.status === "online"
+                        ? "Conectado"
+                        : "Desconectado"}
                     </span>
                   </div>
                 </div>
@@ -295,9 +325,19 @@ export default function Configuration() {
                     Status do serviço
                   </Label>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-muted-foreground">
-                      {systemStatus.api.status}
+                    {systemStatus.api.status === "checking" ? (
+                      <Clock className="h-4 w-4 animate-spin text-yellow-500" />
+                    ) : systemStatus.api.status === "online" ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {systemStatus.api.status === "checking"
+                        ? "Verificando..."
+                        : systemStatus.api.status === "online"
+                        ? "Online"
+                        : "Offline"}
                     </span>
                   </div>
                 </div>
@@ -318,11 +358,33 @@ export default function Configuration() {
                   </Badge>
                 </div>
 
+                {systemStatus.lastChecked && (
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">
+                      Última verificação
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      {format(systemStatus.lastChecked, "dd/MM/yyyy HH:mm")}
+                    </span>
+                  </div>
+                )}
+
                 <Separator />
 
-                <Button variant="outline" className="w-full justify-start">
-                  <Wifi className="h-4 w-4 mr-2" />
-                  Testar conectividade
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={handleTestConnectivity}
+                  disabled={isCheckingConnectivity}
+                >
+                  {isCheckingConnectivity ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Wifi className="h-4 w-4 mr-2" />
+                  )}
+                  {isCheckingConnectivity
+                    ? "Testando..."
+                    : "Testar conectividade"}
                 </Button>
               </CardContent>
             </Card>
