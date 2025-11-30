@@ -17,8 +17,6 @@ import {
 import { usePerdCompStore, type PerdComp } from "@/stores/perdcompStore";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { useClientStore } from "@/stores/clientStore";
-import { useEffect, useState } from "react";
 
 interface PerdCompTableProps {
   perdcomps: PerdComp[];
@@ -26,24 +24,12 @@ interface PerdCompTableProps {
   onView: (perdcomp: PerdComp) => void;
 }
 
-export default function PerdCompTable({ perdcomps, onEdit, onView }: PerdCompTableProps) {
+export default function PerdCompTable({
+  perdcomps,
+  onEdit,
+  onView,
+}: PerdCompTableProps) {
   const { deletePerdComp } = usePerdCompStore();
-  const { clients, fetchClients } = useClientStore();
-  const [clientMap, setClientMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (clients.length === 0) {
-      fetchClients();
-    }
-  }, []);
-
-  useEffect(() => {
-    const map: Record<string, string> = {};
-    clients.forEach(client => {
-      map[client.id] = client.razao_social;
-    });
-    setClientMap(map);
-  }, [clients]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Tem certeza que deseja excluir este PER/DCOMP?")) {
@@ -70,15 +56,24 @@ export default function PerdCompTable({ perdcomps, onEdit, onView }: PerdCompTab
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "RASCUNHO": return "Rascunho";
-      case "TRANSMITIDO": return "Transmitido";
-      case "EM_PROCESSAMENTO": return "Em Processamento";
-      case "DEFERIDO": return "Deferido";
-      case "INDEFERIDO": return "Indeferido";
-      case "PARCIALMENTE_DEFERIDO": return "Parcialmente Deferido";
-      case "CANCELADO": return "Cancelado";
-      case "VENCIDO": return "Vencido";
-      default: return status;
+      case "RASCUNHO":
+        return "Rascunho";
+      case "TRANSMITIDO":
+        return "Transmitido";
+      case "EM_PROCESSAMENTO":
+        return "Em Processamento";
+      case "DEFERIDO":
+        return "Deferido";
+      case "INDEFERIDO":
+        return "Indeferido";
+      case "PARCIALMENTE_DEFERIDO":
+        return "Parcialmente Deferido";
+      case "CANCELADO":
+        return "Cancelado";
+      case "VENCIDO":
+        return "Vencido";
+      default:
+        return status;
     }
   };
 
@@ -101,14 +96,17 @@ export default function PerdCompTable({ perdcomps, onEdit, onView }: PerdCompTab
         <TableBody>
           {perdcomps.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+              <TableCell
+                colSpan={9}
+                className="text-center py-8 text-muted-foreground"
+              >
                 Nenhum PER/DCOMP encontrado
               </TableCell>
             </TableRow>
           ) : (
             perdcomps.map((perdcomp) => (
-              <TableRow 
-                key={perdcomp.id} 
+              <TableRow
+                key={perdcomp.id}
                 className="hover:bg-muted/50 cursor-pointer"
                 onClick={() => onView(perdcomp)}
               >
@@ -116,17 +114,17 @@ export default function PerdCompTable({ perdcomps, onEdit, onView }: PerdCompTab
                   {perdcomp.numero}
                 </TableCell>
                 <TableCell className="font-medium">
-                  {clientMap[perdcomp.client_id] || "-"}
+                  {perdcomp.client_name || perdcomp.cnpj || "-"}
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">{perdcomp.tributo_pedido}</Badge>
                 </TableCell>
                 <TableCell>{perdcomp.competencia}</TableCell>
                 <TableCell className="font-medium">
-                  {formatCurrency(parseFloat(perdcomp.valor_pedido || '0'))}
+                  {formatCurrency(parseFloat(perdcomp.valor_pedido || "0"))}
                 </TableCell>
                 <TableCell>
-                  {formatCurrency(parseFloat(perdcomp.valor_recebido || '0'))}
+                  {formatCurrency(parseFloat(perdcomp.valor_recebido || "0"))}
                 </TableCell>
                 <TableCell>
                   <Badge variant={getStatusColor(perdcomp.status)}>
@@ -134,27 +132,36 @@ export default function PerdCompTable({ perdcomps, onEdit, onView }: PerdCompTab
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {perdcomp.data_transmissao ? formatDate(perdcomp.data_transmissao) : "-"}
+                  {perdcomp.data_transmissao
+                    ? formatDate(perdcomp.data_transmissao)
+                    : "-"}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuTrigger
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button variant="ghost" size="icon">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        onView(perdcomp);
-                      }}>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onView(perdcomp);
+                        }}
+                      >
                         <Eye className="mr-2 h-4 w-4" />
                         Visualizar
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(perdcomp);
-                      }}>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(perdcomp);
+                        }}
+                      >
                         <Edit className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>

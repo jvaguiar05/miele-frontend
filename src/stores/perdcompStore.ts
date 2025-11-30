@@ -1,5 +1,25 @@
 import { create } from "zustand";
-import api, { apiHelpers } from "@/lib/api";
+import { api } from "@/lib/api";
+
+// Annotation interface matching Django API structure
+export interface PerdCompAnnotation {
+  id: string;
+  entity_name: string;
+  user_name: string;
+  content: {
+    tags?: string[];
+    text: string;
+    metadata?: {
+      category?: string;
+      created_by?: string;
+      [key: string]: any;
+    };
+    priority?: string;
+    [key: string]: any;
+  };
+  created_at: string;
+  updated_at: string;
+}
 
 // PerdComp status enum aligned with Django model
 export type PerDcompStatus =
@@ -12,70 +32,70 @@ export type PerDcompStatus =
   | "CANCELADO"
   | "VENCIDO";
 
-// PerdComp interface matching Django API structure
-export interface PerdComp {
-  id: number;
-  public_id?: string;
-  created_by?: number;
-  client_id: number;
-
-  // Dados do cliente (desnormalizado ou via relation)
-  cnpj?: string;
-  client?: {
-    id: number;
-    cnpj: string;
-    razao_social: string;
-    nome_fantasia: string;
+// API Response interfaces for paginated endpoint
+interface PerdCompApiResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: PerdComp[];
+  statistics: {
+    total: number;
+    pendentes: number;
+    deferidos: number;
+    valor_total: string;
   };
+}
 
-  // Identificação do processo
+// PerdComp interface matching new API structure
+export interface PerdComp {
+  id: string;
+  client_name: string;
+  created_by_name: string;
+  cnpj: string;
   numero: string;
-  numero_perdcomp?: string;
-  processo_protocolo?: string;
-
-  // Datas importantes
-  data_transmissao?: string;
-  data_vencimento?: string;
-  data_competencia?: string;
-
-  // Dados fiscais
+  numero_perdcomp: string;
+  processo_protocolo: string | null;
+  data_transmissao: string;
+  data_vencimento: string;
+  data_competencia: string;
   tributo_pedido: string;
   competencia: string;
-
-  // Valores monetários (string para precisão exata)
   valor_pedido: string;
-  valor_compensado?: string;
-  valor_recebido?: string;
-  valor_saldo?: string;
-  valor_selic?: string;
-
-  // Status
+  valor_compensado: string;
+  valor_recebido: string;
+  valor_saldo: string;
+  valor_selic: string;
   status: PerDcompStatus;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  esta_vencido: boolean;
+  pode_ser_editado: boolean;
+  pode_ser_cancelado: boolean;
 
-  // Anotações
+  // Keep for compatibility
+  annotations?: PerdCompAnnotation[];
   anotacoes?: string;
-
-  // Controles
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  deleted_at?: string;
 }
 
 interface PerdCompFilters {
-  client_id?: number;
+  search?: string;
   status?: PerDcompStatus | "all";
-  tributo_pedido?: string;
-  data_transmissao_after?: string;
-  data_transmissao_before?: string;
-  data_vencimento_after?: string;
-  data_vencimento_before?: string;
   is_active?: boolean;
+  client_id?: string;
+}
+
+interface PerdCompStatistics {
+  total: number;
+  pendentes: number;
+  deferidos: number;
+  valor_total: string;
 }
 
 interface PerdCompState {
   perdcomps: PerdComp[];
   selectedPerdComp: PerdComp | null;
+  statistics: PerdCompStatistics;
   isLoading: boolean;
   error: string | null;
   currentPage: number;
@@ -103,6 +123,20 @@ interface PerdCompState {
   setFilters: (filters: PerdCompFilters) => void;
   clearFilters: () => void;
 
+  // Annotation actions
+  fetchPerdCompAnnotations: (
+    perdcompId: string
+  ) => Promise<PerdCompAnnotation[]>;
+  createAnnotation: (
+    perdcompId: string,
+    annotationData: any
+  ) => Promise<PerdCompAnnotation>;
+  updateAnnotation: (
+    annotationId: string,
+    annotationData: any
+  ) => Promise<PerdCompAnnotation>;
+  deleteAnnotation: (annotationId: string) => Promise<void>;
+
   // Status actions
   transmitirPerdComp: (id: string | number) => Promise<PerdComp>;
   cancelarPerdComp: (id: string | number, reason?: string) => Promise<PerdComp>;
@@ -115,13 +149,19 @@ interface PerdCompState {
 export const usePerdCompStore = create<PerdCompState>((set, get) => ({
   perdcomps: [],
   selectedPerdComp: null,
+  statistics: {
+    total: 0,
+    pendentes: 0,
+    deferidos: 0,
+    valor_total: "0.00",
+  },
   isLoading: false,
   error: null,
   currentPage: 1,
   totalPages: 1,
   pageSize: 20,
   totalCount: 0,
-  filters: {},
+  filters: { is_active: true },
 
   fetchPerdComps: async (page = 1, searchQuery = "", filters = {}) => {
     set({ isLoading: true, error: null });
@@ -129,14 +169,13 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       const pageSize = get().pageSize;
 
       // Build query parameters for Django API
-      const params: Record<string, any> = {
-        page,
-        page_size: pageSize,
-      };
+      const params = new URLSearchParams();
+
+      if (page > 1) params.append("page", page.toString());
 
       // Add search query
       if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
+        params.append("search", searchQuery.trim());
       }
 
       // Add filters
@@ -147,28 +186,38 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
           value !== "" &&
           value !== "all"
         ) {
-          params[key] = value;
+          params.append(key, value.toString());
         }
       });
 
       // Default ordering by creation date (newest first)
-      if (!params.ordering) {
-        params.ordering = "-created_at";
-      }
+      params.append("ordering", "-created_at");
 
-      const queryString = apiHelpers.buildQueryParams(params);
-      const response = await api.get(`/perdcomps/?${queryString}`);
-      const data = apiHelpers.handlePaginatedResponse(response);
+      const queryString = params.toString();
+      const url = queryString ? `/perdcomps/?${queryString}` : "/perdcomps/";
+
+      console.log("Fetching PerdComps from:", url);
+      const response = await api.get(url);
+      const data = response.data;
+
+      console.log("PerdComps API response:", data);
 
       set({
-        perdcomps: data.results,
-        totalCount: data.count,
-        totalPages: Math.ceil(data.count / pageSize),
+        perdcomps: data.results || [],
+        statistics: data.statistics || {
+          total: 0,
+          pendentes: 0,
+          deferidos: 0,
+          valor_total: "0.00",
+        },
+        totalCount: data.count || 0,
+        totalPages: Math.ceil((data.count || 0) / pageSize),
         currentPage: page,
         isLoading: false,
         filters: { ...get().filters, ...filters },
       });
     } catch (error: any) {
+      console.error("Error fetching PerdComps:", error);
       set({
         error: error.message || "Erro ao buscar PER/DCOMPs",
         isLoading: false,
@@ -188,6 +237,17 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
       const response = await api.get(endpoint);
       const perdcomp = response.data;
+
+      // Fetch perdcomp annotations
+      try {
+        const annotationsResponse = await api.get(
+          `/perdcomps/annotations/by-perdcomp/${perdcomp.id}/`
+        );
+        perdcomp.annotations = annotationsResponse.data.results || [];
+      } catch (annotationError) {
+        console.warn("Failed to fetch perdcomp annotations:", annotationError);
+        perdcomp.annotations = [];
+      }
 
       set({
         selectedPerdComp: perdcomp,
@@ -253,13 +313,10 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id || perdcomp.public_id === id
-            ? updatedPerdComp
-            : perdcomp
+          perdcomp.id === id ? updatedPerdComp : perdcomp
         ),
         selectedPerdComp:
-          state.selectedPerdComp?.id === id ||
-          state.selectedPerdComp?.public_id === id
+          state.selectedPerdComp?.id === id
             ? updatedPerdComp
             : state.selectedPerdComp,
         isLoading: false,
@@ -288,15 +345,10 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
       // Remove from local state
       set((state) => ({
-        perdcomps: state.perdcomps.filter(
-          (perdcomp) => perdcomp.id !== id && perdcomp.public_id !== id
-        ),
-        totalCount: Math.max(0, state.totalCount - 1),
+        perdcomps: state.perdcomps.filter((perdcomp) => perdcomp.id !== id),
+        totalCount: state.totalCount - 1,
         selectedPerdComp:
-          state.selectedPerdComp?.id === id ||
-          state.selectedPerdComp?.public_id === id
-            ? null
-            : state.selectedPerdComp,
+          state.selectedPerdComp?.id === id ? null : state.selectedPerdComp,
         isLoading: false,
       }));
     } catch (error: any) {
@@ -322,37 +374,31 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
   },
 
   setFilters: (filters: PerdCompFilters) => {
-    set({ filters: { ...get().filters, ...filters } });
-    get().fetchPerdComps(1, "", { ...get().filters, ...filters });
+    const newFilters = { ...get().filters, ...filters };
+    set({ filters: newFilters });
+    get().fetchPerdComps(1, "", newFilters);
   },
 
   clearFilters: () => {
-    set({ filters: {} });
-    get().fetchPerdComps(1, "", {});
+    const defaultFilters = { is_active: true };
+    set({ filters: defaultFilters });
+    get().fetchPerdComps(1, "", defaultFilters);
   },
 
   // Status actions
   transmitirPerdComp: async (id: string | number) => {
     set({ isLoading: true, error: null });
     try {
-      const endpoint =
-        typeof id === "string" && id.length > 10
-          ? `/perdcomps/${id}/transmitir/`
-          : `/perdcomps/${id}/transmitir/`;
-
-      const response = await api.post(endpoint);
+      const response = await api.post(`/perdcomps/${id}/transmitir/`);
       const updatedPerdComp = response.data;
 
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id || perdcomp.public_id === id
-            ? updatedPerdComp
-            : perdcomp
+          perdcomp.id === id.toString() ? updatedPerdComp : perdcomp
         ),
         selectedPerdComp:
-          state.selectedPerdComp?.id === id ||
-          state.selectedPerdComp?.public_id === id
+          state.selectedPerdComp?.id === id.toString()
             ? updatedPerdComp
             : state.selectedPerdComp,
         isLoading: false,
@@ -371,12 +417,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
   cancelarPerdComp: async (id: string | number, reason?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const endpoint =
-        typeof id === "string" && id.length > 10
-          ? `/perdcomps/${id}/cancelar/`
-          : `/perdcomps/${id}/cancelar/`;
-
-      const response = await api.post(endpoint, {
+      const response = await api.post(`/perdcomps/${id}/cancelar/`, {
         reason: reason || "Cancelado pelo usuário",
       });
 
@@ -385,13 +426,10 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id || perdcomp.public_id === id
-            ? updatedPerdComp
-            : perdcomp
+          perdcomp.id === id.toString() ? updatedPerdComp : perdcomp
         ),
         selectedPerdComp:
-          state.selectedPerdComp?.id === id ||
-          state.selectedPerdComp?.public_id === id
+          state.selectedPerdComp?.id === id.toString()
             ? updatedPerdComp
             : state.selectedPerdComp,
         isLoading: false,
@@ -409,5 +447,66 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
   atualizarStatus: async (id: string | number, status: PerDcompStatus) => {
     return await get().updatePerdComp(id, { status });
+  },
+
+  // Annotation functions
+  fetchPerdCompAnnotations: async (perdcompId: string) => {
+    try {
+      const response = await api.get(
+        `/perdcomps/annotations/by-perdcomp/${perdcompId}/`
+      );
+      return response.data.results || [];
+    } catch (error: any) {
+      console.error("Error fetching perdcomp annotations:", error);
+      throw error;
+    }
+  },
+
+  createAnnotation: async (perdcompId: string, annotationData: any) => {
+    try {
+      console.log("Creating annotation for perdcomp:", perdcompId);
+      console.log("Annotation data:", annotationData);
+
+      const requestData = {
+        ...annotationData,
+        entity_type: "perdcomp",
+        entity_id: perdcompId,
+      };
+
+      console.log("Request data:", requestData);
+      const endpoint = `/perdcomps/annotations/by-perdcomp/${perdcompId}/`;
+      console.log("API endpoint:", endpoint);
+
+      const response = await api.post(endpoint, requestData);
+      console.log("Annotation created successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating annotation:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      throw error;
+    }
+  },
+
+  updateAnnotation: async (annotationId: string, annotationData: any) => {
+    try {
+      const response = await api.put(
+        `/perdcomps/annotations/${annotationId}/`,
+        annotationData
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating annotation:", error);
+      throw error;
+    }
+  },
+
+  deleteAnnotation: async (annotationId: string) => {
+    try {
+      await api.delete(`/perdcomps/annotations/${annotationId}/`);
+    } catch (error: any) {
+      console.error("Error deleting annotation:", error);
+      throw error;
+    }
   },
 }));

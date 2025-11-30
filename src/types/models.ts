@@ -34,51 +34,54 @@ export interface Address {
 // ============================================
 
 export enum ClientStatus {
-  PENDING = 'pending',
-  ACTIVE = 'active',
-  SUSPENDED = 'suspended',
-  ARCHIVED = 'archived',
+  PENDING = "pending",
+  ACTIVE = "active",
+  SUSPENDED = "suspended",
+  ARCHIVED = "archived",
 }
 
 export enum RegimeTributacao {
-  LUCRO_REAL = 'lucro_real',
-  LUCRO_PRESUMIDO = 'lucro_presumido',
+  LUCRO_REAL = "lucro_real",
+  LUCRO_PRESUMIDO = "lucro_presumido",
 }
 
 export interface Client {
   id: string;
   public_id?: string;
-  
+
   // Dados principais
   cnpj: string;
   razao_social: string;
   nome_fantasia: string;
   tipo_empresa: string;
   recuperacao_judicial?: boolean;
-  
+
   // Contatos comerciais
   telefone_comercial?: string;
   email_comercial?: string;
   site?: string;
   website?: string; // Alias for future compatibility
-  
+
   // Contatos diretos
   telefone_contato?: string;
   email_contato?: string;
-  
-  // Dados societários e estruturais
-  quadro_societario?: string | any[];
-  cargo?: string;
-  cargos?: Record<string, any>;
+
+  // Dados societários e estruturais (merged JSONB field)
+  quadro_societario?: Array<{
+    nome: string;
+    cargo: string;
+  }>;
   responsavel_financeiro?: string;
   contador_responsavel?: string;
-  
-  // Dados fiscais
-  cnae?: string;
-  cnaes?: any[];
+
+  // Dados fiscais (merged JSONB field)
+  atividades?: Array<{
+    cnae: string;
+    descricao: string;
+  }>;
   regime_tributario?: string;
-  regime_tributacao?: RegimeTributacao | '';
-  
+  regime_tributacao?: RegimeTributacao | "";
+
   // Documentos e contratos
   contrato_social?: string;
   ultima_alteracao_contratual?: string | null;
@@ -86,15 +89,20 @@ export interface Client {
   certificado_digital?: string;
   inscricao_estadual?: string;
   inscricao_municipal?: string;
-  
+
   // Controles
   autorizado_para_envio?: boolean;
-  atividades?: string | Record<string, any>;
-  
+
+  // Legacy fields for backward compatibility (deprecated)
+  cargo?: string;
+  cargos?: Record<string, any>;
+  cnae?: string;
+  cnaes?: any[];
+
   // Status e controle
   client_status?: ClientStatus;
   is_active?: boolean;
-  
+
   // Endereço (inline for now, nested in future)
   logradouro?: string;
   numero?: string;
@@ -105,11 +113,11 @@ export interface Client {
   cep?: string;
   address_id?: number | null;
   address?: Address;
-  
+
   // Anotações (legacy)
   anotacoes_anteriores?: string;
   nova_anotacao?: string;
-  
+
   // Auditoria
   created_at?: string;
   updated_at?: string;
@@ -121,42 +129,42 @@ export interface Client {
 // ============================================
 
 export enum PerDcompStatus {
-  RASCUNHO = 'RASCUNHO',
-  TRANSMITIDO = 'TRANSMITIDO',
-  EM_PROCESSAMENTO = 'EM_PROCESSAMENTO',
-  DEFERIDO = 'DEFERIDO',
-  INDEFERIDO = 'INDEFERIDO',
-  PARCIALMENTE_DEFERIDO = 'PARCIALMENTE_DEFERIDO',
-  CANCELADO = 'CANCELADO',
-  VENCIDO = 'VENCIDO',
+  RASCUNHO = "RASCUNHO",
+  TRANSMITIDO = "TRANSMITIDO",
+  EM_PROCESSAMENTO = "EM_PROCESSAMENTO",
+  DEFERIDO = "DEFERIDO",
+  INDEFERIDO = "INDEFERIDO",
+  PARCIALMENTE_DEFERIDO = "PARCIALMENTE_DEFERIDO",
+  CANCELADO = "CANCELADO",
+  VENCIDO = "VENCIDO",
 }
 
 export interface PerDcomp {
   id: string;
   public_id?: string;
-  
+
   // Relacionamentos
   client_id: string;
   created_by_id?: number;
-  
+
   // Dados do cliente (desnormalizado)
   cnpj?: string;
-  
+
   // Identificação do processo
   numero: string;
   numero_perdcomp?: string;
   processo_protocolo?: number;
-  
+
   // Datas importantes
   data_transmissao?: string | null;
   data_vencimento?: string;
   data_competencia?: string;
-  
+
   // Dados fiscais
   imposto?: string; // legacy
   tributo_pedido?: string; // new
   competencia: string;
-  
+
   // Valores monetários
   valor_solicitado?: number;
   valor_pedido?: string | number;
@@ -164,21 +172,21 @@ export interface PerDcomp {
   valor_recebido?: number | string;
   valor_saldo?: string | number;
   valor_selic?: string | number;
-  
+
   // Status do processo
   status: string;
-  
+
   // Controles de sistema
   is_active?: boolean;
-  
+
   // Observações (legacy)
   observacoes?: string;
-  
+
   // Auditoria
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
-  
+
   // Computed properties
   esta_vencido?: boolean;
   pode_ser_editado?: boolean;
@@ -222,14 +230,14 @@ export interface AttachedFile {
 
 // File type choices
 export const CLIENT_FILE_TYPES = {
-  CONTRATO: 'contrato',
-  CARTAO_CNPJ: 'cartao_cnpj',
+  CONTRATO: "contrato",
+  CARTAO_CNPJ: "cartao_cnpj",
 } as const;
 
 export const PERDCOMP_FILE_TYPES = {
-  RECIBO: 'recibo',
-  AVISO_RECEBIMENTO: 'aviso_recebimento',
-  PERDCOMP: 'perdcomp',
+  RECIBO: "recibo",
+  AVISO_RECEBIMENTO: "aviso_recebimento",
+  PERDCOMP: "perdcomp",
 } as const;
 
 // ============================================
