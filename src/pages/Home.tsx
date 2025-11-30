@@ -15,6 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { ActivityTable } from "@/components/activity/ActivityTable";
+import { useActivityStore } from "@/stores/activityStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import AdminDashboard from "./AdminDashboard";
 import { api } from "@/lib/api";
 import {
@@ -282,6 +287,12 @@ const getQuickStats = (stats: DashboardStats) => {
 export default function Home() {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuthStore();
+  const {
+    loading: activityLoading,
+    totalCount,
+    fetchRecentActivities,
+  } = useActivityStore();
+  const period = useSettingsStore((state) => state.period);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalClients: 0,
     newClientsThisMonth: 0,
@@ -416,6 +427,23 @@ export default function Home() {
   const motivationalMsg = getMotivationalMessage();
   const displayName =
     user?.first_name || user?.username || user?.email || "Usuário";
+
+  const refreshActivities = () => {
+    fetchRecentActivities(period);
+  };
+
+  const getPeriodLabel = () => {
+    switch (period) {
+      case "today":
+        return "Hoje";
+      case "week":
+        return "Esta semana";
+      case "month":
+        return "Este mês";
+      default:
+        return "Hoje";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -742,10 +770,29 @@ export default function Home() {
         >
           <Card className="border border-border/70 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Activity className="h-4 w-4 text-primary" />
-                Atividade Recente
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <Activity className="h-4 w-4 text-primary" />
+                  Atividade Recente
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {getPeriodLabel()} • {totalCount} itens
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={refreshActivities}
+                    disabled={activityLoading}
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${
+                        activityLoading ? "animate-spin" : ""
+                      }`}
+                    />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <ActivityTable />

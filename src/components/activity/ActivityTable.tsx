@@ -258,76 +258,55 @@ export function ActivityTable() {
 
   return (
     <>
-      <Card className="p-6 border-border/50 bg-card/50 backdrop-blur">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Atividade Recente</h2>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {getPeriodLabel()} • {totalCount} itens
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={refreshActivities}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </Button>
-          </div>
+      {activities.length === 0 && !loading ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Nenhuma atividade registrada para {getPeriodLabel().toLowerCase()}.
         </div>
-
-        {activities.length === 0 && !loading ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhuma atividade registrada para {getPeriodLabel().toLowerCase()}.
-          </div>
-        ) : (
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-3">
-              {activities.map((activity) => (
-                <div
-                  key={activity.id}
-                  onClick={() => handleActivityClick(activity)}
-                  className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:border-border/80 hover:bg-accent/50 hover:shadow-md transition-all duration-200 cursor-pointer group bg-gradient-to-r from-card to-card/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200">
-                      {getIcon(
-                        activity.entity_type ||
-                          activity.resource_type.split(".")[1]
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">{activity.action}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-muted-foreground">
-                          {getDisplayName(activity)}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="text-xs bg-gradient-to-r from-background to-muted/30 border-border/60 shadow-sm"
-                        >
-                          {getEntityTypeLabel(
-                            activity.entity_type ||
-                              activity.resource_type.split(".")[1]
-                          )}
-                        </Badge>
-                      </div>
-                    </div>
+      ) : (
+        <ScrollArea className="h-[400px] pr-4">
+          <div className="space-y-3">
+            {activities.map((activity) => (
+              <div
+                key={activity.id}
+                onClick={() => handleActivityClick(activity)}
+                className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:border-border/80 hover:bg-accent/50 hover:shadow-md transition-all duration-200 cursor-pointer group bg-gradient-to-r from-card to-card/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200">
+                    {getIcon(
+                      activity.entity_type ||
+                        activity.resource_type.split(".")[1]
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {formatTime(activity.timestamp || activity.created_at)}
-                    </span>
-                    <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div>
+                    <p className="font-medium">{activity.action}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-muted-foreground">
+                        {getDisplayName(activity)}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-xs bg-gradient-to-r from-background to-muted/30 border-border/60 shadow-sm"
+                      >
+                        {getEntityTypeLabel(
+                          activity.entity_type ||
+                            activity.resource_type.split(".")[1]
+                        )}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
-      </Card>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {formatTime(activity.timestamp || activity.created_at)}
+                  </span>
+                  <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
