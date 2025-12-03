@@ -1,20 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSettingsStore, DashboardFilter } from "@/stores/settingsStore";
 import { motion } from "framer-motion";
-import { 
-  Settings, 
-  Monitor, 
-  Bell, 
+import { format } from "date-fns";
+import {
+  Settings,
+  Monitor,
+  Bell,
   Database,
   Activity,
   Save,
   RefreshCw,
   Wifi,
-  Calendar
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -24,20 +41,35 @@ import { useTheme } from "@/components/providers/theme-provider";
 export default function Configuration() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
-  
-  // Settings state
-  const [notifications, setNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const [dashboardFilter, setDashboardFilter] = useState("today");
+
+  // Settings state from Zustand
+  const {
+    notifications,
+    emailNotifications,
+    soundEnabled,
+    period: dashboardFilter,
+    systemStatus,
+    setNotifications,
+    setEmailNotifications,
+    setSoundEnabled,
+    setDashboardFilter,
+    checkSystemStatus,
+    saveAllSettings,
+  } = useSettingsStore();
+
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingConnectivity, setIsCheckingConnectivity] = useState(false);
+
+  useEffect(() => {
+    // Carregar status inicial do sistema
+    checkSystemStatus();
+  }, [checkSystemStatus]);
 
   const handleSaveSettings = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await saveAllSettings();
+
       toast({
         title: "Configurações salvas",
         description: "Suas preferências foram atualizadas com sucesso.",
@@ -53,16 +85,22 @@ export default function Configuration() {
     }
   };
 
-  const systemStatus = {
-    database: {
-      status: "Conectado",
-      responseTime: "12ms",
-      uptime: "99.98%"
-    },
-    api: {
-      status: "Online",
-      responseTime: "45ms",
-      uptime: "99.95%"
+  const handleTestConnectivity = async () => {
+    setIsCheckingConnectivity(true);
+    try {
+      await checkSystemStatus();
+      toast({
+        title: "Teste concluído",
+        description: "Conectividade verificada com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no teste",
+        description: "Falha ao verificar conectividade.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingConnectivity(false);
     }
   };
 
@@ -79,7 +117,9 @@ export default function Configuration() {
             <Settings className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              Configurações
+            </h1>
             <p className="text-muted-foreground">
               Personalize as configurações do sistema e dashboard
             </p>
@@ -141,7 +181,12 @@ export default function Configuration() {
                       Período padrão para informações de ações
                     </p>
                   </div>
-                  <Select value={dashboardFilter} onValueChange={setDashboardFilter}>
+                  <Select
+                    value={dashboardFilter}
+                    onValueChange={(value) =>
+                      setDashboardFilter(value as DashboardFilter)
+                    }
+                  >
                     <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
@@ -179,7 +224,7 @@ export default function Configuration() {
                     onCheckedChange={setNotifications}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Notificações por email</Label>
@@ -192,7 +237,7 @@ export default function Configuration() {
                     onCheckedChange={setEmailNotifications}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Sons de notificação</Label>
@@ -224,21 +269,41 @@ export default function Configuration() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Status da conexão</Label>
+                  <Label className="text-sm font-medium">
+                    Status da conexão
+                  </Label>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-muted-foreground">{systemStatus.database.status}</span>
+                    {systemStatus.database.status === "checking" ? (
+                      <Clock className="h-4 w-4 animate-spin text-yellow-500" />
+                    ) : systemStatus.database.status === "online" ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {systemStatus.database.status === "checking"
+                        ? "Verificando..."
+                        : systemStatus.database.status === "online"
+                        ? "Conectado"
+                        : "Desconectado"}
+                    </span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Tempo de resposta</Label>
-                  <span className="text-sm text-muted-foreground">{systemStatus.database.responseTime}</span>
+                  <Label className="text-sm font-medium">
+                    Tempo de resposta
+                  </Label>
+                  <span className="text-sm text-muted-foreground">
+                    {systemStatus.database.responseTime}
+                  </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Uptime</Label>
-                  <Badge variant="secondary" className="text-xs">{systemStatus.database.uptime}</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {systemStatus.database.uptime}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -256,28 +321,70 @@ export default function Configuration() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Status do serviço</Label>
+                  <Label className="text-sm font-medium">
+                    Status do serviço
+                  </Label>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-muted-foreground">{systemStatus.api.status}</span>
+                    {systemStatus.api.status === "checking" ? (
+                      <Clock className="h-4 w-4 animate-spin text-yellow-500" />
+                    ) : systemStatus.api.status === "online" ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {systemStatus.api.status === "checking"
+                        ? "Verificando..."
+                        : systemStatus.api.status === "online"
+                        ? "Online"
+                        : "Offline"}
+                    </span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Tempo de resposta</Label>
-                  <span className="text-sm text-muted-foreground">{systemStatus.api.responseTime}</span>
+                  <Label className="text-sm font-medium">
+                    Tempo de resposta
+                  </Label>
+                  <span className="text-sm text-muted-foreground">
+                    {systemStatus.api.responseTime}
+                  </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Disponibilidade</Label>
-                  <Badge variant="secondary" className="text-xs">{systemStatus.api.uptime}</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {systemStatus.api.uptime}
+                  </Badge>
                 </div>
-                
+
+                {systemStatus.lastChecked && (
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">
+                      Última verificação
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      {format(systemStatus.lastChecked, "dd/MM/yyyy HH:mm")}
+                    </span>
+                  </div>
+                )}
+
                 <Separator />
-                
-                <Button variant="outline" className="w-full justify-start">
-                  <Wifi className="h-4 w-4 mr-2" />
-                  Testar conectividade
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={handleTestConnectivity}
+                  disabled={isCheckingConnectivity}
+                >
+                  {isCheckingConnectivity ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Wifi className="h-4 w-4 mr-2" />
+                  )}
+                  {isCheckingConnectivity
+                    ? "Testando..."
+                    : "Testar conectividade"}
                 </Button>
               </CardContent>
             </Card>
@@ -286,7 +393,7 @@ export default function Configuration() {
 
         {/* Save Button */}
         <div className="flex justify-end pt-6">
-          <Button 
+          <Button
             onClick={handleSaveSettings}
             disabled={isLoading}
             className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
