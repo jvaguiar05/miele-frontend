@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -195,6 +195,7 @@ export default function PerdCompForm({
     setValue,
     watch,
     reset,
+    control,
   } = useForm<PerdCompFormData>({
     resolver: zodResolver(perdcompSchema),
     defaultValues: perdcomp
@@ -579,10 +580,17 @@ export default function PerdCompForm({
 
             <div className="space-y-2">
               <Label htmlFor="numero_perdcomp">Número PER/DCOMP</Label>
-              <Input
-                id="numero_perdcomp"
-                {...register("numero_perdcomp")}
-                placeholder="Número específico do PER/DCOMP"
+              <Controller
+                name="numero_perdcomp"
+                control={control}
+                render={({ field }) => (
+                  <MaskedInput
+                    id="numero_perdcomp"
+                    mask="99999.99999.999999.9.9.99-9999"
+                    {...field}
+                    placeholder="00000.00000.000000.0.0.00-0000"
+                  />
+                )}
               />
             </div>
           </div>
