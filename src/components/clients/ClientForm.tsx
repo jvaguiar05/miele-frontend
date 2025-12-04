@@ -427,9 +427,13 @@ export default function ClientForm({
           data.atividades_secundarias &&
           data.atividades_secundarias.length > 0
         ) {
-          const secundarias = data.atividades_secundarias
-            .slice(0, 4) // Limit to first 4 secondary activities
-            .map((ativ) => ({
+          interface AtividadeSecundaria {
+            code: string;
+            text: string;
+          }
+
+          const secundarias: Array<{ cnae: string; descricao: string }> =
+            data.atividades_secundarias.map((ativ: AtividadeSecundaria) => ({
               cnae: ativ.code,
               descricao: ativ.text,
             }));
