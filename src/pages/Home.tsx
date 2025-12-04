@@ -146,7 +146,7 @@ const processApiData = (apiData: DashboardApiResponse) => {
     clientsGrowth: apiData.main_cards.clients.new_this_month,
     expiringThisMonth:
       apiData.main_cards.perdcomps_expiring.expiring_this_month,
-    newPerdcompsThisMonth: apiData.main_cards.perdcomps_total.new_this_month,
+    newPerdcompsThisMonth: apiData.main_cards.perdcomps_total.total,
     perdcompsGrowth: apiData.main_cards.perdcomps_total.new_this_month,
     approvalRate: apiData.main_cards.approval_rate.rate_percentage,
     approvedCount: apiData.main_cards.approval_rate.approved_count,
