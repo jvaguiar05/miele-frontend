@@ -404,9 +404,9 @@ export default function Home() {
   // Helper functions for contextual greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return { text: "Bom dia", emoji: "🌅" };
-    if (hour < 18) return { text: "Boa tarde", emoji: "☀️" };
-    return { text: "Boa noite", emoji: "🌙" };
+    if (hour < 12) return { text: "Bom dia" };
+    if (hour < 18) return { text: "Boa tarde" };
+    return { text: "Boa noite" };
   };
 
   const getMotivationalMessage = () => {
@@ -488,7 +488,7 @@ export default function Home() {
                     transition={{ duration: 0.4, delay: 0.1 }}
                     className="text-2xl md:text-3xl font-bold tracking-tight"
                   >
-                    {greeting.text}, {displayName}! {greeting.emoji}
+                    {greeting.text}, {displayName}!
                   </motion.h1>
                   <motion.p
                     initial={{ opacity: 0, x: -10 }}
