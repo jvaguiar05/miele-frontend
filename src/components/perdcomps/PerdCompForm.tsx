@@ -37,6 +37,33 @@ import { useEffect, useState, useCallback } from "react";
 import { MaskedInput } from "@/components/ui/input-mask";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 
+// Tributos do pedido conforme normas brasileiras
+const TRIBUTOS_PEDIDO = {
+  COFINS: "COFINS - Contribuição para o Financiamento da Seguridade Social",
+  COFINS_EXPORTACAO:
+    "COFINS Exportação - Contribuição para o Financiamento da Seguridade Social (Exportação)",
+  COFINS_RESTITUICAO:
+    "COFINS Restituição - Contribuição para o Financiamento da Seguridade Social (Restituição)",
+  COFINS_RETIFICADOR:
+    "COFINS Retificador - Contribuição para o Financiamento da Seguridade Social (Retificador)",
+  PIS_PASEP:
+    "PIS/PASEP - Programa de Integração Social/Programa de Formação do Patrimônio do Servidor Público",
+  PIS_PASEP_EXPORTACAO:
+    "PIS/PASEP Exportação - Programa de Integração Social (Exportação)",
+  PIS_PASEP_RESTITUICAO:
+    "PIS/PASEP Restituição - Programa de Integração Social (Restituição)",
+  PIS_PASEP_RETIFICADOR:
+    "PIS/PASEP Retificador - Programa de Integração Social (Retificador)",
+  IPI: "IPI - Imposto sobre Produtos Industrializados",
+  IPI_RESSARCIMENTO:
+    "IPI Ressarcimento - Imposto sobre Produtos Industrializados (Ressarcimento)",
+  FUNRURAL: "FUNRURAL - Fundo de Assistência ao Trabalhador Rural",
+  INSS_RETENCAO:
+    "INSS Retenção - Instituto Nacional do Seguro Social (Retenção)",
+  IRPJ_CSRF_RESTITUICAO:
+    "IRPJ/CSRFB Restituição - Imposto de Renda Pessoa Jurídica/Contribuição Social sobre o Resultado Fiscal (Restituição)",
+};
+
 const perdcompSchema = z.object({
   client_id: z.string().min(1, "Cliente é obrigatório"),
   cnpj: z
@@ -818,27 +845,14 @@ export default function PerdCompForm({
               >
                 <SelectValue placeholder="Selecione o tributo" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="IRPJ">
-                  IRPJ - Imposto de Renda Pessoa Jurídica
-                </SelectItem>
-                <SelectItem value="CSLL">
-                  CSLL - Contribuição Social sobre o Lucro Líquido
-                </SelectItem>
-                <SelectItem value="PIS">
-                  PIS - Programa de Integração Social
-                </SelectItem>
-                <SelectItem value="COFINS">
-                  COFINS - Contribuição para Financiamento da Seguridade Social
-                </SelectItem>
-                <SelectItem value="PIS/COFINS">PIS/COFINS</SelectItem>
-                <SelectItem value="IPI">
-                  IPI - Imposto sobre Produtos Industrializados
-                </SelectItem>
-                <SelectItem value="ICMS">
-                  ICMS - Imposto sobre Circulação de Mercadorias e Serviços
-                </SelectItem>
-                <SelectItem value="OUTROS">Outros</SelectItem>
+              <SelectContent className="max-h-60">
+                {Object.entries(TRIBUTOS_PEDIDO)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([codigo, descricao]) => (
+                    <SelectItem key={codigo} value={codigo}>
+                      {descricao}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             {errors.tributo_pedido && (
