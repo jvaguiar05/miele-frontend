@@ -232,21 +232,15 @@ export default function PerdCompForm({
           numero: perdcomp.numero,
           numero_perdcomp: perdcomp.numero_perdcomp,
           processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
-          // Convert dates from YYYY-MM-DD to YYYY-MM-DDTHH:mm for datetime-local inputs
+          // Convert dates from YYYY-MM-DD to YYYY-MM-DD for date inputs
           data_transmissao: perdcomp.data_transmissao
-            ? perdcomp.data_transmissao.includes("T")
-              ? perdcomp.data_transmissao.slice(0, 16)
-              : `${perdcomp.data_transmissao}T00:00`
+            ? perdcomp.data_transmissao.split("T")[0]
             : undefined,
           data_vencimento: perdcomp.data_vencimento
-            ? perdcomp.data_vencimento.includes("T")
-              ? perdcomp.data_vencimento.slice(0, 16)
-              : `${perdcomp.data_vencimento}T00:00`
+            ? perdcomp.data_vencimento.split("T")[0]
             : undefined,
           data_competencia: perdcomp.data_competencia
-            ? perdcomp.data_competencia.includes("T")
-              ? perdcomp.data_competencia.slice(0, 16)
-              : `${perdcomp.data_competencia}T00:00`
+            ? perdcomp.data_competencia.split("T")[0]
             : undefined,
           tributo_pedido: perdcomp.tributo_pedido,
           competencia: perdcomp.competencia,
@@ -274,24 +268,21 @@ export default function PerdCompForm({
   // Reset form when perdcomp changes
   useEffect(() => {
     if (perdcomp) {
-      // Convert dates from YYYY-MM-DD to YYYY-MM-DDTHH:mm for datetime-local inputs
-      const formatDateForInput = (dateStr?: string) => {
-        if (!dateStr) return undefined;
-        // If it's already in datetime format, return as is
-        if (dateStr.includes("T")) return dateStr.slice(0, 16);
-        // If it's just a date, add time
-        return `${dateStr}T00:00`;
-      };
-
       reset({
         client_id: "", // Will be set when client is selected
         cnpj: perdcomp.cnpj,
         numero: perdcomp.numero,
         numero_perdcomp: perdcomp.numero_perdcomp,
         processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
-        data_transmissao: formatDateForInput(perdcomp.data_transmissao),
-        data_vencimento: formatDateForInput(perdcomp.data_vencimento),
-        data_competencia: formatDateForInput(perdcomp.data_competencia),
+        data_transmissao: perdcomp.data_transmissao
+          ? perdcomp.data_transmissao.split("T")[0]
+          : undefined,
+        data_vencimento: perdcomp.data_vencimento
+          ? perdcomp.data_vencimento.split("T")[0]
+          : undefined,
+        data_competencia: perdcomp.data_competencia
+          ? perdcomp.data_competencia.split("T")[0]
+          : undefined,
         tributo_pedido: perdcomp.tributo_pedido,
         competencia: perdcomp.competencia,
         valor_pedido: perdcomp.valor_pedido,
@@ -666,7 +657,7 @@ export default function PerdCompForm({
             <Label htmlFor="data_transmissao">Data de Transmissão</Label>
             <Input
               id="data_transmissao"
-              type="datetime-local"
+              type="date"
               {...register("data_transmissao")}
               className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
             />
@@ -676,7 +667,7 @@ export default function PerdCompForm({
             <Label htmlFor="data_vencimento">Data de Vencimento</Label>
             <Input
               id="data_vencimento"
-              type="datetime-local"
+              type="date"
               {...register("data_vencimento")}
               className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
             />
@@ -686,7 +677,7 @@ export default function PerdCompForm({
             <Label htmlFor="data_competencia">Data de Competência</Label>
             <Input
               id="data_competencia"
-              type="datetime-local"
+              type="date"
               {...register("data_competencia")}
               className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
             />

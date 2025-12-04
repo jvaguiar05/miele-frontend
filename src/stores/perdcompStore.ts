@@ -1,6 +1,45 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
 
+// Helper function to extract error messages from API responses
+const extractErrorMessage = (
+  error: any,
+  fallback: string = "Erro desconhecido"
+): string => {
+  if (error.response) {
+    const { status, data } = error.response;
+
+    if (data && typeof data === "object") {
+      // Handle field-specific validation errors
+      if (data.detail) {
+        return `Erro ${status}: ${data.detail}`;
+      }
+
+      // Handle multiple field errors
+      const fieldErrors: string[] = [];
+      Object.entries(data).forEach(([field, messages]) => {
+        if (Array.isArray(messages)) {
+          messages.forEach((msg: string) => {
+            fieldErrors.push(`${field}: ${msg}`);
+          });
+        } else if (typeof messages === "string") {
+          fieldErrors.push(`${field}: ${messages}`);
+        }
+      });
+
+      if (fieldErrors.length > 0) {
+        return `Erro ${status}: ${fieldErrors.join(", ")}`;
+      }
+    }
+
+    // Fallback to status text
+    return `Erro ${status}: ${error.response.statusText || fallback}`;
+  }
+
+  // Network or other errors
+  return error.message || fallback;
+};
+
 // Annotation interface matching Django API structure
 export interface PerdCompAnnotation {
   id: string;
@@ -287,11 +326,12 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
       return perdcomp;
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(error);
       set({
-        error: error.message || "Erro ao criar PER/DCOMP",
+        error: errorMessage,
         isLoading: false,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
@@ -307,8 +347,26 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
           ? `/perdcomps/${id}/`
           : `/perdcomps/${id}/`;
 
+      // 🔍 LOG: Requisição de atualização de perdcomp
+      console.log("🔄 PERDCOMP UPDATE REQUEST");
+      console.log("📍 Endpoint:", endpoint);
+      console.log("🆔 PerdComp ID:", id);
+      console.log("📦 Request Body:", JSON.stringify(perdcompData, null, 2));
+      console.log("⏰ Timestamp:", new Date().toISOString());
+      console.log("───────────────────────────────────────");
+
       const response = await api.patch(endpoint, perdcompData);
       const updatedPerdComp = response.data;
+
+      // 🔍 LOG: Resposta da atualização de perdcomp
+      console.log("✅ PERDCOMP UPDATE RESPONSE");
+      console.log("📊 Status:", response.status);
+      console.log(
+        "📨 Response Data:",
+        JSON.stringify(updatedPerdComp, null, 2)
+      );
+      console.log("⏰ Timestamp:", new Date().toISOString());
+      console.log("───────────────────────────────────────");
 
       // Update local state
       set((state) => ({
@@ -324,11 +382,12 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
       return updatedPerdComp;
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(error);
       set({
-        error: error.message || "Erro ao atualizar PER/DCOMP",
+        error: errorMessage,
         isLoading: false,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
@@ -352,8 +411,12 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Erro ao deletar PER/DCOMP"
+      );
       set({
-        error: error.message || "Erro ao deletar PER/DCOMP",
+        error: errorMessage,
         isLoading: false,
       });
       throw error;

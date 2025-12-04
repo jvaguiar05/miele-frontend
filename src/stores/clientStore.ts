@@ -1,6 +1,45 @@
 import { create } from "zustand";
 import api, { apiHelpers } from "@/lib/api";
 
+// Helper function to extract error messages from API responses
+const extractErrorMessage = (
+  error: any,
+  fallback: string = "Erro desconhecido"
+): string => {
+  if (error.response) {
+    const { status, data } = error.response;
+
+    if (data && typeof data === "object") {
+      // Handle field-specific validation errors
+      if (data.detail) {
+        return `Erro ${status}: ${data.detail}`;
+      }
+
+      // Handle multiple field errors
+      const fieldErrors: string[] = [];
+      Object.entries(data).forEach(([field, messages]) => {
+        if (Array.isArray(messages)) {
+          messages.forEach((msg: string) => {
+            fieldErrors.push(`${field}: ${msg}`);
+          });
+        } else if (typeof messages === "string") {
+          fieldErrors.push(`${field}: ${messages}`);
+        }
+      });
+
+      if (fieldErrors.length > 0) {
+        return `Erro ${status}: ${fieldErrors.join(", ")}`;
+      }
+    }
+
+    // Fallback to status text
+    return `Erro ${status}: ${error.response.statusText || fallback}`;
+  }
+
+  // Network or other errors
+  return error.message || fallback;
+};
+
 // Annotation interface matching Django API structure
 export interface ClientAnnotation {
   id: string;
@@ -167,8 +206,12 @@ export const useClientStore = create<ClientState>((set, get) => ({
         filters: { ...get().filters, ...filters },
       });
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(
+        error,
+        "Erro ao buscar clientes"
+      );
       set({
-        error: error.message || "Erro ao buscar clientes",
+        error: errorMessage,
         isLoading: false,
       });
       throw error;
@@ -200,11 +243,12 @@ export const useClientStore = create<ClientState>((set, get) => ({
 
       return client;
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(error);
       set({
-        error: error.message || "Erro ao buscar cliente",
+        error: errorMessage,
         isLoading: false,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
@@ -215,7 +259,11 @@ export const useClientStore = create<ClientState>((set, get) => ({
       );
       return response.data.results || [];
     } catch (error: any) {
-      console.error("Error fetching client annotations:", error);
+      const errorMessage = extractErrorMessage(
+        error,
+        "Error fetching client annotations"
+      );
+      console.error("Error fetching client annotations:", errorMessage, error);
       throw error;
     }
   },
@@ -239,7 +287,11 @@ export const useClientStore = create<ClientState>((set, get) => ({
       console.log("Annotation created successfully:", response.data);
       return response.data;
     } catch (error: any) {
-      console.error("Error creating annotation:", error);
+      const errorMessage = extractErrorMessage(
+        error,
+        "Error creating annotation"
+      );
+      console.error("Error creating annotation:", errorMessage, error);
       console.error("Error response:", error.response?.data);
       console.error("Error status:", error.response?.status);
       throw error;
@@ -263,7 +315,11 @@ export const useClientStore = create<ClientState>((set, get) => ({
     try {
       await api.delete(`/clients/annotations/${annotationId}/`);
     } catch (error: any) {
-      console.error("Error deleting annotation:", error);
+      const errorMessage = extractErrorMessage(
+        error,
+        "Error deleting annotation"
+      );
+      console.error("Error deleting annotation:", errorMessage, error);
       throw error;
     }
   },
@@ -291,19 +347,37 @@ export const useClientStore = create<ClientState>((set, get) => ({
 
       return client;
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(error);
       set({
-        error: error.message || "Erro ao criar cliente",
+        error: errorMessage,
         isLoading: false,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
   updateClient: async (id: string | number, clientData: Partial<Client>) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.patch(`/clients/clients/${id}/`, clientData);
+      const endpoint = `/clients/clients/${id}/`;
+
+      // 🔍 LOG: Requisição de atualização de cliente
+      console.log("🔄 CLIENT UPDATE REQUEST");
+      console.log("📍 Endpoint:", endpoint);
+      console.log("🆔 Client ID:", id);
+      console.log("📦 Request Body:", JSON.stringify(clientData, null, 2));
+      console.log("⏰ Timestamp:", new Date().toISOString());
+      console.log("───────────────────────────────────────");
+
+      const response = await api.patch(endpoint, clientData);
       const updatedClient = response.data;
+
+      // 🔍 LOG: Resposta da atualização de cliente
+      console.log("✅ CLIENT UPDATE RESPONSE");
+      console.log("📊 Status:", response.status);
+      console.log("📨 Response Data:", JSON.stringify(updatedClient, null, 2));
+      console.log("⏰ Timestamp:", new Date().toISOString());
+      console.log("───────────────────────────────────────");
 
       // Update local state
       set((state) => ({
@@ -319,14 +393,12 @@ export const useClientStore = create<ClientState>((set, get) => ({
 
       return updatedClient;
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(error);
       set({
-        error:
-          error.response?.data?.detail ||
-          error.message ||
-          "Erro ao atualizar cliente",
+        error: errorMessage,
         isLoading: false,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
@@ -344,11 +416,12 @@ export const useClientStore = create<ClientState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
+      const errorMessage = extractErrorMessage(error);
       set({
-        error: error.message || "Erro ao deletar cliente",
+        error: errorMessage,
         isLoading: false,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
