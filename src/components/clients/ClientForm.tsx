@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useEffect, useState } from "react";
@@ -19,6 +19,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search } from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { EmailInput } from "@/components/ui/email-input";
+import { WebsiteInput } from "@/components/ui/website-input";
+import { CapitalizedInput } from "@/components/ui/capitalized-input";
+import { JsonInput } from "@/components/ui/json-input";
 
 const clientSchema = z.object({
   // Dados principais
@@ -81,6 +86,57 @@ interface ClientFormProps {
   onSuccess: () => void;
   onCancel: () => void;
 }
+
+// Helper functions for formatting
+const formatCNPJ = (cnpj: string) => {
+  const digits = cnpj.replace(/\D/g, "");
+  if (digits.length <= 14) {
+    return digits.replace(
+      /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+      "$1.$2.$3/$4-$5"
+    );
+  }
+  return cnpj;
+};
+
+const formatCEP = (cep: string) => {
+  const digits = cep.replace(/\D/g, "");
+  if (digits.length <= 8) {
+    return digits.replace(/(\d{5})(\d{3})/, "$1-$2");
+  }
+  return cep;
+};
+
+const formatPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, "");
+
+  if (digits.length === 0) return "";
+
+  // Apply mask based on length
+  if (digits.length <= 2) {
+    // Just area code
+    return `(${digits}`;
+  } else if (digits.length <= 6) {
+    // Area code + first part
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  } else if (digits.length <= 10) {
+    // 8-digit number: (xx) xxxx-xxxx
+    const areaCode = digits.slice(0, 2);
+    const firstPart = digits.slice(2, 6);
+    const secondPart = digits.slice(6);
+    return `(${areaCode}) ${firstPart}${secondPart ? `-${secondPart}` : ""}`;
+  } else {
+    // 9-digit number: (xx) xxxxx-xxxx
+    const areaCode = digits.slice(0, 2);
+    const firstPart = digits.slice(2, 7);
+    const secondPart = digits.slice(7, 11);
+    return `(${areaCode}) ${firstPart}${secondPart ? `-${secondPart}` : ""}`;
+  }
+};
+
+const unformatValue = (value: string) => {
+  return value.replace(/\D/g, "");
+};
 
 // Helper functions to convert between form data and API data
 const convertClientToForm = (client: Client): ClientFormData => {
@@ -234,6 +290,7 @@ export default function ClientForm({
     watch,
     getValues,
     reset,
+    control,
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -308,10 +365,14 @@ export default function ClientForm({
         // Split phone numbers: first = contact, second = commercial
         const phones = data.telefone.split("/").map((phone) => phone.trim());
         if (phones.length >= 1) {
-          setValue("telefone_contato", phones[0]);
+          // Apply phone formatting for new clients only
+          const formattedPhone = !client ? formatPhone(phones[0]) : phones[0];
+          setValue("telefone_contato", formattedPhone);
         }
         if (phones.length >= 2) {
-          setValue("telefone_comercial", phones[1]);
+          // Apply phone formatting for new clients only
+          const formattedPhone = !client ? formatPhone(phones[1]) : phones[1];
+          setValue("telefone_comercial", formattedPhone);
         }
       }
 
@@ -323,8 +384,10 @@ export default function ClientForm({
       if (data.municipio) setValue("municipio", data.municipio);
       if (data.uf) setValue("uf", data.uf);
       if (data.cep) {
+        // Apply CEP formatting for new clients only
         const cleanCEP = data.cep.replace(/\D/g, "");
-        setValue("cep", cleanCEP);
+        const formattedCEP = !client ? formatCEP(cleanCEP) : cleanCEP;
+        setValue("cep", formattedCEP);
       }
 
       // Map company type based on porte
@@ -495,13 +558,29 @@ export default function ClientForm({
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
               <div className="flex gap-2">
-                <Input
-                  id="cnpj"
-                  {...register("cnpj")}
-                  placeholder="00.000.000/0000-00"
-                  className={errors.cnpj ? "border-destructive" : ""}
-                  readOnly={!!client}
-                />
+                {client ? (
+                  <Input
+                    id="cnpj"
+                    {...register("cnpj")}
+                    placeholder="00.000.000/0000-00"
+                    className={errors.cnpj ? "border-destructive" : ""}
+                    readOnly={!!client}
+                  />
+                ) : (
+                  <Controller
+                    name="cnpj"
+                    control={control}
+                    render={({ field }) => (
+                      <MaskedInput
+                        id="cnpj"
+                        mask="99.999.999/9999-99"
+                        {...field}
+                        placeholder="00.000.000/0000-00"
+                        className={errors.cnpj ? "border-destructive" : ""}
+                      />
+                    )}
+                  />
+                )}
                 {!client && (
                   <Button
                     type="button"
@@ -551,26 +630,54 @@ export default function ClientForm({
               )}
             </div>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="razao_social">Razão Social *</Label>
-            <Input
-              id="razao_social"
-              {...register("razao_social")}
-              className={errors.razao_social ? "border-destructive" : ""}
-            />
+            {client ? (
+              <Input
+                id="razao_social"
+                {...register("razao_social")}
+                className={errors.razao_social ? "border-destructive" : ""}
+              />
+            ) : (
+              <Controller
+                name="razao_social"
+                control={control}
+                render={({ field }) => (
+                  <CapitalizedInput
+                    id="razao_social"
+                    {...field}
+                    className={errors.razao_social ? "border-destructive" : ""}
+                    capitalizationType="upper"
+                    placeholder="Digite a razão social da empresa"
+                  />
+                )}
+              />
+            )}
             {errors.razao_social && (
               <p className="text-sm text-destructive">
                 {errors.razao_social.message}
               </p>
             )}
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="nome_fantasia">Nome Fantasia</Label>
-            <Input id="nome_fantasia" {...register("nome_fantasia")} />
-          </div>
-
+            {client ? (
+              <Input id="nome_fantasia" {...register("nome_fantasia")} />
+            ) : (
+              <Controller
+                name="nome_fantasia"
+                control={control}
+                render={({ field }) => (
+                  <CapitalizedInput
+                    id="nome_fantasia"
+                    {...field}
+                    capitalizationType="upper"
+                    placeholder="Digite o nome fantasia"
+                  />
+                )}
+              />
+            )}
+          </div>{" "}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="inscricao_estadual">Inscrição Estadual</Label>
@@ -588,7 +695,6 @@ export default function ClientForm({
               />
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
               <Switch
@@ -623,12 +729,29 @@ export default function ClientForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_contato">Email de Contato</Label>
-              <Input
-                id="email_contato"
-                type="email"
-                {...register("email_contato")}
-                className={errors.email_contato ? "border-destructive" : ""}
-              />
+              {client ? (
+                <Input
+                  id="email_contato"
+                  type="email"
+                  {...register("email_contato")}
+                  className={errors.email_contato ? "border-destructive" : ""}
+                />
+              ) : (
+                <Controller
+                  name="email_contato"
+                  control={control}
+                  render={({ field }) => (
+                    <EmailInput
+                      id="email_contato"
+                      {...field}
+                      placeholder="contato@empresa.com.br"
+                      className={
+                        errors.email_contato ? "border-destructive" : ""
+                      }
+                    />
+                  )}
+                />
+              )}
               {errors.email_contato && (
                 <p className="text-sm text-destructive">
                   {errors.email_contato.message}
@@ -638,12 +761,30 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="telefone_contato">Telefone de Contato</Label>
-              <Input
-                id="telefone_contato"
-                {...register("telefone_contato")}
-                placeholder="(00) 00000-0000"
-                className={errors.telefone_contato ? "border-destructive" : ""}
-              />
+              {client ? (
+                <Input
+                  id="telefone_contato"
+                  {...register("telefone_contato")}
+                  placeholder="(00) 00000-0000"
+                  className={
+                    errors.telefone_contato ? "border-destructive" : ""
+                  }
+                />
+              ) : (
+                <Controller
+                  name="telefone_contato"
+                  control={control}
+                  render={({ field }) => (
+                    <PhoneInput
+                      id="telefone_contato"
+                      {...field}
+                      className={
+                        errors.telefone_contato ? "border-destructive" : ""
+                      }
+                    />
+                  )}
+                />
+              )}
               {errors.telefone_contato && (
                 <p className="text-sm text-destructive">
                   {errors.telefone_contato.message}
@@ -655,31 +796,63 @@ export default function ClientForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_comercial">Email Comercial</Label>
-              <Input
-                id="email_comercial"
-                type="email"
-                {...register("email_comercial")}
-              />
+              {client ? (
+                <Input
+                  id="email_comercial"
+                  type="email"
+                  {...register("email_comercial")}
+                />
+              ) : (
+                <Controller
+                  name="email_comercial"
+                  control={control}
+                  render={({ field }) => (
+                    <EmailInput
+                      id="email_comercial"
+                      {...field}
+                      placeholder="comercial@empresa.com.br"
+                    />
+                  )}
+                />
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="telefone_comercial">Telefone Comercial</Label>
-              <Input
-                id="telefone_comercial"
-                {...register("telefone_comercial")}
-                placeholder="(00) 0000-0000"
-              />
+              {client ? (
+                <Input
+                  id="telefone_comercial"
+                  {...register("telefone_comercial")}
+                  placeholder="(00) 0000-0000"
+                />
+              ) : (
+                <Controller
+                  name="telefone_comercial"
+                  control={control}
+                  render={({ field }) => (
+                    <PhoneInput id="telefone_comercial" {...field} />
+                  )}
+                />
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>
-            <Input
-              id="website"
-              type="url"
-              {...register("website")}
-              placeholder="https://"
-            />
+            {client ? (
+              <Input
+                id="website"
+                type="url"
+                {...register("website")}
+                placeholder="https://www.empresa.com.br"
+              />
+            ) : (
+              <Controller
+                name="website"
+                control={control}
+                render={({ field }) => <WebsiteInput id="website" {...field} />}
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -726,12 +899,18 @@ export default function ClientForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="atividades">Atividades da Empresa (JSON)</Label>
-            <Textarea
-              id="atividades"
-              {...register("atividades")}
-              placeholder='Ex: [{"cnae": "6201-5/00", "descricao": "Desenvolvimento de software"}, {"cnae": "6202-3/00", "descricao": "Consultoria em TI"}]'
-              rows={6}
+            <Label htmlFor="atividades">Atividades da Empresa</Label>
+            <Controller
+              name="atividades"
+              control={control}
+              render={({ field }) => (
+                <JsonInput
+                  id="atividades"
+                  {...field}
+                  jsonType="atividades"
+                  rows={6}
+                />
+              )}
             />
             <p className="text-sm text-muted-foreground">
               Formato: Array de objetos com CNAE e descrição. Será preenchido
@@ -740,12 +919,18 @@ export default function ClientForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="quadro_societario">Quadro Societário (JSON)</Label>
-            <Textarea
-              id="quadro_societario"
-              {...register("quadro_societario")}
-              placeholder='Ex: [{"nome": "João Silva", "cargo": "Administrador"}, {"nome": "Maria Santos", "cargo": "Sócia"}]'
-              rows={6}
+            <Label htmlFor="quadro_societario">Quadro Societário</Label>
+            <Controller
+              name="quadro_societario"
+              control={control}
+              render={({ field }) => (
+                <JsonInput
+                  id="quadro_societario"
+                  {...field}
+                  jsonType="quadro_societario"
+                  rows={6}
+                />
+              )}
             />
             <p className="text-sm text-muted-foreground">
               Formato: Array de objetos com nome e cargo. Será preenchido
@@ -802,13 +987,43 @@ export default function ClientForm({
         <TabsContent value="address" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cep">CEP</Label>
-            <Input id="cep" {...register("cep")} placeholder="00000-000" />
+            {client ? (
+              <Input id="cep" {...register("cep")} placeholder="00000-000" />
+            ) : (
+              <Controller
+                name="cep"
+                control={control}
+                render={({ field }) => (
+                  <MaskedInput
+                    id="cep"
+                    mask="99999-999"
+                    {...field}
+                    placeholder="00000-000"
+                  />
+                )}
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 space-y-2">
               <Label htmlFor="logradouro">Logradouro</Label>
-              <Input id="logradouro" {...register("logradouro")} />
+              {client ? (
+                <Input id="logradouro" {...register("logradouro")} />
+              ) : (
+                <Controller
+                  name="logradouro"
+                  control={control}
+                  render={({ field }) => (
+                    <CapitalizedInput
+                      id="logradouro"
+                      {...field}
+                      capitalizationType="title"
+                      placeholder="Rua, Avenida, Travessa..."
+                    />
+                  )}
+                />
+              )}
             </div>
 
             <div className="space-y-2">
@@ -819,18 +1034,63 @@ export default function ClientForm({
 
           <div className="space-y-2">
             <Label htmlFor="complemento">Complemento</Label>
-            <Input id="complemento" {...register("complemento")} />
+            {client ? (
+              <Input id="complemento" {...register("complemento")} />
+            ) : (
+              <Controller
+                name="complemento"
+                control={control}
+                render={({ field }) => (
+                  <CapitalizedInput
+                    id="complemento"
+                    {...field}
+                    capitalizationType="title"
+                    placeholder="Apartamento, Sala, Andar..."
+                  />
+                )}
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="bairro">Bairro</Label>
-              <Input id="bairro" {...register("bairro")} />
+              {client ? (
+                <Input id="bairro" {...register("bairro")} />
+              ) : (
+                <Controller
+                  name="bairro"
+                  control={control}
+                  render={({ field }) => (
+                    <CapitalizedInput
+                      id="bairro"
+                      {...field}
+                      capitalizationType="title"
+                      placeholder="Digite o bairro"
+                    />
+                  )}
+                />
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="municipio">Município</Label>
-              <Input id="municipio" {...register("municipio")} />
+              {client ? (
+                <Input id="municipio" {...register("municipio")} />
+              ) : (
+                <Controller
+                  name="municipio"
+                  control={control}
+                  render={({ field }) => (
+                    <CapitalizedInput
+                      id="municipio"
+                      {...field}
+                      capitalizationType="title"
+                      placeholder="Digite a cidade"
+                    />
+                  )}
+                />
+              )}
             </div>
           </div>
 
