@@ -138,6 +138,130 @@ const unformatValue = (value: string) => {
   return value.replace(/\D/g, "");
 };
 
+// Naturezas Jurídicas do IBGE 2021
+const NATUREZAS_JURIDICAS = {
+  // 1. Administração Pública
+  "101-5": "101-5 - Órgão Público do Poder Executivo Federal",
+  "102-3":
+    "102-3 - Órgão Público do Poder Executivo Estadual ou do Distrito Federal",
+  "103-1": "103-1 - Órgão Público do Poder Executivo Municipal",
+  "104-0": "104-0 - Órgão Público do Poder Legislativo Federal",
+  "105-8":
+    "105-8 - Órgão Público do Poder Legislativo Estadual ou do Distrito Federal",
+  "106-6": "106-6 - Órgão Público do Poder Legislativo Municipal",
+  "107-4": "107-4 - Órgão Público do Poder Judiciário Federal",
+  "108-2": "108-2 - Órgão Público do Poder Judiciário Estadual",
+  "110-4": "110-4 - Autarquia Federal",
+  "111-2": "111-2 - Autarquia Estadual ou do Distrito Federal",
+  "112-0": "112-0 - Autarquia Municipal",
+  "113-9": "113-9 - Fundação Pública de Direito Público Federal",
+  "114-7":
+    "114-7 - Fundação Pública de Direito Público Estadual ou do Distrito Federal",
+  "115-5": "115-5 - Fundação Pública de Direito Público Municipal",
+  "116-3": "116-3 - Órgão Público Autônomo Federal",
+  "117-1": "117-1 - Órgão Público Autônomo Estadual ou do Distrito Federal",
+  "118-0": "118-0 - Órgão Público Autônomo Municipal",
+  "119-8": "119-8 - Comissão Polinacional",
+  "121-0": "121-0 - Consórcio Público de Direito Público (Associação Pública)",
+  "122-8": "122-8 - Consórcio Público de Direito Privado",
+  "123-6": "123-6 - Estado ou Distrito Federal",
+  "124-4": "124-4 - Município",
+  "125-2": "125-2 - Fundação Pública de Direito Privado Federal",
+  "126-0":
+    "126-0 - Fundação Pública de Direito Privado Estadual ou do Distrito Federal",
+  "127-9": "127-9 - Fundação Pública de Direito Privado Municipal",
+  "128-7": "128-7 - Fundo Público da Administração Indireta Federal",
+  "129-5":
+    "129-5 - Fundo Público da Administração Indireta Estadual ou do Distrito Federal",
+  "130-9": "130-9 - Fundo Público da Administração Indireta Municipal",
+  "131-7": "131-7 - Fundo Público da Administração Direta Federal",
+  "132-5":
+    "132-5 - Fundo Público da Administração Direta Estadual ou do Distrito Federal",
+  "133-3": "133-3 - Fundo Público da Administração Direta Municipal",
+  "134-1": "134-1 - União",
+
+  // 2. Entidades Empresariais
+  "201-1": "201-1 - Empresa Pública",
+  "203-8": "203-8 - Sociedade de Economia Mista",
+  "204-6": "204-6 - Sociedade Anônima Aberta",
+  "205-4": "205-4 - Sociedade Anônima Fechada",
+  "206-2": "206-2 - Sociedade Empresária Limitada",
+  "207-0": "207-0 - Sociedade Empresária em Nome Coletivo",
+  "208-9": "208-9 - Sociedade Empresária em Comandita Simples",
+  "209-7": "209-7 - Sociedade Empresária em Comandita por Ações",
+  "212-7": "212-7 - Sociedade em Conta de Participação",
+  "213-5": "213-5 - Empresário (Individual)",
+  "214-3": "214-3 - Cooperativa",
+  "215-1": "215-1 - Consórcio de Sociedades",
+  "216-0": "216-0 - Grupo de Sociedades",
+  "217-8": "217-8 - Estabelecimento, no Brasil, de Sociedade Estrangeira",
+  "219-4":
+    "219-4 - Estabelecimento, no Brasil, de Empresa Binacional Argentino-Brasileira",
+  "221-6": "221-6 - Empresa Domiciliada no Exterior",
+  "222-4": "222-4 - Clube/Fundo de Investimento",
+  "223-2": "223-2 - Sociedade Simples Pura",
+  "224-0": "224-0 - Sociedade Simples Limitada",
+  "225-9": "225-9 - Sociedade Simples em Nome Coletivo",
+  "226-7": "226-7 - Sociedade Simples em Comandita Simples",
+  "227-5": "227-5 - Empresa Binacional",
+  "228-3": "228-3 - Consórcio de Empregadores",
+  "229-1": "229-1 - Consórcio Simples",
+  "230-5":
+    "230-5 - Empresa Individual de Responsabilidade Limitada (de Natureza Empresária)",
+  "231-3":
+    "231-3 - Empresa Individual de Responsabilidade Limitada (de Natureza Simples)",
+  "232-1": "232-1 - Sociedade Unipessoal de Advogados",
+  "233-0": "233-0 - Cooperativas de Consumo",
+  "234-8": "234-8 - Empresa Simples de Inovação - Inova Simples",
+  "235-6": "235-6 - Investidor Não Residente",
+
+  // 3. Entidades sem Fins Lucrativos
+  "303-4": "303-4 - Serviço Notarial e Registral (Cartório)",
+  "306-9": "306-9 - Fundação Privada",
+  "307-7": "307-7 - Serviço Social Autônomo",
+  "308-5": "308-5 - Condomínio Edilício",
+  "310-7": "310-7 - Comissão de Conciliação Prévia",
+  "311-5": "311-5 - Entidade de Mediação e Arbitragem",
+  "313-1": "313-1 - Entidade Sindical",
+  "320-4":
+    "320-4 - Estabelecimento, no Brasil, de Fundação ou Associações Estrangeiras",
+  "321-2": "321-2 - Fundação ou Associação Domiciliada no Exterior",
+  "322-0": "322-0 - Organização Religiosa",
+  "323-9": "323-9 - Comunidade Indígena",
+  "324-7": "324-7 - Fundo Privado",
+  "325-5": "325-5 - Órgão de Direção Nacional de Partido Político",
+  "326-3": "326-3 - Órgão de Direção Regional de Partido Político",
+  "327-1": "327-1 - Órgão de Direção Local de Partido Político",
+  "328-0": "328-0 - Comitê Financeiro de Partido Político",
+  "329-8": "329-8 - Frente Plebiscitária ou Referendária",
+  "330-1": "330-1 - Organização Social (OS)",
+  "331-0": "331-0 - Demais Condomínios",
+  "332-8": "332-8 - Plano de Benefícios de Previdência Complementar Fechada",
+  "399-9": "399-9 - Associação Privada",
+
+  // 4. Pessoas Físicas
+  "401-4": "401-4 - Empresa Individual Imobiliária",
+  "402-2": "402-2 - Segurado Especial",
+  "408-1": "408-1 - Contribuinte Individual",
+  "409-0": "409-0 - Candidato a Cargo Político Eletivo",
+  "411-1": "411-1 - Leiloeiro",
+  "412-0": "412-0 - Produtor Rural (Pessoa Física)",
+
+  // 5. Organizações Internacionais e Outras Instituições Extraterritoriais
+  "501-0": "501-0 - Organização Internacional",
+  "502-9": "502-9 - Representação Diplomática Estrangeira",
+  "503-7": "503-7 - Outras Instituições Extraterritoriais",
+};
+
+// Função para extrair código da natureza jurídica
+const extractNaturezaJuridicaCode = (naturezaJuridica: string): string => {
+  if (!naturezaJuridica) return "";
+
+  // Extrai o código no formato XXX-X
+  const match = naturezaJuridica.match(/(\d{3}-\d)/);
+  return match ? match[1] : "";
+};
+
 // Helper functions to convert between form data and API data
 const convertClientToForm = (client: Client): ClientFormData => {
   console.log("Converting client to form:", JSON.stringify(client, null, 2)); // Debug log
@@ -390,24 +514,13 @@ export default function ClientForm({
         setValue("cep", formattedCEP);
       }
 
-      // Map company type based on porte
-      if (data.porte) {
-        let tipoEmpresaValue = "";
-        switch (data.porte.toUpperCase()) {
-          case "MICRO EMPRESA":
-            tipoEmpresaValue = "ME";
-            break;
-          case "EMPRESA DE PEQUENO PORTE":
-            tipoEmpresaValue = "EPP";
-            break;
-          case "DEMAIS":
-            tipoEmpresaValue = "LTDA";
-            break;
-          default:
-            tipoEmpresaValue = "LTDA";
-        }
-        setValue("tipo_empresa", tipoEmpresaValue);
-        setTipoEmpresa(tipoEmpresaValue);
+      // Map natureza_juridica from API to tipo_empresa field
+      if (data.natureza_juridica) {
+        const codigo = extractNaturezaJuridicaCode(data.natureza_juridica);
+        const naturezaCompleta =
+          NATUREZAS_JURIDICAS[codigo] || data.natureza_juridica;
+        setValue("tipo_empresa", naturezaCompleta);
+        setTipoEmpresa(naturezaCompleta);
       }
 
       // Map CNAEs and Atividades to new merged structure
@@ -606,7 +719,7 @@ export default function ClientForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tipo_empresa">Tipo de Empresa *</Label>
+              <Label htmlFor="tipo_empresa">Natureza Jurídica *</Label>
               <Select
                 onValueChange={(value) => {
                   setValue("tipo_empresa", value);
@@ -617,14 +730,16 @@ export default function ClientForm({
                 <SelectTrigger
                   className={errors.tipo_empresa ? "border-destructive" : ""}
                 >
-                  <SelectValue placeholder="Selecione o tipo" />
+                  <SelectValue placeholder="Selecione a natureza jurídica" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MEI">MEI</SelectItem>
-                  <SelectItem value="ME">ME</SelectItem>
-                  <SelectItem value="EPP">EPP</SelectItem>
-                  <SelectItem value="LTDA">LTDA</SelectItem>
-                  <SelectItem value="SA">SA</SelectItem>
+                <SelectContent className="max-h-60">
+                  {Object.entries(NATUREZAS_JURIDICAS)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([codigo, descricao]) => (
+                      <SelectItem key={codigo} value={descricao}>
+                        {descricao}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {errors.tipo_empresa && (
