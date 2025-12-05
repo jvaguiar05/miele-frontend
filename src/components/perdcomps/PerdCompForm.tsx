@@ -37,6 +37,40 @@ import { useEffect, useState, useCallback } from "react";
 import { MaskedInput } from "@/components/ui/input-mask";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 
+// Funções helper para formatação monetária brasileira
+const formatCurrencyDisplay = (value: string | undefined | null): string => {
+  if (!value || value.trim() === "" || value === "0.00" || value === "0") {
+    return "";
+  }
+
+  // Normaliza o valor: se vier com vírgula, converte para ponto
+  let normalizedValue = value.replace(",", ".");
+
+  // Se o valor já está no formato "123.45" (ponto decimal), converte para exibição
+  const numValue = parseFloat(normalizedValue);
+
+  if (isNaN(numValue) || numValue === 0) {
+    return "";
+  }
+
+  // Formata com separador de milhar (ponto) e decimal (vírgula)
+  return numValue.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const unformatCurrency = (value: string): string => {
+  // Remove tudo que não é dígito
+  const digits = value.replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  // Converte para número e divide por 100, retorna como string com ponto decimal
+  const amount = Number(digits) / 100;
+  return amount.toFixed(2);
+};
+
 // Tributos do pedido conforme normas brasileiras
 const TRIBUTOS_PEDIDO = {
   COFINS: "COFINS - Contribuição para o Financiamento da Seguridade Social",
@@ -227,42 +261,42 @@ export default function PerdCompForm({
     resolver: zodResolver(perdcompSchema),
     defaultValues: perdcomp
       ? {
-          client_id: "", // Will be set when we find the client by CNPJ
-          cnpj: perdcomp.cnpj,
-          numero: perdcomp.numero,
-          numero_perdcomp: perdcomp.numero_perdcomp,
-          processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
-          // Convert dates from YYYY-MM-DD to YYYY-MM-DD for date inputs
-          data_transmissao: perdcomp.data_transmissao
-            ? perdcomp.data_transmissao.split("T")[0]
-            : undefined,
-          data_vencimento: perdcomp.data_vencimento
-            ? perdcomp.data_vencimento.split("T")[0]
-            : undefined,
-          data_competencia: perdcomp.data_competencia
-            ? perdcomp.data_competencia.split("T")[0]
-            : undefined,
-          tributo_pedido: perdcomp.tributo_pedido,
-          competencia: perdcomp.competencia,
-          valor_pedido: perdcomp.valor_pedido,
-          valor_compensado: perdcomp.valor_compensado,
-          valor_recebido: perdcomp.valor_recebido,
-          valor_saldo: perdcomp.valor_saldo,
-          valor_selic: perdcomp.valor_selic,
-          status: perdcomp.status,
-          is_active: perdcomp.is_active ?? true,
-        }
+        client_id: "", // Will be set when we find the client by CNPJ
+        cnpj: perdcomp.cnpj,
+        numero: perdcomp.numero,
+        numero_perdcomp: perdcomp.numero_perdcomp,
+        processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
+        // Convert dates from YYYY-MM-DD to YYYY-MM-DD for date inputs
+        data_transmissao: perdcomp.data_transmissao
+          ? perdcomp.data_transmissao.split("T")[0]
+          : undefined,
+        data_vencimento: perdcomp.data_vencimento
+          ? perdcomp.data_vencimento.split("T")[0]
+          : undefined,
+        data_competencia: perdcomp.data_competencia
+          ? perdcomp.data_competencia.split("T")[0]
+          : undefined,
+        tributo_pedido: perdcomp.tributo_pedido,
+        competencia: perdcomp.competencia,
+        valor_pedido: perdcomp.valor_pedido,
+        valor_compensado: perdcomp.valor_compensado,
+        valor_recebido: perdcomp.valor_recebido,
+        valor_saldo: perdcomp.valor_saldo,
+        valor_selic: perdcomp.valor_selic,
+        status: perdcomp.status,
+        is_active: perdcomp.is_active ?? true,
+      }
       : {
-          client_id: clientId || "",
-          cnpj: "", // Will be populated by useEffect when client loads
-          status: "RASCUNHO" as any,
-          valor_pedido: "0.00",
-          valor_compensado: "0.00",
-          valor_recebido: "0.00",
-          valor_saldo: "0.00",
-          valor_selic: "0.00",
-          is_active: true,
-        },
+        client_id: clientId || "",
+        cnpj: "", // Will be populated by useEffect when client loads
+        status: "RASCUNHO" as any,
+        valor_pedido: "",
+        valor_compensado: "",
+        valor_recebido: "",
+        valor_saldo: "",
+        valor_selic: "",
+        is_active: true,
+      },
   });
 
   // Reset form when perdcomp changes
@@ -457,9 +491,8 @@ export default function PerdCompForm({
                   variant="outline"
                   role="combobox"
                   aria-expanded={clientSearchOpen}
-                  className={`w-full justify-between ${
-                    errors.client_id ? "border-destructive" : ""
-                  }`}
+                  className={`w-full justify-between ${errors.client_id ? "border-destructive" : ""
+                    }`}
                   disabled={!!clientId && !perdcomp}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -467,7 +500,7 @@ export default function PerdCompForm({
                     <span className="truncate text-sm">
                       {selectedClientData
                         ? selectedClientData.nome_fantasia ||
-                          selectedClientData.razao_social
+                        selectedClientData.razao_social
                         : "Selecione o cliente"}
                     </span>
                   </div>
@@ -495,7 +528,7 @@ export default function PerdCompForm({
                     ) : (
                       <>
                         {displayClients.length === 0 &&
-                        clientSearchQuery.trim() ? (
+                          clientSearchQuery.trim() ? (
                           <CommandEmpty>
                             Nenhum cliente encontrado.
                           </CommandEmpty>
@@ -506,9 +539,8 @@ export default function PerdCompForm({
                                 client.nome_fantasia ||
                                 client.razao_social ||
                                 "Cliente sem nome";
-                              const searchText = `${client.cnpj} ${
-                                client.nome_fantasia || ""
-                              } ${client.razao_social || ""}`;
+                              const searchText = `${client.cnpj} ${client.nome_fantasia || ""
+                                } ${client.razao_social || ""}`;
 
                               return (
                                 <CommandItem
@@ -520,12 +552,11 @@ export default function PerdCompForm({
                                   className="cursor-pointer py-3 px-2"
                                 >
                                   <Check
-                                    className={`mr-2 h-4 w-4 shrink-0 ${
-                                      selectedClientData?.id ===
-                                      client.id.toString()
+                                    className={`mr-2 h-4 w-4 shrink-0 ${selectedClientData?.id ===
+                                        client.id.toString()
                                         ? "opacity-100"
                                         : "opacity-0"
-                                    }`}
+                                      }`}
                                   />
                                   <div className="flex flex-col items-start min-w-0 flex-1 gap-1">
                                     <span className="text-sm font-medium leading-tight break-words">
@@ -693,20 +724,24 @@ export default function PerdCompForm({
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   R$
                 </span>
-                <Input
-                  id="valor_pedido"
-                  {...register("valor_pedido")}
-                  placeholder="0,00"
-                  className={`pl-10 ${
-                    errors.valor_pedido ? "border-destructive" : ""
-                  }`}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "");
-                    const formatted = (Number(value) / 100)
-                      .toFixed(2)
-                      .replace(".", ",");
-                    setValue("valor_pedido", formatted);
-                  }}
+                <Controller
+                  name="valor_pedido"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="valor_pedido"
+                      placeholder="0,00"
+                      className={`pl-10 ${errors.valor_pedido ? "border-destructive" : ""
+                        }`}
+                      value={formatCurrencyDisplay(field.value || "")}
+                      onChange={(e) => {
+                        const unformatted = unformatCurrency(e.target.value);
+                        field.onChange(unformatted);
+                        setValue("valor_pedido", unformatted, { shouldValidate: true });
+                      }}
+                      onBlur={field.onBlur}
+                    />
+                  )}
                 />
               </div>
               {errors.valor_pedido && (
@@ -725,18 +760,23 @@ export default function PerdCompForm({
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   R$
                 </span>
-                <Input
-                  id="valor_compensado"
-                  {...register("valor_compensado")}
-                  placeholder="0,00"
-                  className="pl-10"
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "");
-                    const formatted = (Number(value) / 100)
-                      .toFixed(2)
-                      .replace(".", ",");
-                    setValue("valor_compensado", formatted);
-                  }}
+                <Controller
+                  name="valor_compensado"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="valor_compensado"
+                      placeholder="0,00"
+                      className="pl-10"
+                      value={formatCurrencyDisplay(field.value || "")}
+                      onChange={(e) => {
+                        const unformatted = unformatCurrency(e.target.value);
+                        field.onChange(unformatted);
+                        setValue("valor_compensado", unformatted, { shouldValidate: true });
+                      }}
+                      onBlur={field.onBlur}
+                    />
+                  )}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -752,18 +792,23 @@ export default function PerdCompForm({
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   R$
                 </span>
-                <Input
-                  id="valor_recebido"
-                  {...register("valor_recebido")}
-                  placeholder="0,00"
-                  className="pl-10"
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "");
-                    const formatted = (Number(value) / 100)
-                      .toFixed(2)
-                      .replace(".", ",");
-                    setValue("valor_recebido", formatted);
-                  }}
+                <Controller
+                  name="valor_recebido"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="valor_recebido"
+                      placeholder="0,00"
+                      className="pl-10"
+                      value={formatCurrencyDisplay(field.value || "")}
+                      onChange={(e) => {
+                        const unformatted = unformatCurrency(e.target.value);
+                        field.onChange(unformatted);
+                        setValue("valor_recebido", unformatted, { shouldValidate: true });
+                      }}
+                      onBlur={field.onBlur}
+                    />
+                  )}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -777,18 +822,23 @@ export default function PerdCompForm({
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   R$
                 </span>
-                <Input
-                  id="valor_saldo"
-                  {...register("valor_saldo")}
-                  placeholder="0,00"
-                  className="pl-10"
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "");
-                    const formatted = (Number(value) / 100)
-                      .toFixed(2)
-                      .replace(".", ",");
-                    setValue("valor_saldo", formatted);
-                  }}
+                <Controller
+                  name="valor_saldo"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="valor_saldo"
+                      placeholder="0,00"
+                      className="pl-10"
+                      value={formatCurrencyDisplay(field.value || "")}
+                      onChange={(e) => {
+                        const unformatted = unformatCurrency(e.target.value);
+                        field.onChange(unformatted);
+                        setValue("valor_saldo", unformatted, { shouldValidate: true });
+                      }}
+                      onBlur={field.onBlur}
+                    />
+                  )}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
@@ -803,18 +853,23 @@ export default function PerdCompForm({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 R$
               </span>
-              <Input
-                id="valor_selic"
-                {...register("valor_selic")}
-                placeholder="0,00"
-                className="pl-10"
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, "");
-                  const formatted = (Number(value) / 100)
-                    .toFixed(2)
-                    .replace(".", ",");
-                  setValue("valor_selic", formatted);
-                }}
+              <Controller
+                name="valor_selic"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="valor_selic"
+                    placeholder="0,00"
+                    className="pl-10"
+                    value={formatCurrencyDisplay(field.value || "")}
+                    onChange={(e) => {
+                      const unformatted = unformatCurrency(e.target.value);
+                      field.onChange(unformatted);
+                      setValue("valor_selic", unformatted, { shouldValidate: true });
+                    }}
+                    onBlur={field.onBlur}
+                  />
+                )}
               />
             </div>
             <p className="text-xs text-muted-foreground">
