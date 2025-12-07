@@ -8,8 +8,14 @@ import {
   X,
   Edit2,
   Save,
+  MoreVertical,
+  Plus,
   File,
-  Image,
+  FileImage,
+  FileCheck,
+  Folder,
+  Building,
+  MapPin,
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
@@ -24,8 +30,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileManager } from "@/hooks/use-file-manager";
 import { FileMetadata, PerdCompFileType } from "@/types/api";
@@ -70,7 +84,7 @@ export default function PerdCompFileManager({
   }, [loadFiles]);
 
   const handleFileUpload = async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0 || readonly) return;
+    if (acceptedFiles.length === 0) return;
 
     const file = acceptedFiles[0];
     const validation = validateFile(file);
@@ -80,9 +94,12 @@ export default function PerdCompFileManager({
     }
 
     try {
-      await uploadFile(file, selectedFileType, uploadDescription);
+      await uploadFile(file, selectedFileType, uploadDescription, undefined);
+
+      // Reset form
       setIsUploadDialogOpen(false);
       setUploadDescription("");
+      setSelectedFileType("perdcomp");
     } catch (error) {
       // Error handled by hook
     }
@@ -95,37 +112,11 @@ export default function PerdCompFileManager({
       "image/jpeg": [".jpg", ".jpeg"],
       "image/png": [".png"],
     },
-    maxSize: 10 * 1024 * 1024,
+    maxFiles: 1,
     multiple: false,
-    disabled: readonly || uploading,
   });
 
-  const handleDeleteFile = async (file: FileMetadata) => {
-    if (readonly) return;
-
-    if (
-      confirm(`Tem certeza que deseja excluir o arquivo "${file.file_name}"?`)
-    ) {
-      try {
-        await deleteFile(file.id, file.file_name);
-      } catch (error) {
-        // Error handled by hook
-      }
-    }
-  };
-
-  const handlePreviewFile = async (file: FileMetadata) => {
-    try {
-      const url = await previewFile(file.id);
-      setPreviewFileData({ file, url });
-    } catch (error) {
-      // Error handled by hook
-    }
-  };
-
-  const handleEditFile = (file: FileMetadata) => {
-    if (readonly) return;
-
+  const startEditing = (file: FileMetadata) => {
     setEditingFile(file);
     setEditForm({
       file_name: file.file_name,
@@ -134,56 +125,209 @@ export default function PerdCompFileManager({
   };
 
   const handleSaveEdit = async () => {
-    if (!editingFile || readonly) return;
+    if (!editingFile) return;
 
     try {
-      await updateFile(editingFile.id, {
-        file_name: editForm.file_name,
-        description: editForm.description,
-      });
+      await updateFile(editingFile.id, editForm);
       setEditingFile(null);
+      setEditForm({ file_name: "", description: "" });
     } catch (error) {
       // Error handled by hook
     }
   };
 
-  const getFileIcon = (fileName: string, mimeType: string) => {
-    const extension = fileName.split(".").pop()?.toLowerCase();
-    if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension || "")) {
-      return <Image className="h-8 w-8 text-blue-500" />;
-    }
-    if (mimeType === "application/pdf") {
-      return <FileText className="h-8 w-8 text-red-500" />;
-    }
-    return <File className="h-8 w-8 text-gray-500" />;
-  };
-
-  const getTypeLabel = (type: PerdCompFileType): string => {
-    switch (type) {
-      case "perdcomp":
-        return "PER/DCOMP";
-      case "aviso_recebimento":
-        return "Aviso de Recebimento";
-      case "recibo":
-        return "Recibo";
-      default:
-        return type;
+  const handlePreviewFile = async (fileId: string) => {
+    try {
+      const previewUrl = await previewFile(fileId);
+      if (previewUrl && files) {
+        const file = files.find((f) => f.id === fileId);
+        if (file) {
+          setPreviewFileData({ file, url: previewUrl });
+        }
+      }
+    } catch (error) {
+      // Error handled by hook
     }
   };
 
-  const getTypeBadgeVariant = (type: PerdCompFileType) => {
-    switch (type) {
-      case "perdcomp":
-        return "default" as const;
-      case "aviso_recebimento":
-        return "secondary" as const;
-      case "recibo":
-        return "outline" as const;
-      default:
-        return "outline" as const;
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      await downloadFile(fileId, fileName);
+    } catch (error) {
+      // Error handled by hook
     }
   };
 
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      const file = files.find((f) => f.id === fileId);
+      if (file) {
+        await deleteFile(fileId, file.file_name);
+      }
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const getTypeLabel = (type: PerdCompFileType) => {
+    const labels = {
+      perdcomp: "PerdComp",
+      aviso_recebimento: "Aviso de Recebimento",
+      recibo: "Recibo",
+    };
+    return labels[type] || type;
+  };
+
+  const getTypeBadgeVariant = (
+    type: PerdCompFileType
+  ): "default" | "secondary" | "outline" => {
+    const variants = {
+      perdcomp: "default" as const,
+      aviso_recebimento: "secondary" as const,
+      recibo: "outline" as const,
+    };
+    return variants[type] || "secondary";
+  };
+
+  const getFileTypeIcon = (type: PerdCompFileType) => {
+    const icons = {
+      perdcomp: FileCheck,
+      aviso_recebimento: FileText,
+      recibo: Building,
+    };
+    return icons[type] || FileText;
+  };
+
+  const renderModernFileCard = (file: FileMetadata) => {
+    const Icon = getFileTypeIcon(file.file_type as PerdCompFileType);
+
+    return (
+      <Card key={file.id} className="group hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            {/* File Info */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="flex-shrink-0">
+                {file.mime_type === "application/pdf" ? (
+                  <File className="h-8 w-8 text-red-500" />
+                ) : (
+                  <FileImage className="h-8 w-8 text-blue-500" />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {editingFile?.id === file.id ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={editForm.file_name}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          file_name: e.target.value,
+                        }))
+                      }
+                      className="h-8 text-sm"
+                    />
+                    <Textarea
+                      className="resize-none min-h-[60px] text-sm"
+                      value={editForm.description}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="Descrição do arquivo"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveEdit}>
+                        <Save className="h-3 w-3 mr-1" />
+                        Salvar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingFile(null)}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <h4 className="font-medium text-sm leading-tight truncate">
+                      {file.file_name}
+                    </h4>
+                    {file.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {file.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {format(new Date(file.created_at), "dd/MM/yyyy")}
+                      </span>
+                    </div>
+                    <Badge
+                      variant={getTypeBadgeVariant(
+                        file.file_type as PerdCompFileType
+                      )}
+                      className="w-fit text-xs"
+                    >
+                      <Icon className="h-3 w-3 mr-1" />
+                      {getTypeLabel(file.file_type as PerdCompFileType)}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            {!readonly && editingFile?.id !== file.id && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handlePreviewFile(file.id)}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDownloadFile(file.id, file.file_name)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => startEditing(file)}>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteFile(file.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Filter files by type
   const perdcompFiles = files.filter((f) => f.file_type === "perdcomp");
   const avisoFiles = files.filter((f) => f.file_type === "aviso_recebimento");
   const reciboFiles = files.filter((f) => f.file_type === "recibo");
@@ -198,307 +342,200 @@ export default function PerdCompFileManager({
 
   return (
     <div className="space-y-6">
-      {/* Header with Upload Button */}
-      {!readonly && (
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">Arquivos do PER/DCOMP</h3>
-            <p className="text-sm text-muted-foreground">
-              Gerencie documentos relacionados ao PER/DCOMP
-            </p>
-          </div>
+      {/* Modern Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">Arquivos</h2>
+          <p className="text-sm text-muted-foreground">
+            Gerencie documentos da empresa
+          </p>
+        </div>
 
+        {!readonly && (
           <Dialog
             open={isUploadDialogOpen}
             onOpenChange={setIsUploadDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button
-                className="bg-gradient-to-r from-primary to-primary/80"
-                disabled={uploading}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {uploading ? "Enviando..." : "Enviar Arquivo"}
+              <Button className="flex items-center gap-2" disabled={uploading}>
+                <Plus className="h-4 w-4" />
+                {uploading ? "Enviando..." : "Novo Arquivo"}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Enviar Novo Arquivo</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Adicione documentos relacionados ao PER/DCOMP
+                <DialogTitle>Enviar Arquivo</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Adicione um novo documento
                 </p>
               </DialogHeader>
-              <div className="space-y-6">
-                <div>
-                  <Label htmlFor="file-type" className="text-base">
-                    Tipo de Arquivo
-                  </Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Escolha o tipo de documento que deseja enviar
-                  </p>
-                  <div className="grid grid-cols-1 gap-3">
+
+              <div className="space-y-4">
+                {/* File Type Selection - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tipo de Arquivo</Label>
+                  <div className="grid grid-cols-1 gap-2">
                     {getFileTypeOptions().map((option) => (
                       <Button
                         key={option.value}
                         type="button"
+                        size="sm"
                         variant={
                           selectedFileType === option.value
                             ? "default"
                             : "outline"
                         }
-                        onClick={() => setSelectedFileType(option.value)}
-                        className="justify-start h-auto py-3"
+                        onClick={() =>
+                          setSelectedFileType(option.value as PerdCompFileType)
+                        }
+                        className="justify-start"
                       >
-                        <FileText className="mr-2 h-4 w-4" />
                         {option.label}
                       </Button>
                     ))}
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="description" className="text-base">
-                    Descrição (opcional)
-                  </Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Adicione uma descrição para identificar o arquivo
-                  </p>
+                {/* Description - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Descrição</Label>
                   <Textarea
-                    id="description"
-                    placeholder="Ex: PER/DCOMP protocolado em dezembro 2025"
+                    placeholder="Descrição do arquivo (opcional)"
                     value={uploadDescription}
                     onChange={(e) => setUploadDescription(e.target.value)}
-                    rows={3}
+                    rows={2}
+                    className="resize-none"
                   />
                 </div>
 
-                <div>
-                  <Label className="text-base">Selecionar Arquivo</Label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Arraste e solte ou clique para selecionar
-                  </p>
+                {/* File Upload - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Arquivo</Label>
                   <div
                     {...getRootProps()}
                     className={cn(
-                      "relative border-2 border-dashed rounded-lg p-8 transition-all duration-200",
-                      "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
-                      isDragActive &&
-                        "border-primary bg-primary/5 scale-[1.02]",
+                      "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                      isDragActive && "border-primary bg-primary/5",
                       uploading && "opacity-50 cursor-not-allowed"
                     )}
                   >
                     <input {...getInputProps()} disabled={uploading} />
-                    <div className="flex flex-col items-center text-center space-y-3">
-                      <div
-                        className={cn(
-                          "p-4 rounded-full transition-colors",
-                          isDragActive ? "bg-primary/20" : "bg-muted"
-                        )}
-                      >
-                        <Upload
-                          className={cn(
-                            "h-8 w-8 transition-colors",
-                            isDragActive
-                              ? "text-primary"
-                              : "text-muted-foreground"
-                          )}
-                        />
-                      </div>
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-6 w-6 text-muted-foreground" />
                       {uploading ? (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Enviando arquivo...
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Aguarde enquanto o arquivo é processado
-                          </p>
-                        </div>
-                      ) : isDragActive ? (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-primary">
-                            Solte o arquivo aqui
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            O arquivo será enviado automaticamente
-                          </p>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Enviando...
+                        </p>
                       ) : (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">
-                            Arraste um arquivo ou clique para selecionar
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            PDF, JPG ou PNG até 10MB
-                          </p>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Clique ou arraste para enviar
+                        </p>
                       )}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary" className="font-normal">
-                          PDF
-                        </Badge>
-                        <Badge variant="secondary" className="font-normal">
-                          JPG
-                        </Badge>
-                        <Badge variant="secondary" className="font-normal">
-                          PNG
-                        </Badge>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Files by Type */}
+      {/* Files Tabs */}
       <Tabs defaultValue="perdcomp" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="perdcomp">
-            PER/DCOMP ({perdcompFiles.length})
+          <TabsTrigger
+            value="perdcomp"
+            className="flex items-center gap-2 text-xs"
+          >
+            <FileCheck className="h-3 w-3" />
+            PerdComp ({perdcompFiles.length})
           </TabsTrigger>
-          <TabsTrigger value="aviso">
-            Aviso Recebimento ({avisoFiles.length})
+          <TabsTrigger
+            value="aviso"
+            className="flex items-center gap-2 text-xs"
+          >
+            <FileText className="h-3 w-3" />
+            Aviso ({avisoFiles.length})
           </TabsTrigger>
-          <TabsTrigger value="recibo">
-            Recibos ({reciboFiles.length})
+          <TabsTrigger
+            value="recibo"
+            className="flex items-center gap-2 text-xs"
+          >
+            <Building className="h-3 w-3" />
+            Recibo ({reciboFiles.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perdcomp" className="space-y-4">
+        <TabsContent value="perdcomp" className="space-y-4 mt-6">
           {perdcompFiles.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>Nenhum arquivo PER/DCOMP encontrado</p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-12 text-muted-foreground">
+              <FileCheck className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum documento PerdComp encontrado</p>
+              <p className="text-xs mt-1">
+                Faça o upload do primeiro documento
+              </p>
+            </div>
           ) : (
-            <div className="grid gap-4">
-              {perdcompFiles.map((file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  editingFile={editingFile}
-                  editForm={editForm}
-                  readonly={readonly}
-                  onEdit={handleEditFile}
-                  onSave={handleSaveEdit}
-                  onCancel={() => setEditingFile(null)}
-                  onPreview={handlePreviewFile}
-                  onDownload={downloadFile}
-                  onDelete={handleDeleteFile}
-                  onFormChange={setEditForm}
-                  getFileIcon={getFileIcon}
-                  getTypeLabel={getTypeLabel}
-                  getTypeBadgeVariant={getTypeBadgeVariant}
-                />
-              ))}
+            <div className="grid gap-3">
+              {perdcompFiles.map((file) => renderModernFileCard(file))}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="aviso" className="space-y-4">
+        <TabsContent value="aviso" className="space-y-4 mt-6">
           {avisoFiles.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>Nenhum aviso de recebimento encontrado</p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum aviso de recebimento encontrado</p>
+              <p className="text-xs mt-1">Faça o upload do primeiro aviso</p>
+            </div>
           ) : (
-            <div className="grid gap-4">
-              {avisoFiles.map((file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  editingFile={editingFile}
-                  editForm={editForm}
-                  readonly={readonly}
-                  onEdit={handleEditFile}
-                  onSave={handleSaveEdit}
-                  onCancel={() => setEditingFile(null)}
-                  onPreview={handlePreviewFile}
-                  onDownload={downloadFile}
-                  onDelete={handleDeleteFile}
-                  onFormChange={setEditForm}
-                  getFileIcon={getFileIcon}
-                  getTypeLabel={getTypeLabel}
-                  getTypeBadgeVariant={getTypeBadgeVariant}
-                />
-              ))}
+            <div className="grid gap-3">
+              {avisoFiles.map((file) => renderModernFileCard(file))}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="recibo" className="space-y-4">
+        <TabsContent value="recibo" className="space-y-4 mt-6">
           {reciboFiles.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>Nenhum recibo encontrado</p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-12 text-muted-foreground">
+              <Building className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum recibo encontrado</p>
+              <p className="text-xs mt-1">Faça o upload do primeiro recibo</p>
+            </div>
           ) : (
-            <div className="grid gap-4">
-              {reciboFiles.map((file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  editingFile={editingFile}
-                  editForm={editForm}
-                  readonly={readonly}
-                  onEdit={handleEditFile}
-                  onSave={handleSaveEdit}
-                  onCancel={() => setEditingFile(null)}
-                  onPreview={handlePreviewFile}
-                  onDownload={downloadFile}
-                  onDelete={handleDeleteFile}
-                  onFormChange={setEditForm}
-                  getFileIcon={getFileIcon}
-                  getTypeLabel={getTypeLabel}
-                  getTypeBadgeVariant={getTypeBadgeVariant}
-                />
-              ))}
+            <div className="grid gap-3">
+              {reciboFiles.map((file) => renderModernFileCard(file))}
             </div>
           )}
         </TabsContent>
       </Tabs>
 
-      {/* Preview Modal */}
+      {/* Preview Dialog */}
       {previewFileData && (
         <Dialog
           open={!!previewFileData}
-          onOpenChange={() => {
-            if (previewFileData?.url) {
-              URL.revokeObjectURL(previewFileData.url);
-            }
-            setPreviewFileData(null);
-          }}
+          onOpenChange={() => setPreviewFileData(null)}
         >
-          <DialogContent className="max-w-4xl h-[80vh]">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-0">
               <DialogTitle className="flex items-center gap-2">
-                {getFileIcon(
-                  previewFileData.file.file_name,
-                  previewFileData.file.mime_type
-                )}
+                <Eye className="h-5 w-5" />
                 {previewFileData.file.file_name}
               </DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden p-6 pt-0">
               {previewFileData.file.mime_type === "application/pdf" ? (
                 <iframe
                   src={previewFileData.url}
-                  className="w-full h-full border-0"
+                  className="w-full h-[70vh] border-0 rounded-md"
                   title={`Preview: ${previewFileData.file.file_name}`}
                 />
               ) : (
                 <img
                   src={previewFileData.url}
                   alt={previewFileData.file.file_name}
-                  className="w-full h-full object-contain"
+                  className="w-full h-[70vh] object-contain rounded-md"
                 />
               )}
             </div>
@@ -506,164 +543,5 @@ export default function PerdCompFileManager({
         </Dialog>
       )}
     </div>
-  );
-}
-
-// Separate FileCard component for reusability
-interface FileCardProps {
-  file: FileMetadata;
-  editingFile: FileMetadata | null;
-  editForm: { file_name: string; description: string };
-  readonly: boolean;
-  onEdit: (file: FileMetadata) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onPreview: (file: FileMetadata) => void;
-  onDownload: (fileId: string, fileName: string, mimeType?: string) => void;
-  onDelete: (file: FileMetadata) => void;
-  onFormChange: (form: { file_name: string; description: string }) => void;
-  getFileIcon: (fileName: string, mimeType: string) => JSX.Element;
-  getTypeLabel: (type: PerdCompFileType) => string;
-  getTypeBadgeVariant: (
-    type: PerdCompFileType
-  ) => "default" | "secondary" | "outline";
-}
-
-function FileCard({
-  file,
-  editingFile,
-  editForm,
-  readonly,
-  onEdit,
-  onSave,
-  onCancel,
-  onPreview,
-  onDownload,
-  onDelete,
-  onFormChange,
-  getFileIcon,
-  getTypeLabel,
-  getTypeBadgeVariant,
-}: FileCardProps) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            {getFileIcon(file.file_name, file.mime_type)}
-            <div className="flex-1 min-w-0">
-              {editingFile?.id === file.id ? (
-                <div className="space-y-2">
-                  <Input
-                    value={editForm.file_name}
-                    onChange={(e) =>
-                      onFormChange({ ...editForm, file_name: e.target.value })
-                    }
-                    className="text-sm"
-                  />
-                  <Input
-                    value={editForm.description}
-                    onChange={(e) =>
-                      onFormChange({ ...editForm, description: e.target.value })
-                    }
-                    placeholder="Descrição"
-                    className="text-sm"
-                  />
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm font-medium truncate">
-                    {file.file_name}
-                  </p>
-                  {file.description && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {file.description}
-                    </p>
-                  )}
-                </>
-              )}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                <span>{file.file_size_human}</span>
-                <span>•</span>
-                <span>
-                  {new Date(file.created_at).toLocaleDateString("pt-BR")}
-                </span>
-                <Badge
-                  variant={getTypeBadgeVariant(
-                    file.file_type as PerdCompFileType
-                  )}
-                  className="text-xs"
-                >
-                  {getTypeLabel(file.file_type as PerdCompFileType)}
-                </Badge>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {editingFile?.id === file.id ? (
-              <>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onSave}
-                  className="h-8 w-8 text-green-600 hover:text-green-600"
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onCancel}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => onPreview(file)}
-                  className="h-8 w-8"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() =>
-                    onDownload(file.id, file.file_name, file.mime_type)
-                  }
-                  className="h-8 w-8"
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-                {!readonly && (
-                  <>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onEdit(file)}
-                      className="h-8 w-8"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onDelete(file)}
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
