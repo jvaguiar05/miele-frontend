@@ -32,6 +32,7 @@ export interface FileUploadRequest {
   file_type: string;
   file: File;
   description?: string;
+  expiration_date?: string; // Format: YYYY-MM-DD, required for contracts
 }
 
 export interface FileMetadata {
@@ -44,6 +45,7 @@ export interface FileMetadata {
   uploaded_by_name: string;
   created_at: string;
   description?: string;
+  expiration_date?: string; // Format: YYYY-MM-DD, present for contracts
 }
 
 export interface FileUpdateRequest {

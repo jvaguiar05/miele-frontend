@@ -125,7 +125,8 @@ export const fileApi = {
     objectId: string,
     fileObject: File,
     fileType: string,
-    description?: string
+    description?: string,
+    expirationDate?: string
   ) => {
     const formData = new FormData();
     formData.append("object_id", objectId);
@@ -133,6 +134,9 @@ export const fileApi = {
     formData.append("file", fileObject);
     if (description) {
       formData.append("description", description);
+    }
+    if (expirationDate) {
+      formData.append("expiration_date", expirationDate);
     }
 
     const response = await api.post("/shared/files/", formData, {

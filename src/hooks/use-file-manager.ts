@@ -42,7 +42,8 @@ export function useFileManager({
   const uploadFile = async (
     file: File,
     fileType: ClientFileType | PerdCompFileType,
-    description?: string
+    description?: string,
+    expirationDate?: string
   ) => {
     if (!entityId) return;
 
@@ -52,7 +53,8 @@ export function useFileManager({
         entityId,
         file,
         fileType,
-        description
+        description,
+        expirationDate
       );
       setFiles((prev) => [...prev, fileMetadata]);
 

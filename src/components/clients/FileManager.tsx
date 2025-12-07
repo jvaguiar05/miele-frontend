@@ -8,6 +8,8 @@ import {
   X,
   Edit2,
   Save,
+  Calendar,
+  AlertCircle,
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileManager } from "@/hooks/use-file-manager";
 import { FileMetadata, ClientFileType } from "@/types/api";
@@ -50,6 +59,7 @@ export default function FileManager({ clientId }: FileManagerProps) {
   const [selectedFileType, setSelectedFileType] =
     useState<ClientFileType>("cartao_cnpj");
   const [uploadDescription, setUploadDescription] = useState("");
+  const [expirationDate, setExpirationDate] = useState<Date>();
   const [previewFileData, setPreviewFileData] = useState<{
     file: FileMetadata;
     url: string;
@@ -73,10 +83,26 @@ export default function FileManager({ clientId }: FileManagerProps) {
       return;
     }
 
+    // Validate expiration date for contracts
+    if (selectedFileType === "contrato" && !expirationDate) {
+      // This will be handled by the disabled state of the dropzone
+      return;
+    }
+
     try {
-      await uploadFile(file, selectedFileType, uploadDescription);
+      const expirationDateString = expirationDate
+        ? format(expirationDate, "yyyy-MM-dd")
+        : undefined;
+
+      await uploadFile(
+        file,
+        selectedFileType,
+        uploadDescription,
+        expirationDateString
+      );
       setIsUploadDialogOpen(false);
       setUploadDescription("");
+      setExpirationDate(undefined);
     } catch (error) {
       // Error handled by hook
     }
@@ -91,6 +117,7 @@ export default function FileManager({ clientId }: FileManagerProps) {
     },
     maxSize: 10 * 1024 * 1024,
     multiple: false,
+    disabled: selectedFileType === "contrato" && !expirationDate,
   });
 
   const handleDeleteFile = async (file: FileMetadata) => {
@@ -209,7 +236,13 @@ export default function FileManager({ clientId }: FileManagerProps) {
                           ? "default"
                           : "outline"
                       }
-                      onClick={() => setSelectedFileType(option.value)}
+                      onClick={() => {
+                        setSelectedFileType(option.value);
+                        // Reset expiration date when changing type
+                        if (option.value !== "contrato") {
+                          setExpirationDate(undefined);
+                        }
+                      }}
                       className="justify-start h-auto py-3"
                     >
                       <FileText className="mr-2 h-4 w-4" />
@@ -218,6 +251,47 @@ export default function FileManager({ clientId }: FileManagerProps) {
                   ))}
                 </div>
               </div>
+
+              {selectedFileType === "contrato" && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                  <div className="flex items-start gap-2 mb-3">
+                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        Data de Validade Obrigatória
+                      </p>
+                      <p className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
+                        Para contratos, você deve definir uma data de validade
+                      </p>
+                    </div>
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !expirationDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {expirationDate
+                          ? format(expirationDate, "dd/MM/yyyy")
+                          : "Selecionar data de validade"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={expirationDate}
+                        onSelect={setExpirationDate}
+                        initialFocus
+                        disabled={(date) => date < new Date()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="description" className="text-base">
@@ -246,10 +320,19 @@ export default function FileManager({ clientId }: FileManagerProps) {
                     "relative border-2 border-dashed rounded-lg p-8 transition-all duration-200",
                     "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
                     isDragActive && "border-primary bg-primary/5 scale-[1.02]",
-                    uploading && "opacity-50 cursor-not-allowed"
+                    uploading && "opacity-50 cursor-not-allowed",
+                    selectedFileType === "contrato" &&
+                      !expirationDate &&
+                      "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  <input {...getInputProps()} disabled={uploading} />
+                  <input
+                    {...getInputProps()}
+                    disabled={
+                      uploading ||
+                      (selectedFileType === "contrato" && !expirationDate)
+                    }
+                  />
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div
                       className={cn(
@@ -266,7 +349,16 @@ export default function FileManager({ clientId }: FileManagerProps) {
                         )}
                       />
                     </div>
-                    {uploading ? (
+                    {selectedFileType === "contrato" && !expirationDate ? (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Defina a data de validade primeiro
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          A data de validade é obrigatória para contratos
+                        </p>
+                      </div>
+                    ) : uploading ? (
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-muted-foreground">
                           Enviando arquivo...
