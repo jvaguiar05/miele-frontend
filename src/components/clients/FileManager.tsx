@@ -1,164 +1,166 @@
-import { useState } from "react";
-import { Upload, FileText, Calendar, Download, Trash2, Eye, X, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Upload,
+  FileText,
+  Download,
+  Trash2,
+  Eye,
+  X,
+  Edit2,
+  Save,
+} from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
-
-interface FileItem {
-  id: string;
-  name: string;
-  type: 'contrato' | 'cartao_cnpj';
-  file: File;
-  uploadDate: Date;
-  expirationDate?: Date;
-  size: string;
-}
+import { useFileManager } from "@/hooks/use-file-manager";
+import { FileMetadata, ClientFileType } from "@/types/api";
 
 interface FileManagerProps {
   clientId: string;
 }
 
 export default function FileManager({ clientId }: FileManagerProps) {
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const {
+    files,
+    loading,
+    uploading,
+    loadFiles,
+    uploadFile,
+    downloadFile,
+    previewFile,
+    updateFile,
+    deleteFile,
+    validateFile,
+    getFileTypeOptions,
+  } = useFileManager({ entityId: clientId, entityType: "client" });
+
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [selectedFileType, setSelectedFileType] = useState<'contrato' | 'cartao_cnpj'>('cartao_cnpj');
-  const [expirationDate, setExpirationDate] = useState<Date>();
-  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
-  const { toast } = useToast();
+  const [selectedFileType, setSelectedFileType] =
+    useState<ClientFileType>("cartao_cnpj");
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [previewFileData, setPreviewFileData] = useState<{
+    file: FileMetadata;
+    url: string;
+  } | null>(null);
+  const [editingFile, setEditingFile] = useState<FileMetadata | null>(null);
+  const [editForm, setEditForm] = useState({ file_name: "", description: "" });
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  // Load files on component mount
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
 
-  const validateAndProcessFile = (file: File) => {
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Tipo de arquivo não permitido",
-        description: "Apenas arquivos PDF, JPG e PNG são aceitos.",
-        variant: "destructive",
-      });
-      return false;
+  const handleFileUpload = async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+
+    const file = acceptedFiles[0];
+    const validation = validateFile(file);
+
+    if (!validation.isValid) {
+      // Error will be shown by the hook
+      return;
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "Arquivo muito grande",
-        description: "O arquivo deve ter no máximo 10MB.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    // Validate expiration date for contracts
-    if (selectedFileType === 'contrato' && !expirationDate) {
-      toast({
-        title: "Data de expiração obrigatória",
-        description: "Para contratos, é necessário definir uma data de expiração.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    const newFile: FileItem = {
-      id: Date.now().toString(),
-      name: file.name,
-      type: selectedFileType,
-      file: file,
-      uploadDate: new Date(),
-      expirationDate: selectedFileType === 'contrato' ? expirationDate : undefined,
-      size: formatFileSize(file.size),
-    };
-
-    setFiles(prev => [...prev, newFile]);
-    setIsUploadDialogOpen(false);
-    setExpirationDate(undefined);
-    
-    toast({
-      title: "Arquivo enviado com sucesso",
-      description: `${file.name} foi adicionado aos arquivos do cliente.`,
-    });
-
-    return true;
-  };
-
-  const onDrop = (acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      validateAndProcessFile(acceptedFiles[0]);
+    try {
+      await uploadFile(file, selectedFileType, uploadDescription);
+      setIsUploadDialogOpen(false);
+      setUploadDescription("");
+    } catch (error) {
+      // Error handled by hook
     }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: handleFileUpload,
     accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
+      "application/pdf": [".pdf"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
     },
     maxSize: 10 * 1024 * 1024,
     multiple: false,
-    disabled: selectedFileType === 'contrato' && !expirationDate
   });
 
-  const handleDeleteFile = (fileId: string) => {
-    setFiles(prev => prev.filter(file => file.id !== fileId));
-    toast({
-      title: "Arquivo removido",
-      description: "O arquivo foi removido da lista.",
+  const handleDeleteFile = async (file: FileMetadata) => {
+    if (
+      confirm(`Tem certeza que deseja excluir o arquivo "${file.file_name}"?`)
+    ) {
+      try {
+        await deleteFile(file.id, file.file_name);
+      } catch (error) {
+        // Error handled by hook
+      }
+    }
+  };
+
+  const handlePreviewFile = async (file: FileMetadata) => {
+    try {
+      const url = await previewFile(file.id);
+      setPreviewFileData({ file, url });
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleEditFile = (file: FileMetadata) => {
+    setEditingFile(file);
+    setEditForm({
+      file_name: file.file_name,
+      description: file.description || "",
     });
   };
 
-  const handlePreviewFile = (file: FileItem) => {
-    setPreviewFile(file);
+  const handleSaveEdit = async () => {
+    if (!editingFile) return;
+
+    try {
+      await updateFile(editingFile.id, {
+        file_name: editForm.file_name,
+        description: editForm.description,
+      });
+      setEditingFile(null);
+    } catch (error) {
+      // Error handled by hook
+    }
   };
 
-  const getFileIcon = (file: FileItem) => {
-    if (file.file.type === 'application/pdf') {
+  const getFileIcon = (file: FileMetadata) => {
+    if (file.mime_type === "application/pdf") {
       return <FileText className="h-8 w-8 text-red-500" />;
     }
     return <FileText className="h-8 w-8 text-blue-500" />;
   };
 
-  const getTypeLabel = (type: 'contrato' | 'cartao_cnpj') => {
-    return type === 'contrato' ? 'Contrato' : 'Cartão CNPJ';
+  const getTypeLabel = (type: ClientFileType) => {
+    return type === "contrato" ? "Contrato" : "Cartão CNPJ";
   };
 
-  const getTypeBadgeVariant = (type: 'contrato' | 'cartao_cnpj') => {
-    return type === 'contrato' ? 'default' : 'secondary';
+  const getTypeBadgeVariant = (type: ClientFileType) => {
+    return type === "contrato" ? "default" : "secondary";
   };
 
-  const isExpiringSoon = (expirationDate?: Date) => {
-    if (!expirationDate) return false;
-    const today = new Date();
-    const diffTime = expirationDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays > 0;
-  };
+  const contratoFiles = files.filter((f) => f.file_type === "contrato");
+  const cnpjFiles = files.filter((f) => f.file_type === "cartao_cnpj");
 
-  const isExpired = (expirationDate?: Date) => {
-    if (!expirationDate) return false;
-    const today = new Date();
-    return expirationDate < today;
-  };
-
-  const contratoFiles = files.filter(f => f.type === 'contrato');
-  const cnpjFiles = files.filter(f => f.type === 'cartao_cnpj');
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Carregando arquivos...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -170,96 +172,68 @@ export default function FileManager({ clientId }: FileManagerProps) {
             Gerencie contratos e cartões CNPJ do cliente
           </p>
         </div>
-        
+
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-primary to-primary/80">
+            <Button
+              className="bg-gradient-to-r from-primary to-primary/80"
+              disabled={uploading}
+            >
               <Upload className="mr-2 h-4 w-4" />
-              Enviar Arquivo
+              {uploading ? "Enviando..." : "Enviar Arquivo"}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Enviar Novo Arquivo</DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Adicione documentos importantes do cliente de forma rápida e organizada
+                Adicione documentos importantes do cliente de forma rápida e
+                organizada
               </p>
             </DialogHeader>
             <div className="space-y-6">
               <div>
-                <Label htmlFor="file-type" className="text-base">Tipo de Arquivo</Label>
+                <Label htmlFor="file-type" className="text-base">
+                  Tipo de Arquivo
+                </Label>
                 <p className="text-xs text-muted-foreground mb-2">
                   Escolha o tipo de documento que deseja enviar
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant={selectedFileType === 'contrato' ? 'default' : 'outline'}
-                    onClick={() => setSelectedFileType('contrato')}
-                    className="justify-start h-auto py-3"
-                  >
-                    <Calendar className="mr-2 h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-semibold">Contrato</div>
-                      <div className="text-xs opacity-80">Com validade</div>
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectedFileType === 'cartao_cnpj' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setSelectedFileType('cartao_cnpj');
-                      setExpirationDate(undefined);
-                    }}
-                    className="justify-start h-auto py-3"
-                  >
-                    <FileText className="mr-2 h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-semibold">Cartão CNPJ</div>
-                      <div className="text-xs opacity-80">Sem prazo</div>
-                    </div>
-                  </Button>
+                  {getFileTypeOptions().map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={
+                        selectedFileType === option.value
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() => setSelectedFileType(option.value)}
+                      className="justify-start h-auto py-3"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      {option.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              {selectedFileType === 'contrato' && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <div className="flex items-start gap-2 mb-3">
-                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                        Data de Expiração Obrigatória
-                      </p>
-                      <p className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
-                        Para contratos, você deve definir uma data de validade
-                      </p>
-                    </div>
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal bg-background",
-                          !expirationDate && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {expirationDate ? format(expirationDate, "dd/MM/yyyy") : "Selecionar data de expiração"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={expirationDate}
-                        onSelect={setExpirationDate}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
+              <div>
+                <Label htmlFor="description" className="text-base">
+                  Descrição (opcional)
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Adicione uma descrição para identificar o arquivo
+                </p>
+                <Textarea
+                  id="description"
+                  placeholder="Ex: Contrato assinado em dezembro 2025"
+                  value={uploadDescription}
+                  onChange={(e) => setUploadDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
 
               <div>
                 <Label className="text-base">Selecionar Arquivo</Label>
@@ -272,27 +246,33 @@ export default function FileManager({ clientId }: FileManagerProps) {
                     "relative border-2 border-dashed rounded-lg p-8 transition-all duration-200",
                     "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
                     isDragActive && "border-primary bg-primary/5 scale-[1.02]",
-                    selectedFileType === 'contrato' && !expirationDate && "opacity-50 cursor-not-allowed"
+                    uploading && "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  <input {...getInputProps()} />
+                  <input {...getInputProps()} disabled={uploading} />
                   <div className="flex flex-col items-center text-center space-y-3">
-                    <div className={cn(
-                      "p-4 rounded-full transition-colors",
-                      isDragActive ? "bg-primary/20" : "bg-muted"
-                    )}>
-                      <Upload className={cn(
-                        "h-8 w-8 transition-colors",
-                        isDragActive ? "text-primary" : "text-muted-foreground"
-                      )} />
+                    <div
+                      className={cn(
+                        "p-4 rounded-full transition-colors",
+                        isDragActive ? "bg-primary/20" : "bg-muted"
+                      )}
+                    >
+                      <Upload
+                        className={cn(
+                          "h-8 w-8 transition-colors",
+                          isDragActive
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        )}
+                      />
                     </div>
-                    {selectedFileType === 'contrato' && !expirationDate ? (
+                    {uploading ? (
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-muted-foreground">
-                          Defina a data de expiração primeiro
+                          Enviando arquivo...
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          A data de expiração é obrigatória para contratos
+                          Aguarde enquanto o arquivo é processado
                         </p>
                       </div>
                     ) : isDragActive ? (
@@ -339,75 +319,143 @@ export default function FileManager({ clientId }: FileManagerProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
+              <FileText className="h-5 w-5" />
               Contratos ({contratoFiles.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             {contratoFiles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>Nenhum contrato encontrado</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {contratoFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
+                  >
                     <div className="flex items-center gap-3">
                       {getFileIcon(file)}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{file.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{file.size}</span>
-                          <span>•</span>
-                          <span>{format(file.uploadDate, "dd/MM/yyyy")}</span>
-                          {file.expirationDate && (
-                            <>
-                              <span>•</span>
-                              <span className={cn(
-                                isExpired(file.expirationDate) && "text-destructive",
-                                isExpiringSoon(file.expirationDate) && "text-orange-500"
-                              )}>
-                                Expira: {format(file.expirationDate, "dd/MM/yyyy")}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        {file.expirationDate && (
-                          <div className="mt-1">
-                            <Badge 
-                              variant={
-                                isExpired(file.expirationDate) ? "destructive" : 
-                                isExpiringSoon(file.expirationDate) ? "secondary" : 
-                                "default"
+                        {editingFile?.id === file.id ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={editForm.file_name}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  file_name: e.target.value,
+                                }))
                               }
-                              className="text-xs"
-                            >
-                              {isExpired(file.expirationDate) ? "Expirado" :
-                               isExpiringSoon(file.expirationDate) ? "Expira em breve" :
-                               "Válido"}
-                            </Badge>
+                              className="text-sm"
+                            />
+                            <Input
+                              value={editForm.description}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  description: e.target.value,
+                                }))
+                              }
+                              placeholder="Descrição"
+                              className="text-sm"
+                            />
                           </div>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium truncate">
+                              {file.file_name}
+                            </p>
+                            {file.description && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {file.description}
+                              </p>
+                            )}
+                          </>
                         )}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                          <span>{file.file_size_human}</span>
+                          <span>•</span>
+                          <span>
+                            {new Date(file.created_at).toLocaleDateString(
+                              "pt-BR"
+                            )}
+                          </span>
+                          <Badge
+                            variant={getTypeBadgeVariant(
+                              file.file_type as ClientFileType
+                            )}
+                            className="text-xs"
+                          >
+                            {getTypeLabel(file.file_type as ClientFileType)}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handlePreviewFile(file)}
-                        className="h-8 w-8"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteFile(file.id)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {editingFile?.id === file.id ? (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={handleSaveEdit}
+                            className="h-8 w-8 text-green-600 hover:text-green-600"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setEditingFile(null)}
+                            className="h-8 w-8"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handlePreviewFile(file)}
+                            className="h-8 w-8"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() =>
+                              downloadFile(
+                                file.id,
+                                file.file_name,
+                                file.mime_type
+                              )
+                            }
+                            className="h-8 w-8"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEditFile(file)}
+                            className="h-8 w-8"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteFile(file)}
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -433,35 +481,130 @@ export default function FileManager({ clientId }: FileManagerProps) {
             ) : (
               <div className="space-y-3">
                 {cnpjFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
+                  >
                     <div className="flex items-center gap-3">
                       {getFileIcon(file)}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{file.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{file.size}</span>
+                        {editingFile?.id === file.id ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={editForm.file_name}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  file_name: e.target.value,
+                                }))
+                              }
+                              className="text-sm"
+                            />
+                            <Input
+                              value={editForm.description}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  description: e.target.value,
+                                }))
+                              }
+                              placeholder="Descrição"
+                              className="text-sm"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium truncate">
+                              {file.file_name}
+                            </p>
+                            {file.description && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {file.description}
+                              </p>
+                            )}
+                          </>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                          <span>{file.file_size_human}</span>
                           <span>•</span>
-                          <span>{format(file.uploadDate, "dd/MM/yyyy")}</span>
+                          <span>
+                            {new Date(file.created_at).toLocaleDateString(
+                              "pt-BR"
+                            )}
+                          </span>
+                          <Badge
+                            variant={getTypeBadgeVariant(
+                              file.file_type as ClientFileType
+                            )}
+                            className="text-xs"
+                          >
+                            {getTypeLabel(file.file_type as ClientFileType)}
+                          </Badge>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handlePreviewFile(file)}
-                        className="h-8 w-8"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteFile(file.id)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {editingFile?.id === file.id ? (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={handleSaveEdit}
+                            className="h-8 w-8 text-green-600 hover:text-green-600"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setEditingFile(null)}
+                            className="h-8 w-8"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handlePreviewFile(file)}
+                            className="h-8 w-8"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() =>
+                              downloadFile(
+                                file.id,
+                                file.file_name,
+                                file.mime_type
+                              )
+                            }
+                            className="h-8 w-8"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEditFile(file)}
+                            className="h-8 w-8"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteFile(file)}
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -471,52 +614,42 @@ export default function FileManager({ clientId }: FileManagerProps) {
         </Card>
       </div>
 
-      {/* Preview Dialog */}
-      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <div>
-              <DialogTitle>{previewFile?.name}</DialogTitle>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={getTypeBadgeVariant(previewFile?.type || 'cartao_cnpj')}>
-                  {getTypeLabel(previewFile?.type || 'cartao_cnpj')}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {previewFile?.size}
-                </span>
-              </div>
+      {/* Preview Modal */}
+      {previewFileData && (
+        <Dialog
+          open={!!previewFileData}
+          onOpenChange={() => {
+            if (previewFileData?.url) {
+              URL.revokeObjectURL(previewFileData.url);
+            }
+            setPreviewFileData(null);
+          }}
+        >
+          <DialogContent className="max-w-4xl h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {getFileIcon(previewFileData.file)}
+                {previewFileData.file.file_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden">
+              {previewFileData.file.mime_type === "application/pdf" ? (
+                <iframe
+                  src={previewFileData.url}
+                  className="w-full h-full border-0"
+                  title={`Preview: ${previewFileData.file.file_name}`}
+                />
+              ) : (
+                <img
+                  src={previewFileData.url}
+                  alt={previewFileData.file.file_name}
+                  className="w-full h-full object-contain"
+                />
+              )}
             </div>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            {previewFile && (
-              <div className="w-full h-[70vh] bg-muted/30 rounded-lg flex items-center justify-center">
-                {previewFile.file.type === 'application/pdf' ? (
-                  <div className="text-center space-y-4">
-                    <FileText className="mx-auto h-16 w-16 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Visualização de PDF</p>
-                      <p className="text-sm text-muted-foreground">
-                        O arquivo PDF será aberto quando conectado ao backend
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <img
-                    src={URL.createObjectURL(previewFile.file)}
-                    alt={previewFile.name}
-                    className="max-w-full max-h-full object-contain"
-                    onLoad={(e) => {
-                      // Clean up object URL when image loads
-                      const img = e.target as HTMLImageElement;
-                      setTimeout(() => URL.revokeObjectURL(img.src), 1000);
-                    }}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

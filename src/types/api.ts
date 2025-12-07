@@ -26,6 +26,38 @@ export interface ValidationError {
   };
 }
 
+// File management types following Miele Drive Proxy specification
+export interface FileUploadRequest {
+  object_id: string;
+  file_type: string;
+  file: File;
+  description?: string;
+}
+
+export interface FileMetadata {
+  id: string;
+  file_name: string;
+  file_type: string;
+  mime_type: string;
+  file_size: number;
+  file_size_human: string;
+  uploaded_by_name: string;
+  created_at: string;
+  description?: string;
+}
+
+export interface FileUpdateRequest {
+  file_name?: string;
+  description?: string;
+  file?: File;
+}
+
+// Client file types
+export type ClientFileType = "contrato" | "cartao_cnpj";
+
+// PerdComp file types
+export type PerdCompFileType = "perdcomp" | "aviso_recebimento" | "recibo";
+
 // Authentication types
 export interface LoginRequest {
   username: string;
