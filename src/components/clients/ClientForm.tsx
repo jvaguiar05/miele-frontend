@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { EmailInput } from "@/components/ui/email-input";
@@ -405,6 +405,7 @@ export default function ClientForm({
   const { toast } = useToast();
   const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
   const [isSearchingCNPJ, setIsSearchingCNPJ] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
   const isEditing = Boolean(client);
 
   const {
@@ -654,19 +655,49 @@ export default function ClientForm({
   }, [errors]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="contact">Contato</TabsTrigger>
-          <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
-          <TabsTrigger value="docs">Documentos</TabsTrigger>
-          <TabsTrigger value="address">Endereço</TabsTrigger>
+    <form
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      className="space-y-4 sm:space-y-6"
+    >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Desktop Tabs */}
+        <TabsList className="hidden sm:grid w-full grid-cols-5">
+          <TabsTrigger value="general" className="text-sm px-3">
+            Geral
+          </TabsTrigger>
+          <TabsTrigger value="contact" className="text-sm px-3">
+            Contato
+          </TabsTrigger>
+          <TabsTrigger value="fiscal" className="text-sm px-3">
+            Fiscal
+          </TabsTrigger>
+          <TabsTrigger value="docs" className="text-sm px-3">
+            Documentos
+          </TabsTrigger>
+          <TabsTrigger value="address" className="text-sm px-3">
+            Endereço
+          </TabsTrigger>
         </TabsList>
 
+        {/* Mobile Dropdown */}
+        <div className="sm:hidden mb-4">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecione uma seção" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">🏢 Geral</SelectItem>
+              <SelectItem value="contact">📞 Contato</SelectItem>
+              <SelectItem value="fiscal">📋 Fiscal</SelectItem>
+              <SelectItem value="docs">📄 Documentos</SelectItem>
+              <SelectItem value="address">📍 Endereço</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Aba Geral */}
-        <TabsContent value="general" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="general" className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
               <div className="flex gap-2">
@@ -776,7 +807,7 @@ export default function ClientForm({
               )}
             />
           </div>{" "}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="inscricao_estadual">Inscrição Estadual</Label>
               <Input
@@ -793,7 +824,7 @@ export default function ClientForm({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex items-center space-x-2">
               <Switch
                 id="recuperacao_judicial"
@@ -823,8 +854,8 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Contato */}
-        <TabsContent value="contact" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="contact" className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_contato">Email de Contato</Label>
               <Controller
@@ -869,7 +900,7 @@ export default function ClientForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_comercial">Email Comercial</Label>
               <Controller
@@ -906,7 +937,7 @@ export default function ClientForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="responsavel_financeiro">
                 Responsável Financeiro
@@ -928,7 +959,7 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Fiscal */}
-        <TabsContent value="fiscal" className="space-y-4">
+        <TabsContent value="fiscal" className="space-y-3 sm:space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
@@ -991,13 +1022,14 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Documentos */}
-        <TabsContent value="docs" className="space-y-4">
+        <TabsContent value="docs" className="space-y-3 sm:space-y-4">
           <div className="space-y-2">
             <Label htmlFor="contrato_social">Contrato Social</Label>
             <Textarea
               id="contrato_social"
               {...register("contrato_social")}
               rows={4}
+              className="text-sm"
             />
           </div>
 
@@ -1009,7 +1041,7 @@ export default function ClientForm({
               id="ultima_alteracao_contratual"
               type="date"
               {...register("ultima_alteracao_contratual")}
-              className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer text-sm"
             />
           </div>
 
@@ -1020,6 +1052,7 @@ export default function ClientForm({
               {...register("rg_cpf_socios")}
               placeholder="Liste os documentos dos sócios"
               rows={4}
+              className="text-sm"
             />
           </div>
 
@@ -1030,12 +1063,13 @@ export default function ClientForm({
               {...register("certificado_digital")}
               placeholder="Informações sobre certificados digitais"
               rows={3}
+              className="text-sm"
             />
           </div>
         </TabsContent>
 
         {/* Aba Endereço */}
-        <TabsContent value="address" className="space-y-4">
+        <TabsContent value="address" className="space-y-3 sm:space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cep">CEP</Label>
             <Controller
@@ -1052,8 +1086,8 @@ export default function ClientForm({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="sm:col-span-2 space-y-2">
               <Label htmlFor="logradouro">Logradouro</Label>
               <Controller
                 name="logradouro"
@@ -1091,7 +1125,7 @@ export default function ClientForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="bairro">Bairro</Label>
               <Controller
@@ -1168,11 +1202,20 @@ export default function ClientForm({
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-2 border-t">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="order-2 sm:order-1"
+        >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="order-1 sm:order-2"
+        >
           {isSubmitting ? "Salvando..." : client?.id ? "Atualizar" : "Criar"}
         </Button>
       </div>

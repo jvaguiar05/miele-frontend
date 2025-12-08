@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useClientStore, type ClientAnnotation } from "@/stores/clientStore";
+import { cn } from "@/lib/utils";
 
 const annotationSchema = z.object({
   text: z.string().min(1, "O texto da anotação é obrigatório"),
@@ -211,12 +212,15 @@ export default function AddAnnotationForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">
+        <CardTitle className="text-lg sm:text-xl">
           {editingAnnotation ? "Editar Anotação" : "Nova Anotação"}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-3 sm:space-y-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="text">Texto da Anotação *</Label>
             <Textarea
@@ -224,7 +228,7 @@ export default function AddAnnotationForm({
               {...register("text")}
               placeholder="Descreva a anotação..."
               rows={4}
-              className={errors.text ? "border-destructive" : ""}
+              className={cn("text-sm", errors.text ? "border-destructive" : "")}
             />
             {errors.text && (
               <p className="text-sm text-destructive">{errors.text.message}</p>
@@ -232,7 +236,7 @@ export default function AddAnnotationForm({
           </div>
 
           {!editingAnnotation && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label htmlFor="priority">Prioridade</Label>
                 <Select
@@ -293,6 +297,7 @@ export default function AddAnnotationForm({
                       setTimeout(() => setShowTagSuggestions(false), 200)
                     }
                     placeholder="Digite uma tag..."
+                    className="flex-1"
                     onKeyDown={(e) => {
                       const suggestions = getCurrentSuggestions();
 
@@ -336,6 +341,7 @@ export default function AddAnnotationForm({
                     onClick={() => addTag()}
                     size="icon"
                     variant="outline"
+                    className="shrink-0"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -391,13 +397,22 @@ export default function AddAnnotationForm({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t">
             {onCancel && (
-              <Button type="button" variant="outline" onClick={onCancel}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                className="order-2 sm:order-1"
+              >
                 Cancelar
               </Button>
             )}
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="order-1 sm:order-2"
+            >
               {isSubmitting
                 ? "Salvando..."
                 : editingAnnotation
