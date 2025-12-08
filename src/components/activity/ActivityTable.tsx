@@ -240,16 +240,56 @@ export function ActivityTable() {
     }
   };
 
+  const renderActivity = (activity: ActivityLog) => (
+    <div
+      key={activity.id}
+      onClick={() => handleActivityClick(activity)}
+      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 rounded-xl border border-border/50 hover:border-border/80 hover:bg-accent/50 hover:shadow-md transition-all duration-200 cursor-pointer group bg-gradient-to-r from-card to-card/50"
+    >
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div className="p-2 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200 flex-shrink-0">
+          {getIcon(
+            activity.entity_type || activity.resource_type.split(".")[1]
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm sm:text-base">{activity.action}</p>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="text-xs sm:text-sm text-muted-foreground break-words">
+              {getDisplayName(activity)}
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[10px] sm:text-xs bg-gradient-to-r from-background to-muted/30 border-border/60 shadow-sm"
+            >
+              {getEntityTypeLabel(
+                activity.entity_type || activity.resource_type.split(".")[1]
+              )}
+            </Badge>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto text-xs sm:text-sm">
+        <span className="text-muted-foreground">
+          {formatTime(activity.timestamp || activity.created_at)}
+        </span>
+        <Info className="h-4 w-4 text-muted-foreground opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0" />
+      </div>
+    </div>
+  );
+
   if (loading && activities.length === 0) {
     return (
-      <Card className="p-6 border-border/50 bg-card/50 backdrop-blur">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Atividade Recente</h2>
-          <Skeleton className="h-6 w-24" />
+      <Card className="p-4 sm:p-6 border-border/50 bg-card/50 backdrop-blur">
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold">
+            Atividade Recente
+          </h2>
+          <Skeleton className="h-6 w-20 sm:w-24" />
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
+            <Skeleton key={i} className="h-14 sm:h-16 w-full" />
           ))}
         </div>
       </Card>
@@ -259,60 +299,22 @@ export function ActivityTable() {
   return (
     <>
       {activities.length === 0 && !loading ? (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-8 text-sm sm:text-base text-muted-foreground">
           Nenhuma atividade registrada para {getPeriodLabel().toLowerCase()}.
         </div>
       ) : (
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-3">
-            {activities.map((activity) => (
-              <div
-                key={activity.id}
-                onClick={() => handleActivityClick(activity)}
-                className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:border-border/80 hover:bg-accent/50 hover:shadow-md transition-all duration-200 cursor-pointer group bg-gradient-to-r from-card to-card/50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200">
-                    {getIcon(
-                      activity.entity_type ||
-                        activity.resource_type.split(".")[1]
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">{activity.action}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm text-muted-foreground">
-                        {getDisplayName(activity)}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-xs bg-gradient-to-r from-background to-muted/30 border-border/60 shadow-sm"
-                      >
-                        {getEntityTypeLabel(
-                          activity.entity_type ||
-                            activity.resource_type.split(".")[1]
-                        )}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {formatTime(activity.timestamp || activity.created_at)}
-                  </span>
-                  <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </div>
-            ))}
-          </div>
+        <ScrollArea className="h-[60vh] sm:h-[400px] pr-2 sm:pr-4 overscroll-contain">
+          <div className="space-y-3">{activities.map(renderActivity)}</div>
         </ScrollArea>
       )}
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full max-w-md sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalhes da Atividade</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">
+              Detalhes da Atividade
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Informações completas sobre esta atividade
             </DialogDescription>
           </DialogHeader>
@@ -324,8 +326,8 @@ export function ActivityTable() {
               selectedActivity.action?.toLowerCase().includes("logout") ? (
                 <div className="space-y-6">
                   {/* Header da atividade */}
-                  <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/15 to-primary/5 border border-primary/20">
-                    <div className="p-3 rounded-full bg-primary/20 shadow-sm border border-primary/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/15 to-primary/5 border border-primary/20">
+                    <div className="p-3 rounded-full bg-primary/20 shadow-sm border border-primary/30 self-start sm:self-auto">
                       {selectedActivity.action
                         ?.toLowerCase()
                         .includes("login") ? (
@@ -334,11 +336,11 @@ export function ActivityTable() {
                         <LogOut className="h-5 w-5 text-primary" />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">
+                    <div className="space-y-1">
+                      <h3 className="font-semibold text-base sm:text-lg">
                         {selectedActivity.action}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {format(
                           new Date(
                             selectedActivity.timestamp ||
@@ -354,12 +356,12 @@ export function ActivityTable() {
                   {/* Informações do usuário */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-gradient-to-r from-card to-card/50 shadow-sm hover:shadow-md transition-shadow">
-                      <User className="h-4 w-4 text-muted-foreground" />
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div>
-                        <p className="font-medium">
+                        <p className="font-medium text-sm sm:text-base">
                           {selectedActivity.user_name}
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs sm:text-sm text-muted-foreground break-all">
                           {selectedActivity.metadata?.username}
                         </p>
                       </div>
@@ -368,12 +370,12 @@ export function ActivityTable() {
                     {/* Email se disponível */}
                     {selectedActivity.user_email && (
                       <div className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-gradient-to-r from-card to-card/50 shadow-sm hover:shadow-md transition-shadow">
-                        <AtSign className="h-4 w-4 text-muted-foreground" />
+                        <AtSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium text-sm sm:text-base break-all">
                             {selectedActivity.user_email}
                           </p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs sm:text-sm text-muted-foreground">
                             Endereço de email
                           </p>
                         </div>
@@ -383,12 +385,12 @@ export function ActivityTable() {
                     {/* IP Address se disponível */}
                     {selectedActivity.ip_address && (
                       <div className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-gradient-to-r from-card to-card/50 shadow-sm hover:shadow-md transition-shadow">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium text-sm sm:text-base break-all">
                             {selectedActivity.ip_address}
                           </p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs sm:text-sm text-muted-foreground">
                             Endereço IP
                           </p>
                         </div>
@@ -403,22 +405,22 @@ export function ActivityTable() {
                   selectedActivity.resource_type?.includes("perdcomp")) ? (
                 /* UI melhorada para CREATE de Cliente/PER/DCOMP */
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="p-3 rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/10 border border-green-200/50 dark:border-green-800/30">
-                      <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                      <p className="text-xs sm:text-sm text-green-600 dark:text-green-400 font-medium">
                         Ação
                       </p>
-                      <p className="font-semibold text-green-800 dark:text-green-200">
+                      <p className="font-semibold text-sm sm:text-base text-green-800 dark:text-green-200 break-words">
                         {selectedActivity.action}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 border border-blue-200/50 dark:border-blue-800/30">
-                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                      <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-medium">
                         Tipo
                       </p>
                       <Badge
                         variant="secondary"
-                        className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700"
+                        className="mt-1 bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700 text-xs sm:text-sm"
                       >
                         {getEntityTypeLabel(
                           selectedActivity.entity_type ||
@@ -430,39 +432,39 @@ export function ActivityTable() {
 
                   {/* Informações da entidade */}
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       Informações da Entidade
                     </p>
-                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-card via-card/90 to-card/70 shadow-lg space-y-3">
+                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-card via-card/90 to-card/70 shadow-lg space-y-3 text-sm">
                       {selectedActivity.entity_type === "client" ||
                       selectedActivity.resource_type?.includes("client") ? (
                         <>
                           {selectedActivity.new_data?.razao_social && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Razão Social:
                               </span>
-                              <span className="font-semibold text-right sm:max-w-xs break-words">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right sm:max-w-xs break-words">
                                 {selectedActivity.new_data.razao_social}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.cnpj && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 CNPJ:
                               </span>
-                              <span className="font-semibold font-mono">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right font-mono break-all">
                                 {selectedActivity.new_data.cnpj}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.email && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Email:
                               </span>
-                              <span className="font-semibold text-right break-all">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-all">
                                 {selectedActivity.new_data.email}
                               </span>
                             </div>
@@ -471,31 +473,31 @@ export function ActivityTable() {
                       ) : (
                         <>
                           {selectedActivity.resource_display_name && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Número:
                               </span>
-                              <span className="font-semibold text-lg">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right text-base sm:text-lg">
                                 {selectedActivity.resource_display_name}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.cnpj && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 CNPJ do Cliente:
                               </span>
-                              <span className="font-semibold font-mono">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right font-mono break-all">
                                 {selectedActivity.new_data.cnpj}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.periodo && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Período:
                               </span>
-                              <span className="font-semibold">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-words">
                                 {selectedActivity.new_data.periodo}
                               </span>
                             </div>
@@ -507,31 +509,31 @@ export function ActivityTable() {
 
                   {/* Informações do usuário */}
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       Criado por
                     </p>
-                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/30 dark:to-slate-800/20 shadow-lg space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="font-medium text-muted-foreground">
+                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/30 dark:to-slate-800/20 shadow-lg space-y-3 text-sm">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                           Usuário:
                         </span>
-                        <span className="font-semibold text-right">
+                        <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-words">
                           {selectedActivity.user_name}
                         </span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="font-medium text-muted-foreground">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                           Email:
                         </span>
-                        <span className="font-semibold text-right break-all">
+                        <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-all">
                           {selectedActivity.user_email}
                         </span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="font-medium text-muted-foreground">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                           Data/Hora:
                         </span>
-                        <span className="font-semibold text-right">
+                        <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right">
                           {format(
                             new Date(
                               selectedActivity.timestamp ||
@@ -549,7 +551,7 @@ export function ActivityTable() {
                   {selectedActivity.entity_id && (
                     <Button
                       onClick={handleNavigateToEntity}
-                      className="w-full shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary border-0"
+                      className="w-full shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary border-0 text-sm sm:text-base"
                       variant="default"
                     >
                       <span>
@@ -571,22 +573,22 @@ export function ActivityTable() {
                   selectedActivity.resource_type?.includes("perdcomp")) ? (
                 /* UI melhorada para UPDATE de Cliente/PER/DCOMP */
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="p-3 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-800/10 border border-orange-200/50 dark:border-orange-800/30">
-                      <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                      <p className="text-xs sm:text-sm text-orange-600 dark:text-orange-400 font-medium">
                         Ação
                       </p>
-                      <p className="font-semibold text-orange-800 dark:text-orange-200">
+                      <p className="font-semibold text-sm sm:text-base text-orange-800 dark:text-orange-200 break-words">
                         {selectedActivity.action}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 border border-blue-200/50 dark:border-blue-800/30">
-                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                      <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-medium">
                         Tipo
                       </p>
                       <Badge
                         variant="secondary"
-                        className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700"
+                        className="mt-1 bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-700 text-xs sm:text-sm"
                       >
                         {getEntityTypeLabel(
                           selectedActivity.entity_type ||
@@ -598,49 +600,49 @@ export function ActivityTable() {
 
                   {/* Informações alteradas */}
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       Alterações Realizadas
                     </p>
-                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-card via-card/90 to-card/70 shadow-lg space-y-3">
+                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-card via-card/90 to-card/70 shadow-lg space-y-3 text-sm">
                       {selectedActivity.entity_type === "client" ||
                       selectedActivity.resource_type?.includes("client") ? (
                         <>
                           {selectedActivity.new_data?.razao_social && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Razão Social:
                               </span>
-                              <span className="font-semibold text-right sm:max-w-xs break-words">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right sm:max-w-xs break-words">
                                 {selectedActivity.new_data.razao_social}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.email && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Email:
                               </span>
-                              <span className="font-semibold text-right break-all">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-all">
                                 {selectedActivity.new_data.email}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.telefone && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Telefone:
                               </span>
-                              <span className="font-semibold text-right">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right">
                                 {selectedActivity.new_data.telefone}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.endereco && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Endereço:
                               </span>
-                              <span className="font-semibold text-right break-words">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-words">
                                 {selectedActivity.new_data.endereco}
                               </span>
                             </div>
@@ -649,31 +651,31 @@ export function ActivityTable() {
                       ) : (
                         <>
                           {selectedActivity.new_data?.status && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Status:
                               </span>
-                              <span className="font-semibold text-lg">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right text-base sm:text-lg">
                                 {selectedActivity.new_data.status}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.observacoes && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Observações:
                               </span>
-                              <span className="font-semibold text-right break-words">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-words">
                                 {selectedActivity.new_data.observacoes}
                               </span>
                             </div>
                           )}
                           {selectedActivity.new_data?.data_entrega && (
-                            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                              <span className="font-medium text-muted-foreground">
+                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                                 Data de Entrega:
                               </span>
-                              <span className="font-semibold text-right">
+                              <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right">
                                 {(() => {
                                   const formatValue = (
                                     key: string,
@@ -827,12 +829,12 @@ export function ActivityTable() {
                             return (
                               <div
                                 key={key}
-                                className="flex flex-col sm:flex-row sm:justify-between gap-1"
+                                className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between"
                               >
-                                <span className="font-medium text-muted-foreground capitalize">
+                                <span className="font-medium text-xs sm:text-sm text-muted-foreground capitalize">
                                   {key.replace(/_/g, " ")}:
                                 </span>
-                                <span className="font-semibold text-right break-words">
+                                <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-words">
                                   {formatValue(key, value)}
                                 </span>
                               </div>
@@ -844,31 +846,31 @@ export function ActivityTable() {
 
                   {/* Informações do usuário */}
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                       Alterado por
                     </p>
-                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/30 dark:to-slate-800/20 shadow-lg space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="font-medium text-muted-foreground">
+                    <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/30 dark:to-slate-800/20 shadow-lg space-y-3 text-sm">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                           Usuário:
                         </span>
-                        <span className="font-semibold text-right">
+                        <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-words">
                           {selectedActivity.user_name}
                         </span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="font-medium text-muted-foreground">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                           Email:
                         </span>
-                        <span className="font-semibold text-right break-all">
+                        <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right break-all">
                           {selectedActivity.user_email}
                         </span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="font-medium text-muted-foreground">
+                      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="font-medium text-xs sm:text-sm text-muted-foreground">
                           Data/Hora:
                         </span>
-                        <span className="font-semibold text-right">
+                        <span className="font-semibold mt-0.5 sm:mt-0 sm:text-right">
                           {format(
                             new Date(
                               selectedActivity.timestamp ||
@@ -886,7 +888,7 @@ export function ActivityTable() {
                   {selectedActivity.entity_id && (
                     <Button
                       onClick={handleNavigateToEntity}
-                      className="w-full shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary border-0"
+                      className="w-full shadow-lg hover:shadow-xl transition-all duração-300 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary border-0 text-sm sm:text-base"
                       variant="default"
                     >
                       <span>
@@ -902,15 +904,24 @@ export function ActivityTable() {
                 </div>
               ) : (
                 /* UI padrão para outras atividades */
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4 text-sm sm:text-base">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Ação</p>
-                      <p className="font-medium">{selectedActivity.action}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Ação
+                      </p>
+                      <p className="font-medium break-words">
+                        {selectedActivity.action}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Tipo</p>
-                      <Badge variant={getActionColor(selectedActivity.action)}>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Tipo
+                      </p>
+                      <Badge
+                        variant={getActionColor(selectedActivity.action)}
+                        className="mt-1 text-xs sm:text-sm"
+                      >
                         {getEntityTypeLabel(
                           selectedActivity.entity_type ||
                             selectedActivity.resource_type.split(".")[1]
@@ -918,13 +929,17 @@ export function ActivityTable() {
                       </Badge>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Entidade</p>
-                      <p className="font-medium">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Entidade
+                      </p>
+                      <p className="font-medium break-words">
                         {getDisplayName(selectedActivity)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Data/Hora</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Data/Hora
+                      </p>
                       <p className="font-medium">
                         {format(
                           new Date(
@@ -940,11 +955,13 @@ export function ActivityTable() {
 
                   {selectedActivity.user_email && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Usuário</p>
-                      <p className="font-medium">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Usuário
+                      </p>
+                      <p className="font-medium break-words">
                         {selectedActivity.user_name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground break-all">
                         {selectedActivity.user_email}
                       </p>
                     </div>
@@ -953,17 +970,20 @@ export function ActivityTable() {
                   {selectedActivity.metadata &&
                     Object.keys(selectedActivity.metadata).length > 0 && (
                       <div>
-                        <p className="text-sm text-muted-foreground mb-2">
+                        <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                           Informações Adicionais
                         </p>
-                        <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                        <div className="p-3 rounded-lg bg-muted/50 space-y-1 text-xs sm:text-sm">
                           {Object.entries(selectedActivity.metadata).map(
                             ([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-sm text-muted-foreground capitalize">
+                              <div
+                                key={key}
+                                className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <span className="text-xs sm:text-sm text-muted-foreground capitalize">
                                   {key.replace(/_/g, " ")}:
                                 </span>
-                                <span className="text-sm font-medium">
+                                <span className="font-medium mt-0.5 sm:mt-0 sm:text-right break-words">
                                   {typeof value === "object"
                                     ? JSON.stringify(value)
                                     : String(value)}
@@ -978,7 +998,7 @@ export function ActivityTable() {
                   {selectedActivity.entity_id && (
                     <Button
                       onClick={handleNavigateToEntity}
-                      className="w-full"
+                      className="w-full text-sm sm:text-base"
                       variant="default"
                     >
                       <span>
