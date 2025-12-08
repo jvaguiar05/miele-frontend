@@ -8,7 +8,10 @@ import {
   Briefcase,
   Mail,
   Calendar,
+  Menu,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +32,7 @@ export default function Header() {
   const { user, profile, signOut } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
@@ -84,6 +88,7 @@ export default function Header() {
               </span>
             </Link>
 
+            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map((item) => (
                 <Link key={item.href} to={item.href}>
@@ -108,7 +113,25 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            {/* Theme Toggle - Desktop only */}
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+
+            {/* Mobile Menu Button - replaces theme toggle on mobile */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden p-2"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -209,6 +232,44 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Navigation */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-md">
+          <div className="container px-4 py-3">
+            <nav className="flex flex-col gap-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    isActive(item.href)
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {item.label}
+                  {isActive(item.href) && (
+                    <div className="ml-auto w-2 h-2 bg-primary rounded-full" />
+                  )}
+                </Link>
+              ))}
+
+              {/* Theme Toggle in Mobile Menu */}
+              <div className="border-t border-border/40 mt-2 pt-2">
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Tema
+                  </span>
+                  <ThemeToggle />
+                </div>
+              </div>
+            </nav>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
