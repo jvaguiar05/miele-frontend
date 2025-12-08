@@ -188,52 +188,60 @@ export default function Clients() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-8"
+          className="mb-4 sm:mb-6 md:mb-8"
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600">
-                <Users className="h-8 w-8 text-white" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500 to-blue-600">
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">Clientes</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
+                  Clientes
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Gerencie seus clientes e informações
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button
                 onClick={handleImportExcel}
                 variant="outline"
-                className="gap-2"
+                className="gap-2 text-xs sm:text-sm"
+                size="sm"
               >
-                <Upload className="w-4 h-4" />
-                Importar
+                <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Importar</span>
+                <span className="sm:hidden">Import</span>
               </Button>
               <Button
                 onClick={handleExportExcel}
                 variant="outline"
-                className="gap-2"
+                className="gap-2 text-xs sm:text-sm"
+                size="sm"
               >
-                <Download className="w-4 h-4" />
-                Exportar
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Exportar</span>
+                <span className="sm:hidden">Export</span>
               </Button>
               <Button
                 onClick={() => {
                   setSelectedClient(null);
                   setIsFormOpen(true);
                 }}
-                className="bg-gradient-to-r from-primary to-primary/80 gap-2"
+                className="bg-gradient-to-r from-primary to-primary/80 gap-2 text-xs sm:text-sm"
+                size="sm"
               >
-                <Plus className="w-4 h-4" />
-                Novo Cliente
+                <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Novo Cliente</span>
+                <span className="sm:hidden">Novo</span>
               </Button>
             </div>
           </div>
@@ -244,24 +252,27 @@ export default function Clients() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-6"
+          className="mb-4 sm:mb-6"
         >
-          <Card className="p-4 border-border/50 bg-card/50 backdrop-blur">
-            <div className="flex gap-4">
+          <Card className="p-3 sm:p-4 border-border/50 bg-card/50 backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por nome, CNPJ ou razão social..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm"
                 />
               </div>
               <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="relative">
+                  <Button
+                    variant="outline"
+                    className="relative w-full sm:w-auto"
+                  >
                     <Filter className="h-4 w-4 mr-2" />
-                    Filtros
+                    <span className="text-sm">Filtros</span>
                     {getActiveFiltersCount() > 0 && (
                       <Badge
                         variant="secondary"
@@ -272,7 +283,7 @@ export default function Clients() {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-4">
+                <PopoverContent className="w-[90vw] sm:w-80 p-4" align="end">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold">Filtros</h4>
@@ -401,11 +412,18 @@ export default function Clients() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-4">
-                      <Button onClick={handleApplyFilters} className="flex-1">
+                    <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                      <Button
+                        onClick={handleApplyFilters}
+                        className="flex-1 text-sm"
+                      >
                         Aplicar Filtros
                       </Button>
-                      <Button onClick={handleClearFilters} variant="outline">
+                      <Button
+                        onClick={handleClearFilters}
+                        variant="outline"
+                        className="text-sm"
+                      >
                         Limpar
                       </Button>
                     </div>
@@ -496,61 +514,104 @@ export default function Clients() {
           </Card>
         </motion.div>
 
-        {/* Pagination */}
+        {/* Pagination - Mobile Optimized */}
         {totalPages > 1 && (
-          <div className="mt-6">
+          <div className="mt-4 sm:mt-6">
             <Pagination>
-              <PaginationContent>
+              <PaginationContent className="flex-wrap justify-center gap-1">
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => handlePageChange(currentPage - 1)}
-                    className={
+                    className={`text-xs sm:text-sm ${
                       currentPage === 1
                         ? "pointer-events-none opacity-50"
                         : "cursor-pointer"
-                    }
+                    }`}
                   />
                 </PaginationItem>
 
-                {[...Array(totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => handlePageChange(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === currentPage - 2 ||
-                    page === currentPage + 2
-                  ) {
-                    return (
-                      <span key={page} className="px-1">
-                        ...
-                      </span>
-                    );
-                  }
-                  return null;
-                })}
+                {/* Mobile: Show fewer pages */}
+                <div className="flex sm:hidden">
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink
+                        onClick={() => handlePageChange(1)}
+                        className="cursor-pointer text-xs"
+                      >
+                        1
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+
+                  {currentPage > 2 && <span className="px-1 text-xs">...</span>}
+
+                  <PaginationItem>
+                    <PaginationLink
+                      isActive={true}
+                      className="cursor-pointer text-xs"
+                    >
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+
+                  {currentPage < totalPages - 1 && (
+                    <span className="px-1 text-xs">...</span>
+                  )}
+
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink
+                        onClick={() => handlePageChange(totalPages)}
+                        className="cursor-pointer text-xs"
+                      >
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                </div>
+
+                {/* Desktop: Show full pagination */}
+                <div className="hidden sm:flex">
+                  {[...Array(totalPages)].map((_, i) => {
+                    const page = i + 1;
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => handlePageChange(page)}
+                            isActive={currentPage === page}
+                            className="cursor-pointer text-sm"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return (
+                        <span key={page} className="px-1 text-sm">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
 
                 <PaginationItem>
                   <PaginationNext
                     onClick={() => handlePageChange(currentPage + 1)}
-                    className={
+                    className={`text-xs sm:text-sm ${
                       currentPage === totalPages
                         ? "pointer-events-none opacity-50"
                         : "cursor-pointer"
-                    }
+                    }`}
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -560,20 +621,22 @@ export default function Clients() {
 
         {/* Client Form Dialog */}
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
+          <DialogContent className="w-[95vw] sm:max-w-3xl h-[90vh] sm:max-h-[85vh] p-0 gap-0">
+            <DialogHeader className="p-4 sm:p-6 pb-0">
+              <DialogTitle className="text-base sm:text-lg">
                 {selectedClient ? "Editar Cliente" : "Novo Cliente"}
               </DialogTitle>
             </DialogHeader>
-            <ClientForm
-              client={selectedClient}
-              onSuccess={() => {
-                setIsFormOpen(false);
-                fetchClients(currentPage);
-              }}
-              onCancel={() => setIsFormOpen(false)}
-            />
+            <div className="overflow-y-auto h-full p-4 sm:p-6 pt-4">
+              <ClientForm
+                client={selectedClient}
+                onSuccess={() => {
+                  setIsFormOpen(false);
+                  fetchClients(currentPage);
+                }}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -587,28 +650,30 @@ export default function Clients() {
             }
           }}
         >
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-4xl h-[90vh] sm:max-h-[85vh] p-0 gap-0">
             <DialogHeader className="sr-only">
               <DialogTitle>Detalhes do Cliente</DialogTitle>
             </DialogHeader>
-            {selectedClient ? (
-              <ClientDetail
-                clientId={selectedClient.id}
-                client={selectedClient as any}
-                onEdit={() => handleEdit(selectedClient)}
-                onBack={() => setIsDetailOpen(false)}
-                onAddPerdComp={() => {
-                  navigate(`/perdcomps?newWithClient=${selectedClient.id}`);
-                  setIsDetailOpen(false);
-                }}
-              />
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  Carregando dados do cliente...
-                </p>
-              </div>
-            )}
+            <div className="overflow-y-auto h-full p-4 sm:p-6">
+              {selectedClient ? (
+                <ClientDetail
+                  clientId={selectedClient.id}
+                  client={selectedClient as any}
+                  onEdit={() => handleEdit(selectedClient)}
+                  onBack={() => setIsDetailOpen(false)}
+                  onAddPerdComp={() => {
+                    navigate(`/perdcomps?newWithClient=${selectedClient.id}`);
+                    setIsDetailOpen(false);
+                  }}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Carregando dados do cliente...
+                  </p>
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>
