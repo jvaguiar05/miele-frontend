@@ -1,492 +1,547 @@
-import { useState } from "react";
-import { useDropzone } from "react-dropzone";
-import { 
-  Upload, 
-  File, 
-  FileText, 
-  Image, 
-  Trash2, 
-  Download, 
+import { useState, useEffect } from "react";
+import {
+  Upload,
+  FileText,
+  Download,
+  Trash2,
   Eye,
-  X
+  X,
+  Edit2,
+  Save,
+  MoreVertical,
+  Plus,
+  File,
+  FileImage,
+  FileCheck,
+  Folder,
+  Building,
+  MapPin,
 } from "lucide-react";
+import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
-type FileType = 'perdcomp' | 'aviso_recebimento' | 'recibo';
-
-interface PerdCompFile {
-  id: string;
-  name: string;
-  size: string;
-  type: FileType;
-  url: string;
-  uploadDate: string;
-}
+import { useFileManager } from "@/hooks/use-file-manager";
+import { FileMetadata, PerdCompFileType } from "@/types/api";
 
 interface PerdCompFileManagerProps {
-  perdcompId?: string;
-  onFilesChange?: (files: PerdCompFile[]) => void;
+  perdcompId: string;
   readonly?: boolean;
 }
 
-const getTypeLabel = (type: FileType): string => {
-  switch (type) {
-    case 'perdcomp': return 'PERD/COMP';
-    case 'aviso_recebimento': return 'Aviso Recebimento';
-    case 'recibo': return 'Recibo';
-    default: return type;
-  }
-};
+export default function PerdCompFileManager({
+  perdcompId,
+  readonly = false,
+}: PerdCompFileManagerProps) {
+  const {
+    files,
+    loading,
+    uploading,
+    loadFiles,
+    uploadFile,
+    downloadFile,
+    previewFile,
+    updateFile,
+    deleteFile,
+    validateFile,
+    getFileTypeOptions,
+  } = useFileManager({ entityId: perdcompId, entityType: "perdcomp" });
 
-const getTypeBadgeVariant = (type: FileType) => {
-  switch (type) {
-    case 'perdcomp': return 'default';
-    case 'aviso_recebimento': return 'secondary';
-    case 'recibo': return 'outline';
-    default: return 'outline';
-  }
-};
-
-const getFileIcon = (fileName: string) => {
-  const extension = fileName.split('.').pop()?.toLowerCase();
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) {
-    return <Image className="h-4 w-4" />;
-  }
-  if (['pdf'].includes(extension || '')) {
-    return <FileText className="h-4 w-4" />;
-  }
-  return <File className="h-4 w-4" />;
-};
-
-export default function PerdCompFileManager({ perdcompId, onFilesChange, readonly = false }: PerdCompFileManagerProps) {
-  const [files, setFiles] = useState<PerdCompFile[]>([]);
-  const [selectedType, setSelectedType] = useState<FileType>('perdcomp');
-  const [previewFile, setPreviewFile] = useState<PerdCompFile | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [uploadFileType, setUploadFileType] = useState<FileType>('perdcomp');
-  const { toast } = useToast();
+  const [selectedFileType, setSelectedFileType] =
+    useState<PerdCompFileType>("perdcomp");
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [previewFileData, setPreviewFileData] = useState<{
+    file: FileMetadata;
+    url: string;
+  } | null>(null);
+  const [editingFile, setEditingFile] = useState<FileMetadata | null>(null);
+  const [editForm, setEditForm] = useState({ file_name: "", description: "" });
 
-  // Mock file upload - in production, this would upload to Supabase storage
-  const uploadFiles = async (acceptedFiles: File[], type: FileType) => {
-    if (readonly) return;
-    
-    setIsUploading(true);
-    
+  // Load files on component mount
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
+
+  const handleFileUpload = async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+
+    const file = acceptedFiles[0];
+    const validation = validateFile(file);
+
+    if (!validation.isValid) {
+      return;
+    }
+
     try {
-      const newFiles: PerdCompFile[] = acceptedFiles.map((file, index) => ({
-        id: `${Date.now()}-${index}`,
-        name: file.name,
-        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        type,
-        url: URL.createObjectURL(file), // In production: upload to Supabase and get URL
-        uploadDate: new Date().toISOString(),
-      }));
+      await uploadFile(file, selectedFileType, uploadDescription, undefined);
 
-      const updatedFiles = [...files, ...newFiles];
-      setFiles(updatedFiles);
-      onFilesChange?.(updatedFiles);
-
-      toast({
-        title: "Arquivos enviados",
-        description: `${acceptedFiles.length} arquivo(s) enviado(s) com sucesso.`,
-      });
-      
+      // Reset form
       setIsUploadDialogOpen(false);
+      setUploadDescription("");
+      setSelectedFileType("perdcomp");
     } catch (error) {
-      toast({
-        title: "Erro no upload",
-        description: "Ocorreu um erro ao enviar os arquivos.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
+      // Error handled by hook
     }
   };
 
-  const onDropUpload = (acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      uploadFiles(acceptedFiles, uploadFileType);
-    }
-  };
-
-  const { getRootProps: getRootPropsUpload, getInputProps: getInputPropsUpload, isDragActive: isDragActiveUpload } = useDropzone({
-    onDrop: onDropUpload,
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleFileUpload,
     accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
+      "application/pdf": [".pdf"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
     },
-    maxSize: 10 * 1024 * 1024,
-    multiple: true,
-    disabled: isUploading || readonly
+    maxFiles: 1,
+    multiple: false,
   });
 
-  const deleteFile = (fileId: string) => {
-    if (readonly) return;
-    
-    const updatedFiles = files.filter(file => file.id !== fileId);
-    setFiles(updatedFiles);
-    onFilesChange?.(updatedFiles);
-    
-    toast({
-      title: "Arquivo removido",
-      description: "O arquivo foi removido com sucesso.",
+  const startEditing = (file: FileMetadata) => {
+    setEditingFile(file);
+    setEditForm({
+      file_name: file.file_name,
+      description: file.description || "",
     });
   };
 
-  const downloadFile = (file: PerdCompFile) => {
-    // In production, this would download from Supabase storage
-    const link = document.createElement('a');
-    link.href = file.url;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const handleSaveEdit = async () => {
+    if (!editingFile) return;
 
-  const getFilesByType = (type: FileType) => {
-    return files.filter(file => file.type === type);
-  };
-
-  const FileDropzone = ({ type }: { type: FileType }) => {
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-      onDrop: (acceptedFiles) => uploadFiles(acceptedFiles, type),
-      multiple: true,
-      disabled: isUploading || readonly,
-    });
-
-    if (readonly) {
-      return null; // Don't show dropzone in readonly mode
+    try {
+      await updateFile(editingFile.id, editForm);
+      setEditingFile(null);
+      setEditForm({ file_name: "", description: "" });
+    } catch (error) {
+      // Error handled by hook
     }
+  };
+
+  const handlePreviewFile = async (fileId: string) => {
+    try {
+      const previewUrl = await previewFile(fileId);
+      if (previewUrl && files) {
+        const file = files.find((f) => f.id === fileId);
+        if (file) {
+          setPreviewFileData({ file, url: previewUrl });
+        }
+      }
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      await downloadFile(fileId, fileName);
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      const file = files.find((f) => f.id === fileId);
+      if (file) {
+        await deleteFile(fileId, file.file_name);
+      }
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const getTypeLabel = (type: PerdCompFileType) => {
+    const labels = {
+      perdcomp: "PerdComp",
+      aviso_recebimento: "Aviso de Recebimento",
+      recibo: "Recibo",
+    };
+    return labels[type] || type;
+  };
+
+  const getTypeBadgeVariant = (
+    type: PerdCompFileType
+  ): "default" | "secondary" | "outline" => {
+    const variants = {
+      perdcomp: "default" as const,
+      aviso_recebimento: "secondary" as const,
+      recibo: "outline" as const,
+    };
+    return variants[type] || "secondary";
+  };
+
+  const getFileTypeIcon = (type: PerdCompFileType) => {
+    const icons = {
+      perdcomp: FileCheck,
+      aviso_recebimento: FileText,
+      recibo: Building,
+    };
+    return icons[type] || FileText;
+  };
+
+  const renderModernFileCard = (file: FileMetadata) => {
+    const Icon = getFileTypeIcon(file.file_type as PerdCompFileType);
 
     return (
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-          isDragActive 
-            ? 'border-primary bg-primary/5' 
-            : 'border-muted-foreground/25 hover:border-primary/50'
-        } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-      >
-        <input {...getInputProps()} />
-        <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-4" />
-        <p className="text-sm text-muted-foreground mb-2">
-          {isDragActive
-            ? `Solte os arquivos aqui para ${getTypeLabel(type)}`
-            : `Arraste arquivos aqui ou clique para selecionar`}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Tipos suportados: PDF, JPG, PNG, etc.
-        </p>
-      </div>
-    );
-  };
+      <Card key={file.id} className="group hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            {/* File Info */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="flex-shrink-0">
+                {file.mime_type === "application/pdf" ? (
+                  <File className="h-8 w-8 text-red-500" />
+                ) : (
+                  <FileImage className="h-8 w-8 text-blue-500" />
+                )}
+              </div>
 
-  const FileList = ({ type }: { type: FileType }) => {
-    const typeFiles = getFilesByType(type);
-
-    if (typeFiles.length === 0) {
-      return (
-        <Alert>
-          <FileText className="h-4 w-4" />
-          <AlertDescription>
-            Nenhum arquivo de {getTypeLabel(type)} foi enviado ainda.
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {typeFiles.map((file) => (
-          <Card key={file.id}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {getFileIcon(file.name)}
-                  <div>
-                    <p className="font-medium text-sm">{file.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant={getTypeBadgeVariant(file.type)} className="text-xs">
-                        {getTypeLabel(file.type)}
-                      </Badge>
-                      <span>{file.size}</span>
-                      <span>•</span>
-                      <span>{new Date(file.uploadDate).toLocaleDateString()}</span>
+              <div className="flex-1 min-w-0">
+                {editingFile?.id === file.id ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={editForm.file_name}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          file_name: e.target.value,
+                        }))
+                      }
+                      className="h-8 text-sm"
+                    />
+                    <Textarea
+                      className="resize-none min-h-[60px] text-sm"
+                      value={editForm.description}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="Descrição do arquivo"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveEdit}>
+                        <Save className="h-3 w-3 mr-1" />
+                        Salvar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingFile(null)}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Cancelar
+                      </Button>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setPreviewFile(file)}
-                    className="h-8 w-8"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => downloadFile(file)}
-                    className="h-8 w-8"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  {!readonly && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteFile(file.id)}
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                ) : (
+                  <div className="space-y-1">
+                    <h4 className="font-medium text-sm leading-tight truncate">
+                      {file.file_name}
+                    </h4>
+                    {file.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {file.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {format(new Date(file.created_at), "dd/MM/yyyy")}
+                      </span>
+                    </div>
+                    <Badge
+                      variant={getTypeBadgeVariant(
+                        file.file_type as PerdCompFileType
+                      )}
+                      className="w-fit text-xs"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                      <Icon className="h-3 w-3 mr-1" />
+                      {getTypeLabel(file.file_type as PerdCompFileType)}
+                    </Badge>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </div>
+
+            {/* Actions */}
+            {!readonly && editingFile?.id !== file.id && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handlePreviewFile(file.id)}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDownloadFile(file.id, file.file_name)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => startEditing(file)}>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteFile(file.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     );
   };
+
+  // Filter files by type
+  const perdcompFiles = files.filter((f) => f.file_type === "perdcomp");
+  const avisoFiles = files.filter((f) => f.file_type === "aviso_recebimento");
+  const reciboFiles = files.filter((f) => f.file_type === "recibo");
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Carregando arquivos...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header with Upload Button */}
-      {!readonly && (
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">Arquivos do PERD/COMP</h3>
-            <p className="text-sm text-muted-foreground">
-              Gerencie os documentos relacionados ao processo
-            </p>
-          </div>
-          
-          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+      {/* Modern Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">Arquivos</h2>
+          <p className="text-sm text-muted-foreground">
+            Gerencie documentos da empresa
+          </p>
+        </div>
+
+        {!readonly && (
+          <Dialog
+            open={isUploadDialogOpen}
+            onOpenChange={setIsUploadDialogOpen}
+          >
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-primary to-primary/80">
-                <Upload className="mr-2 h-4 w-4" />
-                Enviar Arquivo
+              <Button className="flex items-center gap-2" disabled={uploading}>
+                <Plus className="h-4 w-4" />
+                {uploading ? "Enviando..." : "Novo Arquivo"}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Enviar Novo Arquivo</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Adicione documentos ao processo de forma rápida e organizada
+                <DialogTitle>Enviar Arquivo</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Adicione um novo documento
                 </p>
               </DialogHeader>
-              <div className="space-y-6">
-                <div>
-                  <Label htmlFor="file-type" className="text-base">Tipo de Arquivo</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Escolha o tipo de documento que deseja enviar
-                  </p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Button
-                      type="button"
-                      variant={uploadFileType === 'perdcomp' ? 'default' : 'outline'}
-                      onClick={() => setUploadFileType('perdcomp')}
-                      className="justify-start h-auto py-3"
-                    >
-                      <FileText className="mr-2 h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-semibold text-xs">PERD/COMP</div>
-                      </div>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={uploadFileType === 'aviso_recebimento' ? 'default' : 'outline'}
-                      onClick={() => setUploadFileType('aviso_recebimento')}
-                      className="justify-start h-auto py-3"
-                    >
-                      <FileText className="mr-2 h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-semibold text-xs">Aviso Recebimento</div>
-                      </div>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={uploadFileType === 'recibo' ? 'default' : 'outline'}
-                      onClick={() => setUploadFileType('recibo')}
-                      className="justify-start h-auto py-3"
-                    >
-                      <FileText className="mr-2 h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-semibold text-xs">Recibo</div>
-                      </div>
-                    </Button>
+
+              <div className="space-y-4">
+                {/* File Type Selection - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tipo de Arquivo</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {getFileTypeOptions().map((option) => (
+                      <Button
+                        key={option.value}
+                        type="button"
+                        size="sm"
+                        variant={
+                          selectedFileType === option.value
+                            ? "default"
+                            : "outline"
+                        }
+                        onClick={() =>
+                          setSelectedFileType(option.value as PerdCompFileType)
+                        }
+                        className="justify-start"
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
-                <div>
-                  <Label className="text-base">Selecionar Arquivo</Label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Arraste e solte ou clique para selecionar (múltiplos arquivos)
-                  </p>
+                {/* Description - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Descrição</Label>
+                  <Textarea
+                    placeholder="Descrição do arquivo (opcional)"
+                    value={uploadDescription}
+                    onChange={(e) => setUploadDescription(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+
+                {/* File Upload - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Arquivo</Label>
                   <div
-                    {...getRootPropsUpload()}
+                    {...getRootProps()}
                     className={cn(
-                      "relative border-2 border-dashed rounded-lg p-8 transition-all duration-200",
-                      "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
-                      isDragActiveUpload && "border-primary bg-primary/5 scale-[1.02]",
-                      isUploading && "opacity-50 cursor-not-allowed"
+                      "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                      isDragActive && "border-primary bg-primary/5",
+                      uploading && "opacity-50 cursor-not-allowed"
                     )}
                   >
-                    <input {...getInputPropsUpload()} />
-                    <div className="flex flex-col items-center text-center space-y-3">
-                      <div className={cn(
-                        "p-4 rounded-full transition-colors",
-                        isDragActiveUpload ? "bg-primary/20" : "bg-muted"
-                      )}>
-                        <Upload className={cn(
-                          "h-8 w-8 transition-colors",
-                          isDragActiveUpload ? "text-primary" : "text-muted-foreground"
-                        )} />
-                      </div>
-                      {isDragActiveUpload ? (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-primary">
-                            Solte os arquivos aqui
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Os arquivos serão enviados automaticamente
-                          </p>
-                        </div>
+                    <input {...getInputProps()} disabled={uploading} />
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                      {uploading ? (
+                        <p className="text-xs text-muted-foreground">
+                          Enviando...
+                        </p>
                       ) : (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">
-                            Arraste arquivos ou clique para selecionar
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            PDF, JPG ou PNG até 10MB cada
-                          </p>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Clique ou arraste para enviar
+                        </p>
                       )}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary" className="font-normal">
-                          PDF
-                        </Badge>
-                        <Badge variant="secondary" className="font-normal">
-                          JPG
-                        </Badge>
-                        <Badge variant="secondary" className="font-normal">
-                          PNG
-                        </Badge>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      )}
+        )}
+      </div>
 
-      <Tabs value={selectedType} onValueChange={(value) => setSelectedType(value as FileType)}>
+      {/* Files Tabs */}
+      <Tabs defaultValue="perdcomp" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="perdcomp">
-            PERD/COMP ({getFilesByType('perdcomp').length})
+          <TabsTrigger
+            value="perdcomp"
+            className="flex items-center gap-2 text-xs"
+          >
+            <FileCheck className="h-3 w-3" />
+            PerdComp ({perdcompFiles.length})
           </TabsTrigger>
-          <TabsTrigger value="aviso_recebimento">
-            Aviso Recebimento ({getFilesByType('aviso_recebimento').length})
+          <TabsTrigger
+            value="aviso"
+            className="flex items-center gap-2 text-xs"
+          >
+            <FileText className="h-3 w-3" />
+            Aviso ({avisoFiles.length})
           </TabsTrigger>
-          <TabsTrigger value="recibo">
-            Recibo ({getFilesByType('recibo').length})
+          <TabsTrigger
+            value="recibo"
+            className="flex items-center gap-2 text-xs"
+          >
+            <Building className="h-3 w-3" />
+            Recibo ({reciboFiles.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perdcomp" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Arquivos PERD/COMP</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileList type="perdcomp" />
-            </CardContent>
-          </Card>
+        <TabsContent value="perdcomp" className="space-y-4 mt-6">
+          {perdcompFiles.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileCheck className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum documento PerdComp encontrado</p>
+              <p className="text-xs mt-1">
+                Faça o upload do primeiro documento
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {perdcompFiles.map((file) => renderModernFileCard(file))}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="aviso_recebimento" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Avisos de Recebimento</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileList type="aviso_recebimento" />
-            </CardContent>
-          </Card>
+        <TabsContent value="aviso" className="space-y-4 mt-6">
+          {avisoFiles.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum aviso de recebimento encontrado</p>
+              <p className="text-xs mt-1">Faça o upload do primeiro aviso</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {avisoFiles.map((file) => renderModernFileCard(file))}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="recibo" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recibos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileList type="recibo" />
-            </CardContent>
-          </Card>
+        <TabsContent value="recibo" className="space-y-4 mt-6">
+          {reciboFiles.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Building className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum recibo encontrado</p>
+              <p className="text-xs mt-1">Faça o upload do primeiro recibo</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {reciboFiles.map((file) => renderModernFileCard(file))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* File Preview Dialog */}
-      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <div>
-              <DialogTitle>{previewFile?.name}</DialogTitle>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={getTypeBadgeVariant(previewFile?.type || 'perdcomp')}>
-                  {getTypeLabel(previewFile?.type || 'perdcomp')}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {previewFile?.size}
-                </span>
-              </div>
+      {/* Preview Dialog */}
+      {previewFileData && (
+        <Dialog
+          open={!!previewFileData}
+          onOpenChange={() => setPreviewFileData(null)}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                {previewFileData.file.file_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden p-6 pt-0">
+              {previewFileData.file.mime_type === "application/pdf" ? (
+                <iframe
+                  src={previewFileData.url}
+                  className="w-full h-[70vh] border-0 rounded-md"
+                  title={`Preview: ${previewFileData.file.file_name}`}
+                />
+              ) : (
+                <img
+                  src={previewFileData.url}
+                  alt={previewFileData.file.file_name}
+                  className="w-full h-[70vh] object-contain rounded-md"
+                />
+              )}
             </div>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            {previewFile && (
-              <div className="w-full h-[60vh] flex items-center justify-center bg-muted/50 rounded-lg">
-                {previewFile.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? (
-                  <img
-                    src={previewFile.url}
-                    alt={previewFile.name}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : (
-                  <div className="text-center">
-                    <FileText className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">
-                      Visualização não disponível para este tipo de arquivo
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => downloadFile(previewFile)}
-                      className="mt-4"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Baixar Arquivo
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

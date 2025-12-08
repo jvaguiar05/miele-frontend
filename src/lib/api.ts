@@ -118,4 +118,130 @@ export const apiHelpers = {
   },
 };
 
+// File management API functions following Miele Drive Proxy integration
+export const fileApi = {
+  // Upload file (multipart/form-data)
+  uploadFile: async (
+    objectId: string,
+    fileObject: File,
+    fileType: string,
+    description?: string,
+    expirationDate?: string
+  ) => {
+    const formData = new FormData();
+    formData.append("object_id", objectId);
+    formData.append("file_type", fileType);
+    formData.append("file", fileObject);
+    if (description) {
+      formData.append("description", description);
+    }
+    if (expirationDate) {
+      formData.append("expiration_date", expirationDate);
+    }
+
+    const response = await api.post("/shared/files/", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  // List files for an entity
+  listFiles: async (objectId: string) => {
+    const response = await api.get(`/shared/files/?object_id=${objectId}`);
+    return response.data;
+  },
+
+  // Download file (returns blob)
+  downloadFile: async (fileId: string) => {
+    const response = await api.get(`/shared/files/${fileId}/download/`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  // Preview file (returns blob for display)
+  previewFile: async (fileId: string) => {
+    const response = await api.get(`/shared/files/${fileId}/preview/`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  // Update file metadata or replace file content
+  updateFile: async (
+    fileId: string,
+    updates: {
+      file_name?: string;
+      description?: string;
+      file?: File;
+    }
+  ) => {
+    const formData = new FormData();
+
+    if (updates.file_name) {
+      formData.append("file_name", updates.file_name);
+    }
+    if (updates.description !== undefined) {
+      formData.append("description", updates.description);
+    }
+    if (updates.file) {
+      formData.append("file", updates.file);
+    }
+
+    const response = await api.patch(`/shared/files/${fileId}/`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  // Delete file
+  deleteFile: async (fileId: string) => {
+    await api.delete(`/shared/files/${fileId}/`);
+  },
+
+  // Helper function to download file with proper filename and mime type
+  downloadFileWithName: async (
+    fileId: string,
+    fileName: string,
+    mimeType?: string
+  ) => {
+    try {
+      const blob = await fileApi.downloadFile(fileId);
+
+      // Create blob URL with correct MIME type
+      const typedBlob = new Blob([blob], {
+        type: mimeType || blob.type || "application/octet-stream",
+      });
+      const url = window.URL.createObjectURL(typedBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      throw error;
+    }
+  },
+
+  // Helper function to get preview URL for display
+  getPreviewUrl: async (fileId: string) => {
+    try {
+      const blob = await fileApi.previewFile(fileId);
+      return window.URL.createObjectURL(blob);
+    } catch (error) {
+      console.error("Error getting preview URL:", error);
+      throw error;
+    }
+  },
+};
+
 export default api;

@@ -1,251 +1,426 @@
-import { useState } from "react";
-import { Upload, FileText, Calendar, Download, Trash2, Eye, X, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Upload,
+  FileText,
+  Download,
+  Trash2,
+  Eye,
+  X,
+  Edit2,
+  Save,
+  Calendar,
+  AlertCircle,
+  MoreVertical,
+  Plus,
+  File,
+  FileImage,
+  FileCheck,
+  Clock,
+} from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
-
-interface FileItem {
-  id: string;
-  name: string;
-  type: 'contrato' | 'cartao_cnpj';
-  file: File;
-  uploadDate: Date;
-  expirationDate?: Date;
-  size: string;
-}
+import { useFileManager } from "@/hooks/use-file-manager";
+import { FileMetadata, ClientFileType } from "@/types/api";
 
 interface FileManagerProps {
   clientId: string;
 }
 
 export default function FileManager({ clientId }: FileManagerProps) {
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const {
+    files,
+    loading,
+    uploading,
+    loadFiles,
+    uploadFile,
+    downloadFile,
+    previewFile,
+    updateFile,
+    deleteFile,
+    validateFile,
+    getFileTypeOptions,
+  } = useFileManager({ entityId: clientId, entityType: "client" });
+
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [selectedFileType, setSelectedFileType] = useState<'contrato' | 'cartao_cnpj'>('cartao_cnpj');
+  const [selectedFileType, setSelectedFileType] =
+    useState<ClientFileType>("cartao_cnpj");
+  const [uploadDescription, setUploadDescription] = useState("");
   const [expirationDate, setExpirationDate] = useState<Date>();
-  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
-  const { toast } = useToast();
+  const [previewFileData, setPreviewFileData] = useState<{
+    file: FileMetadata;
+    url: string;
+  } | null>(null);
+  const [editingFile, setEditingFile] = useState<FileMetadata | null>(null);
+  const [editForm, setEditForm] = useState({ file_name: "", description: "" });
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  // Load files on component mount
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
 
-  const validateAndProcessFile = (file: File) => {
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Tipo de arquivo não permitido",
-        description: "Apenas arquivos PDF, JPG e PNG são aceitos.",
-        variant: "destructive",
-      });
-      return false;
-    }
+  const handleFileUpload = async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "Arquivo muito grande",
-        description: "O arquivo deve ter no máximo 10MB.",
-        variant: "destructive",
-      });
-      return false;
+    const file = acceptedFiles[0];
+    const validation = validateFile(file);
+
+    if (!validation.isValid) {
+      return;
     }
 
     // Validate expiration date for contracts
-    if (selectedFileType === 'contrato' && !expirationDate) {
-      toast({
-        title: "Data de expiração obrigatória",
-        description: "Para contratos, é necessário definir uma data de expiração.",
-        variant: "destructive",
-      });
-      return false;
+    if (selectedFileType === "contrato" && !expirationDate) {
+      return;
     }
 
-    const newFile: FileItem = {
-      id: Date.now().toString(),
-      name: file.name,
-      type: selectedFileType,
-      file: file,
-      uploadDate: new Date(),
-      expirationDate: selectedFileType === 'contrato' ? expirationDate : undefined,
-      size: formatFileSize(file.size),
-    };
+    try {
+      await uploadFile(
+        file,
+        selectedFileType,
+        uploadDescription,
+        selectedFileType === "contrato" && expirationDate
+          ? expirationDate.toISOString().split("T")[0]
+          : undefined
+      );
 
-    setFiles(prev => [...prev, newFile]);
-    setIsUploadDialogOpen(false);
-    setExpirationDate(undefined);
-    
-    toast({
-      title: "Arquivo enviado com sucesso",
-      description: `${file.name} foi adicionado aos arquivos do cliente.`,
-    });
-
-    return true;
-  };
-
-  const onDrop = (acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      validateAndProcessFile(acceptedFiles[0]);
+      // Reset form
+      setIsUploadDialogOpen(false);
+      setUploadDescription("");
+      setSelectedFileType("cartao_cnpj");
+      setExpirationDate(undefined);
+    } catch (error) {
+      // Error handled by hook
     }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: handleFileUpload,
     accept: {
-      'application/pdf': ['.pdf'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png']
+      "application/pdf": [".pdf"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
     },
-    maxSize: 10 * 1024 * 1024,
+    maxFiles: 1,
     multiple: false,
-    disabled: selectedFileType === 'contrato' && !expirationDate
   });
 
-  const handleDeleteFile = (fileId: string) => {
-    setFiles(prev => prev.filter(file => file.id !== fileId));
-    toast({
-      title: "Arquivo removido",
-      description: "O arquivo foi removido da lista.",
+  const startEditing = (file: FileMetadata) => {
+    setEditingFile(file);
+    setEditForm({
+      file_name: file.file_name,
+      description: file.description || "",
     });
   };
 
-  const handlePreviewFile = (file: FileItem) => {
-    setPreviewFile(file);
-  };
+  const handleSaveEdit = async () => {
+    if (!editingFile) return;
 
-  const getFileIcon = (file: FileItem) => {
-    if (file.file.type === 'application/pdf') {
-      return <FileText className="h-8 w-8 text-red-500" />;
+    try {
+      await updateFile(editingFile.id, editForm);
+      setEditingFile(null);
+      setEditForm({ file_name: "", description: "" });
+    } catch (error) {
+      // Error handled by hook
     }
-    return <FileText className="h-8 w-8 text-blue-500" />;
   };
 
-  const getTypeLabel = (type: 'contrato' | 'cartao_cnpj') => {
-    return type === 'contrato' ? 'Contrato' : 'Cartão CNPJ';
+  const handlePreviewFile = async (fileId: string) => {
+    try {
+      const previewUrl = await previewFile(fileId);
+      if (previewUrl && files) {
+        const file = files.find((f) => f.id === fileId);
+        if (file) {
+          setPreviewFileData({ file, url: previewUrl });
+        }
+      }
+    } catch (error) {
+      // Error handled by hook
+    }
   };
 
-  const getTypeBadgeVariant = (type: 'contrato' | 'cartao_cnpj') => {
-    return type === 'contrato' ? 'default' : 'secondary';
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      await downloadFile(fileId, fileName);
+    } catch (error) {
+      // Error handled by hook
+    }
   };
 
-  const isExpiringSoon = (expirationDate?: Date) => {
-    if (!expirationDate) return false;
-    const today = new Date();
-    const diffTime = expirationDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays > 0;
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      const file = files.find((f) => f.id === fileId);
+      if (file) {
+        await deleteFile(fileId, file.file_name);
+      }
+    } catch (error) {
+      // Error handled by hook
+    }
   };
 
-  const isExpired = (expirationDate?: Date) => {
-    if (!expirationDate) return false;
-    const today = new Date();
-    return expirationDate < today;
+  const getTypeLabel = (type: ClientFileType) => {
+    return type === "contrato" ? "Contrato" : "Cartão CNPJ";
   };
 
-  const contratoFiles = files.filter(f => f.type === 'contrato');
-  const cnpjFiles = files.filter(f => f.type === 'cartao_cnpj');
+  const getTypeBadgeVariant = (type: ClientFileType) => {
+    return type === "contrato" ? "default" : "secondary";
+  };
+
+  const renderModernFileCard = (file: FileMetadata) => (
+    <Card key={file.id} className="group hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          {/* File Info */}
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="flex-shrink-0">
+              {file.mime_type === "application/pdf" ? (
+                <File className="h-8 w-8 text-red-500" />
+              ) : (
+                <FileImage className="h-8 w-8 text-blue-500" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              {editingFile?.id === file.id ? (
+                <div className="space-y-2">
+                  <Input
+                    value={editForm.file_name}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        file_name: e.target.value,
+                      }))
+                    }
+                    className="h-8 text-sm"
+                  />
+                  <Textarea
+                    className="resize-none min-h-[60px] text-sm"
+                    value={editForm.description}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    placeholder="Descrição do arquivo"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveEdit}>
+                      <Save className="h-3 w-3 mr-1" />
+                      Salvar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingFile(null)}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <h4 className="font-medium text-sm leading-tight truncate">
+                    {file.file_name}
+                  </h4>
+                  {file.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {file.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {format(new Date(file.created_at), "dd/MM/yyyy")}
+                    </span>
+                    {file.file_type === "contrato" && file.expiration_date && (
+                      <>
+                        <span>•</span>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            Válido até{" "}
+                            {format(
+                              new Date(file.expiration_date),
+                              "dd/MM/yyyy"
+                            )}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <Badge
+                    variant={getTypeBadgeVariant(
+                      file.file_type as ClientFileType
+                    )}
+                    className="w-fit text-xs"
+                  >
+                    {getTypeLabel(file.file_type as ClientFileType)}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          {editingFile?.id !== file.id && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handlePreviewFile(file.id)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Visualizar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDownloadFile(file.id, file.file_name)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => startEditing(file)}>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDeleteFile(file.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const contratoFiles = files.filter((f) => f.file_type === "contrato");
+  const cnpjFiles = files.filter((f) => f.file_type === "cartao_cnpj");
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Carregando arquivos...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header with Upload Button */}
-      <div className="flex items-center justify-between">
+      {/* Modern Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h3 className="text-lg font-semibold">Arquivos do Cliente</h3>
+          <h2 className="text-xl font-semibold text-foreground">Arquivos</h2>
           <p className="text-sm text-muted-foreground">
-            Gerencie contratos e cartões CNPJ do cliente
+            Gerencie contratos e documentos do cliente
           </p>
         </div>
-        
+
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-primary to-primary/80">
-              <Upload className="mr-2 h-4 w-4" />
-              Enviar Arquivo
+            <Button className="flex items-center gap-2" disabled={uploading}>
+              <Plus className="h-4 w-4" />
+              {uploading ? "Enviando..." : "Novo Arquivo"}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Enviar Novo Arquivo</DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Adicione documentos importantes do cliente de forma rápida e organizada
+              <DialogTitle>Enviar Arquivo</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Adicione um novo documento
               </p>
             </DialogHeader>
-            <div className="space-y-6">
-              <div>
-                <Label htmlFor="file-type" className="text-base">Tipo de Arquivo</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Escolha o tipo de documento que deseja enviar
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant={selectedFileType === 'contrato' ? 'default' : 'outline'}
-                    onClick={() => setSelectedFileType('contrato')}
-                    className="justify-start h-auto py-3"
-                  >
-                    <Calendar className="mr-2 h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-semibold">Contrato</div>
-                      <div className="text-xs opacity-80">Com validade</div>
-                    </div>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectedFileType === 'cartao_cnpj' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setSelectedFileType('cartao_cnpj');
-                      setExpirationDate(undefined);
-                    }}
-                    className="justify-start h-auto py-3"
-                  >
-                    <FileText className="mr-2 h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-semibold">Cartão CNPJ</div>
-                      <div className="text-xs opacity-80">Sem prazo</div>
-                    </div>
-                  </Button>
+
+            <div className="space-y-4">
+              {/* File Type Selection - Compact */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Tipo de Arquivo</Label>
+                <div className="flex gap-2">
+                  {getFileTypeOptions().map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      size="sm"
+                      variant={
+                        selectedFileType === option.value
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() => {
+                        setSelectedFileType(option.value);
+                        if (option.value !== "contrato") {
+                          setExpirationDate(undefined);
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              {selectedFileType === 'contrato' && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                  <div className="flex items-start gap-2 mb-3">
-                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                        Data de Expiração Obrigatória
-                      </p>
-                      <p className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
-                        Para contratos, você deve definir uma data de validade
-                      </p>
-                    </div>
+              {/* Expiration Date - Compact */}
+              {selectedFileType === "contrato" && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                    <Label className="text-sm font-medium">
+                      Data de Validade
+                    </Label>
                   </div>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
+                        size="sm"
                         className={cn(
-                          "w-full justify-start text-left font-normal bg-background",
+                          "w-full justify-start text-left",
                           !expirationDate && "text-muted-foreground"
                         )}
                       >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {expirationDate ? format(expirationDate, "dd/MM/yyyy") : "Selecionar data de expiração"}
+                        <Calendar className="mr-2 h-3 w-3" />
+                        {expirationDate
+                          ? format(expirationDate, "dd/MM/yyyy")
+                          : "Selecionar data"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -254,77 +429,57 @@ export default function FileManager({ clientId }: FileManagerProps) {
                         selected={expirationDate}
                         onSelect={setExpirationDate}
                         initialFocus
-                        className="p-3 pointer-events-auto"
+                        disabled={(date) => date < new Date()}
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
               )}
 
-              <div>
-                <Label className="text-base">Selecionar Arquivo</Label>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Arraste e solte ou clique para selecionar
-                </p>
+              {/* Description - Compact */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Descrição</Label>
+                <Textarea
+                  placeholder="Descrição do arquivo (opcional)"
+                  value={uploadDescription}
+                  onChange={(e) => setUploadDescription(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* File Upload - Compact */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Arquivo</Label>
                 <div
                   {...getRootProps()}
                   className={cn(
-                    "relative border-2 border-dashed rounded-lg p-8 transition-all duration-200",
-                    "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
-                    isDragActive && "border-primary bg-primary/5 scale-[1.02]",
-                    selectedFileType === 'contrato' && !expirationDate && "opacity-50 cursor-not-allowed"
+                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                    isDragActive && "border-primary bg-primary/5",
+                    uploading && "opacity-50 cursor-not-allowed",
+                    selectedFileType === "contrato" &&
+                      !expirationDate &&
+                      "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  <input {...getInputProps()} />
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className={cn(
-                      "p-4 rounded-full transition-colors",
-                      isDragActive ? "bg-primary/20" : "bg-muted"
-                    )}>
-                      <Upload className={cn(
-                        "h-8 w-8 transition-colors",
-                        isDragActive ? "text-primary" : "text-muted-foreground"
-                      )} />
-                    </div>
-                    {selectedFileType === 'contrato' && !expirationDate ? (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Defina a data de expiração primeiro
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          A data de expiração é obrigatória para contratos
-                        </p>
-                      </div>
-                    ) : isDragActive ? (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-primary">
-                          Solte o arquivo aqui
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          O arquivo será enviado automaticamente
-                        </p>
-                      </div>
+                  <input
+                    {...getInputProps()}
+                    disabled={
+                      uploading ||
+                      (selectedFileType === "contrato" && !expirationDate)
+                    }
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    {uploading ? (
+                      <p className="text-xs text-muted-foreground">
+                        Enviando...
+                      </p>
                     ) : (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          Arraste um arquivo ou clique para selecionar
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          PDF, JPG ou PNG até 10MB
-                        </p>
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Clique ou arraste para enviar
+                      </p>
                     )}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="font-normal">
-                        PDF
-                      </Badge>
-                      <Badge variant="secondary" className="font-normal">
-                        JPG
-                      </Badge>
-                      <Badge variant="secondary" className="font-normal">
-                        PNG
-                      </Badge>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -333,190 +488,81 @@ export default function FileManager({ clientId }: FileManagerProps) {
         </Dialog>
       </div>
 
-      {/* Files Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Contratos */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Contratos ({contratoFiles.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {contratoFiles.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>Nenhum contrato encontrado</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {contratoFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      {getFileIcon(file)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{file.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{file.size}</span>
-                          <span>•</span>
-                          <span>{format(file.uploadDate, "dd/MM/yyyy")}</span>
-                          {file.expirationDate && (
-                            <>
-                              <span>•</span>
-                              <span className={cn(
-                                isExpired(file.expirationDate) && "text-destructive",
-                                isExpiringSoon(file.expirationDate) && "text-orange-500"
-                              )}>
-                                Expira: {format(file.expirationDate, "dd/MM/yyyy")}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        {file.expirationDate && (
-                          <div className="mt-1">
-                            <Badge 
-                              variant={
-                                isExpired(file.expirationDate) ? "destructive" : 
-                                isExpiringSoon(file.expirationDate) ? "secondary" : 
-                                "default"
-                              }
-                              className="text-xs"
-                            >
-                              {isExpired(file.expirationDate) ? "Expirado" :
-                               isExpiringSoon(file.expirationDate) ? "Expira em breve" :
-                               "Válido"}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handlePreviewFile(file)}
-                        className="h-8 w-8"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteFile(file.id)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Files Tabs */}
+      <Tabs defaultValue="contratos" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="contratos" className="flex items-center gap-2">
+            <FileCheck className="h-4 w-4" />
+            Contratos ({contratoFiles.length})
+          </TabsTrigger>
+          <TabsTrigger value="cnpj" className="flex items-center gap-2">
+            <FileImage className="h-4 w-4" />
+            Cartão CNPJ ({cnpjFiles.length})
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Cartões CNPJ */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Cartões CNPJ ({cnpjFiles.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cnpjFiles.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>Nenhum cartão CNPJ encontrado</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {cnpjFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      {getFileIcon(file)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{file.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{file.size}</span>
-                          <span>•</span>
-                          <span>{format(file.uploadDate, "dd/MM/yyyy")}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handlePreviewFile(file)}
-                        className="h-8 w-8"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteFile(file.id)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="contratos" className="space-y-4 mt-6">
+          {contratoFiles.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileCheck className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum contrato encontrado</p>
+              <p className="text-xs mt-1">Faça o upload do primeiro contrato</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {contratoFiles.map((file) => renderModernFileCard(file))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="cnpj" className="space-y-4 mt-6">
+          {cnpjFiles.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileImage className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p className="text-sm">Nenhum cartão CNPJ encontrado</p>
+              <p className="text-xs mt-1">
+                Faça o upload do primeiro cartão CNPJ
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {cnpjFiles.map((file) => renderModernFileCard(file))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <div>
-              <DialogTitle>{previewFile?.name}</DialogTitle>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={getTypeBadgeVariant(previewFile?.type || 'cartao_cnpj')}>
-                  {getTypeLabel(previewFile?.type || 'cartao_cnpj')}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {previewFile?.size}
-                </span>
-              </div>
+      {previewFileData && (
+        <Dialog
+          open={!!previewFileData}
+          onOpenChange={() => setPreviewFileData(null)}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+            <DialogHeader className="p-6 pb-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                {previewFileData.file.file_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden p-6 pt-0">
+              {previewFileData.file.mime_type === "application/pdf" ? (
+                <iframe
+                  src={previewFileData.url}
+                  className="w-full h-[70vh] border-0 rounded-md"
+                  title={`Preview: ${previewFileData.file.file_name}`}
+                />
+              ) : (
+                <img
+                  src={previewFileData.url}
+                  alt={previewFileData.file.file_name}
+                  className="w-full h-[70vh] object-contain rounded-md"
+                />
+              )}
             </div>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            {previewFile && (
-              <div className="w-full h-[70vh] bg-muted/30 rounded-lg flex items-center justify-center">
-                {previewFile.file.type === 'application/pdf' ? (
-                  <div className="text-center space-y-4">
-                    <FileText className="mx-auto h-16 w-16 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Visualização de PDF</p>
-                      <p className="text-sm text-muted-foreground">
-                        O arquivo PDF será aberto quando conectado ao backend
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <img
-                    src={URL.createObjectURL(previewFile.file)}
-                    alt={previewFile.name}
-                    className="max-w-full max-h-full object-contain"
-                    onLoad={(e) => {
-                      // Clean up object URL when image loads
-                      const img = e.target as HTMLImageElement;
-                      setTimeout(() => URL.revokeObjectURL(img.src), 1000);
-                    }}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
