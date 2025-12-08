@@ -39,7 +39,6 @@ export default function Header() {
     { label: "Dashboard", href: "/home" },
     { label: "Clientes", href: "/clients" },
     { label: "PER/DCOMP", href: "/perdcomps" },
-    { label: "Solicitações", href: "/requests" },
   ];
 
   const isActive = (path: string) => {

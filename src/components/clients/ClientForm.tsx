@@ -405,6 +405,7 @@ export default function ClientForm({
   const { toast } = useToast();
   const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
   const [isSearchingCNPJ, setIsSearchingCNPJ] = useState(false);
+  const isEditing = Boolean(client);
 
   const {
     register,
@@ -679,11 +680,13 @@ export default function ClientForm({
                       {...field}
                       placeholder="00.000.000/0000-00"
                       className={errors.cnpj ? "border-destructive" : ""}
-                      readOnly={!!client}
+                      readOnly={isEditing}
+                      tabIndex={isEditing ? -1 : 0}
+                      onFocus={isEditing ? (e) => e.target.blur() : undefined}
                     />
                   )}
                 />
-                {!client && (
+                {!isEditing && (
                   <Button
                     type="button"
                     variant="outline"
@@ -744,6 +747,9 @@ export default function ClientForm({
                   id="razao_social"
                   {...field}
                   className={errors.razao_social ? "border-destructive" : ""}
+                  readOnly={isEditing}
+                  tabIndex={isEditing ? -1 : 0}
+                  onFocus={isEditing ? (e) => e.target.blur() : undefined}
                   capitalizationType="upper"
                   placeholder="Digite a razão social da empresa"
                 />
