@@ -95,19 +95,28 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() =>
-                            onView ? onView(client) : onEdit(client)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView ? onView(client) : onEdit(client);
+                          }}
                         >
                           <Eye className="mr-2 h-4 w-4" />
                           Visualizar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onEdit(client)}>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(client);
+                          }}
+                        >
                           <Edit className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDelete(client.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(client.id);
+                          }}
                           className="text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
