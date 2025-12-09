@@ -341,7 +341,7 @@ export default function PerdCompFileManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6">
       {/* Modern Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
@@ -362,7 +362,7 @@ export default function PerdCompFileManager({
                 {uploading ? "Enviando..." : "Novo Arquivo"}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Enviar Arquivo</DialogTitle>
                 <p className="text-sm text-muted-foreground">
@@ -517,14 +517,14 @@ export default function PerdCompFileManager({
           open={!!previewFileData}
           onOpenChange={() => setPreviewFileData(null)}
         >
-          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-            <DialogHeader className="p-6 pb-0">
+          <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] p-0">
+            <DialogHeader className="p-4 sm:p-6 pb-0">
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="h-5 w-5" />
                 {previewFileData.file.file_name}
               </DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-hidden p-6 pt-0">
+            <div className="flex-1 overflow-hidden p-4 sm:p-6 pt-0">
               {previewFileData.file.mime_type === "application/pdf" ? (
                 <iframe
                   src={previewFileData.url}

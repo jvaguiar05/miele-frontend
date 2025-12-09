@@ -353,7 +353,7 @@ export default function FileManager({ clientId }: FileManagerProps) {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6">
       {/* Modern Header */}
       <div className="flex flex-col gap-3 border-b border-border pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -379,7 +379,7 @@ export default function FileManager({ clientId }: FileManagerProps) {
                 {uploading ? "Enviando..." : "Novo Arquivo"}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[80vh] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Enviar Arquivo</DialogTitle>
                 <p className="text-sm text-muted-foreground">
@@ -570,14 +570,14 @@ export default function FileManager({ clientId }: FileManagerProps) {
             open={!!previewFileData}
             onOpenChange={() => setPreviewFileData(null)}
           >
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-              <DialogHeader className="p-6 pb-0">
+            <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+              <DialogHeader className="p-4 sm:p-6 pb-0">
                 <DialogTitle className="flex items-center gap-2">
                   <Eye className="h-5 w-5" />
                   {previewFileData.file.file_name}
                 </DialogTitle>
               </DialogHeader>
-              <div className="p-6 pt-0">
+              <div className="p-4 sm:p-6 pt-0">
                 {previewFileData.file.mime_type === "application/pdf" ? (
                   <iframe
                     src={previewFileData.url}
