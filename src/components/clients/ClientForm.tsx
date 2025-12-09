@@ -13,17 +13,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, Check, ChevronsUpDown } from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { EmailInput } from "@/components/ui/email-input";
 import { WebsiteInput } from "@/components/ui/website-input";
 import { CapitalizedInput } from "@/components/ui/capitalized-input";
 import { JsonInput } from "@/components/ui/json-input";
+import { cn } from "@/lib/utils";
 
 const clientSchema = z.object({
   // Dados principais
@@ -739,28 +753,96 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="tipo_empresa">Natureza Jurídica *</Label>
-              <Select
-                onValueChange={(value) => {
-                  setValue("tipo_empresa", value);
-                  setTipoEmpresa(value);
-                }}
-                value={tipoEmpresa}
-              >
-                <SelectTrigger
-                  className={errors.tipo_empresa ? "border-destructive" : ""}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between",
+                      !tipoEmpresa && "text-muted-foreground",
+                      errors.tipo_empresa && "border-destructive"
+                    )}
+                  >
+                    <span className="truncate">
+                      {tipoEmpresa || "Selecione a natureza jurídica"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-0 overflow-hidden"
+                  side="bottom"
+                  align="start"
                 >
-                  <SelectValue placeholder="Selecione a natureza jurídica" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {Object.entries(NATUREZAS_JURIDICAS)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([codigo, descricao]) => (
-                      <SelectItem key={codigo} value={descricao}>
-                        {descricao}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                  <Command className="rounded-lg border-none shadow-none">
+                    <CommandInput
+                      placeholder="Buscar natureza jurídica..."
+                      className="h-9"
+                    />
+                    <CommandEmpty className="py-6 text-center text-sm">
+                      Nenhuma natureza jurídica encontrada.
+                    </CommandEmpty>
+                    <CommandList
+                      className="max-h-[40vh]"
+                      style={{
+                        overflowY: "auto",
+                        WebkitOverflowScrolling: "touch",
+                        scrollBehavior: "smooth",
+                      }}
+                      onWheel={(e) => {
+                        e.stopPropagation();
+                        const target = e.currentTarget;
+                        target.scrollTop += e.deltaY;
+                      }}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                    >
+                      <CommandGroup>
+                        {Object.entries(NATUREZAS_JURIDICAS)
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([codigo, descricao]) => (
+                            <CommandItem
+                              key={codigo}
+                              value={descricao}
+                              onSelect={(currentValue) => {
+                                setValue(
+                                  "tipo_empresa",
+                                  currentValue === tipoEmpresa
+                                    ? ""
+                                    : currentValue
+                                );
+                                setTipoEmpresa(
+                                  currentValue === tipoEmpresa
+                                    ? ""
+                                    : currentValue
+                                );
+                              }}
+                              className="flex items-start py-3 px-3 cursor-pointer hover:bg-accent"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-3 h-4 w-4 mt-0.5 shrink-0",
+                                  tipoEmpresa === descricao
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-xs text-muted-foreground font-mono mb-1">
+                                  {codigo}
+                                </span>
+                                <span className="text-sm font-medium leading-tight break-words">
+                                  {descricao.replace(codigo + " - ", "")}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {errors.tipo_empresa && (
                 <p className="text-sm text-destructive">
                   {errors.tipo_empresa.message}
