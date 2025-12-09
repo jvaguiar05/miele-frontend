@@ -60,7 +60,8 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
           clients.map((client) => (
             <Card
               key={client.id}
-              className="border-border/50 hover:border-primary/50 transition-colors"
+              className="border-border/50 hover:border-primary/50 transition-colors cursor-pointer"
+              onClick={() => (onView ? onView(client) : onEdit(client))}
             >
               <CardContent className="p-3">
                 <div className="flex items-start justify-between mb-3">
@@ -83,7 +84,12 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -144,14 +150,6 @@ export default function ClientTable({ onEdit, onView }: ClientTableProps) {
                     <Badge variant="outline" className="text-xs">
                       {client.tipo_empresa}
                     </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => (onView ? onView(client) : onEdit(client))}
-                      className="text-xs h-7"
-                    >
-                      Ver detalhes
-                    </Button>
                   </div>
                 </div>
               </CardContent>
