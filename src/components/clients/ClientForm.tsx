@@ -681,7 +681,7 @@ export default function ClientForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit, onInvalid)}
-      className="space-y-4 sm:space-y-6"
+      className="space-y-3 sm:space-y-4"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Desktop Tabs */}
@@ -750,7 +750,7 @@ export default function ClientForm({
         </div>
 
         {/* Aba Geral */}
-        <TabsContent value="general" className="space-y-3 sm:space-y-4">
+        <TabsContent value="general" className="space-y-2 sm:space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
@@ -824,7 +824,7 @@ export default function ClientForm({
                       Nenhuma natureza jurídica encontrada.
                     </CommandEmpty>
                     <CommandList
-                      className="max-h-[40vh]"
+                      className="max-h-[30vh] sm:max-h-[35vh]"
                       style={{
                         overflowY: "auto",
                         WebkitOverflowScrolling: "touch",
@@ -976,7 +976,7 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Contato */}
-        <TabsContent value="contact" className="space-y-3 sm:space-y-4">
+        <TabsContent value="contact" className="space-y-2 sm:space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_contato">Email de Contato</Label>
@@ -1081,7 +1081,7 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Fiscal */}
-        <TabsContent value="fiscal" className="space-y-3 sm:space-y-4">
+        <TabsContent value="fiscal" className="space-y-2 sm:space-y-3">
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
@@ -1144,7 +1144,7 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Documentos */}
-        <TabsContent value="docs" className="space-y-3 sm:space-y-4">
+        <TabsContent value="docs" className="space-y-2 sm:space-y-3">
           <div className="space-y-2">
             <Label htmlFor="contrato_social">Contrato Social</Label>
             <Textarea
@@ -1191,7 +1191,7 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Endereço */}
-        <TabsContent value="address" className="space-y-3 sm:space-y-4">
+        <TabsContent value="address" className="space-y-2 sm:space-y-3">
           <div className="space-y-2">
             <Label htmlFor="cep">CEP</Label>
             <Controller
@@ -1324,7 +1324,7 @@ export default function ClientForm({
         </TabsContent>
       </Tabs>
 
-      <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-2 border-t">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-3 border-t">
         <Button
           type="button"
           variant="outline"

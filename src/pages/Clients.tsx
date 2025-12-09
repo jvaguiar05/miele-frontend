@@ -198,11 +198,12 @@ export default function Clients() {
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500 to-blue-600">
+              <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg dark:from-primary/80 dark:to-primary/60">
                 <Users className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
+                {/* make the text blue like the icon, but with gradient */}
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent dark:bg-gradient-to-r dark:from-primary dark:to-primary/70">
                   Clientes
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">

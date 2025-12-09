@@ -276,11 +276,11 @@ export default function PerdCompsPage() {
         <div className="mb-4 sm:mb-6 md:mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg">
+              <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg dark:from-primary/80 dark:to-primary/60">
                 <FileText className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent dark:bg-gradient-to-r dark:from-primary dark:to-primary/70">
                   PER/DCOMPs
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">
