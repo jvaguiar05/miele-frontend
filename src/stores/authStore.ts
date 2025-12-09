@@ -275,9 +275,30 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isAdmin: rbacData.role === "admin",
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching user:", error);
-          // Token might be invalid, clear auth state
+
+          // If it's a 401 error, try to refresh the token first
+          if (error.response?.status === 401) {
+            try {
+              const refreshTokenCookie = Cookies.get("refresh_token");
+              if (refreshTokenCookie) {
+                console.log(
+                  "401 error in getCurrentUser, attempting token refresh"
+                );
+                await get().refreshToken();
+                // Retry the getCurrentUser call after successful refresh
+                return get().getCurrentUser();
+              }
+            } catch (refreshError) {
+              console.error(
+                "Token refresh failed in getCurrentUser:",
+                refreshError
+              );
+            }
+          }
+
+          // Token is invalid or refresh failed, clear auth state
           Cookies.remove("access_token");
           Cookies.remove("refresh_token");
           set({
