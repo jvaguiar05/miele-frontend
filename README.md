@@ -2,6 +2,34 @@
 
 Sistema de gestão de pedidos de restituição e compensação tributária (PER/DCOMP) desenvolvido em React com TypeScript, oferecendo uma interface moderna e responsiva para gerenciamento completo de clientes e processos fiscais.
 
+## 📋 Roadmap de Navegação
+
+### 📊 **Para Gestores e Executivos**
+
+- [🎯 Visão Geral do Produto](#-visão-geral-do-produto) - Por que existe e qual o valor
+- [🌟 Showcase de Funcionalidades](#-showcase-de-funcionalidades) - Demonstração das capacidades
+- [💼 Benefícios Executivos](#-benefícios-executivos) - Valor por cargo (CFO, Head Fiscal, CTO)
+
+### 👨‍💻 **Para Desenvolvedores**
+
+- [🚀 Tecnologias](#-tecnologias) - Stack completo e dependências
+- [🏗️ Arquitetura](#️-arquitetura) - Padrões de design e estrutura
+- [📋 Funcionalidades Principais](#-funcionalidades-principais) - Features técnicas detalhadas
+- [🔧 Configuração de Desenvolvimento](#-configuração-de-desenvolvimento) - Setup local
+- [📚 Documentação Técnica](#-documentação-técnica) - Referências e padrões
+
+### 🚀 **Para DevOps e Infraestrutura**
+
+- [🏭 Configuração de Produção](#-configuração-de-produção) - Deploy e servidor
+- [🔍 Monitoramento & Debugging](#-monitoramento--debugging) - Ferramentas de observabilidade
+- [📈 Métricas & Analytics](#-métricas--analytics) - Performance e business metrics
+
+### 👤 **Sobre o Projeto**
+
+- [👤 Sobre o Desenvolvedor](#-sobre-o-desenvolvedor) - Contato e informações
+
+---
+
 ## 🎯 Visão Geral do Produto
 
 ### Por que o Miele foi criado?
