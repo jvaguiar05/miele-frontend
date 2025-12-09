@@ -754,7 +754,7 @@ export default function PerdCompForm({
               onValueChange={(value) =>
                 setValue("status", value as PerDcompStatus)
               }
-              defaultValue={watch("status") || "RASCUNHO"}
+              value={watch("status") || "RASCUNHO"}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o status" />
@@ -990,7 +990,7 @@ export default function PerdCompForm({
             <Label htmlFor="tributo_pedido">Tributo do Pedido *</Label>
             <Select
               onValueChange={(value) => setValue("tributo_pedido", value)}
-              defaultValue={perdcomp?.tributo_pedido}
+              value={watch("tributo_pedido") || ""}
             >
               <SelectTrigger
                 className={errors.tributo_pedido ? "border-destructive" : ""}
