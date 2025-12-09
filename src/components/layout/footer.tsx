@@ -38,7 +38,7 @@ export default function Footer() {
             })}
             <div className="hidden sm:block h-3 w-px bg-border mx-1" />
             <a
-              href="https://github.com/your-org/miele"
+              href="https://github.com/jvaguiar05/miele-frontend"
               target="_blank"
               rel="noopener noreferrer"
               className="group flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
