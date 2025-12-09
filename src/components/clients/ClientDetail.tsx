@@ -9,11 +9,24 @@ import {
   Calendar,
   DollarSign,
   Eye,
+  ChevronDown,
+  User,
+  Phone,
+  StickyNote,
+  Folder,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { usePerdCompStore, type PerdComp } from "@/stores/perdcompStore";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -52,6 +65,7 @@ export default function ClientDetail({
   const [isPerdCompModalOpen, setIsPerdCompModalOpen] = useState(false);
   const [clientPerdComps, setClientPerdComps] = useState<PerdComp[]>([]);
   const [loadingPerdComps, setLoadingPerdComps] = useState(false);
+  const [activeTab, setActiveTab] = useState("info");
 
   const handleDeleteAnnotation = async (annotationId: string) => {
     if (confirm("Tem certeza que deseja excluir esta anotação?")) {
@@ -168,13 +182,15 @@ export default function ClientDetail({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
           <Button variant="ghost" size="icon" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-2xl font-bold">{displayClient.razao_social}</h2>
+          <h2 className="text-lg sm:text-2xl font-bold truncate">
+            {displayClient.razao_social}
+          </h2>
         </div>
         <Button
           onClick={() => {
@@ -182,28 +198,88 @@ export default function ClientDetail({
             onEdit();
             onBack(); // Close the detail modal after starting edit
           }}
+          className="w-full sm:w-auto"
         >
           <Edit className="mr-2 h-4 w-4" />
           Editar
         </Button>
       </div>
 
-      <Tabs defaultValue="info" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="info">Informações</TabsTrigger>
-          <TabsTrigger value="contact">Contato</TabsTrigger>
-          <TabsTrigger value="notes">Anotações</TabsTrigger>
-          <TabsTrigger value="files">Arquivos</TabsTrigger>
-          <TabsTrigger value="perdcomps">PER/DCOMPs</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Desktop Tabs */}
+        <TabsList className="hidden sm:grid w-full grid-cols-5">
+          <TabsTrigger value="info" className="text-sm px-3">
+            <User className="w-4 h-4 mr-2" />
+            Informações
+          </TabsTrigger>
+          <TabsTrigger value="contact" className="text-sm px-3">
+            <Phone className="w-4 h-4 mr-2" />
+            Contato
+          </TabsTrigger>
+          <TabsTrigger value="notes" className="text-sm px-3">
+            <StickyNote className="w-4 h-4 mr-2" />
+            Anotações
+          </TabsTrigger>
+          <TabsTrigger value="files" className="text-sm px-3">
+            <Folder className="w-4 h-4 mr-2" />
+            Arquivos
+          </TabsTrigger>
+          <TabsTrigger value="perdcomps" className="text-sm px-3">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            PER/DCOMPs
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="info" className="space-y-4">
+        {/* Mobile Dropdown */}
+        <div className="sm:hidden mb-4">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecione uma seção" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="info">
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Informações
+                </div>
+              </SelectItem>
+              <SelectItem value="contact">
+                <div className="flex items-center">
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contato
+                </div>
+              </SelectItem>
+              <SelectItem value="notes">
+                <div className="flex items-center">
+                  <StickyNote className="w-4 h-4 mr-2" />
+                  Anotações
+                </div>
+              </SelectItem>
+              <SelectItem value="files">
+                <div className="flex items-center">
+                  <Folder className="w-4 h-4 mr-2" />
+                  Arquivos
+                </div>
+              </SelectItem>
+              <SelectItem value="perdcomps">
+                <div className="flex items-center">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  PER/DCOMPs
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <TabsContent value="info" className="space-y-3 sm:space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Dados Empresariais</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">
+                Dados Empresariais
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">CNPJ</p>
                   <p className="font-mono">{formatCNPJ(displayClient.cnpj)}</p>
@@ -375,37 +451,43 @@ export default function ClientDetail({
 
           <Card>
             <CardHeader>
-              <CardTitle>Endereço</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Endereço</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <p>
+                <p className="text-sm sm:text-base">
                   {displayClient.address?.logradouro || ""}{" "}
                   {displayClient.address?.numero || ""}
                 </p>
                 {displayClient.address?.complemento && (
-                  <p>{displayClient.address.complemento}</p>
+                  <p className="text-sm sm:text-base">
+                    {displayClient.address.complemento}
+                  </p>
                 )}
-                <p>
+                <p className="text-sm sm:text-base">
                   {displayClient.address?.bairro || ""} -{" "}
                   {displayClient.address?.municipio || ""}/
                   {displayClient.address?.uf || ""}
                 </p>
                 {displayClient.address?.cep && (
-                  <p>CEP: {displayClient.address.cep}</p>
+                  <p className="text-sm sm:text-base">
+                    CEP: {displayClient.address.cep}
+                  </p>
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="contact" className="space-y-4">
+        <TabsContent value="contact" className="space-y-3 sm:space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Informações de Contato</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">
+                Informações de Contato
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Email de Contato
@@ -457,7 +539,9 @@ export default function ClientDetail({
 
           <Card>
             <CardHeader>
-              <CardTitle>Quadro Societário</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">
+                Quadro Societário
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -487,7 +571,7 @@ export default function ClientDetail({
           </Card>
         </TabsContent>
 
-        <TabsContent value="notes" className="space-y-4">
+        <TabsContent value="notes" className="space-y-3 sm:space-y-4">
           {showAddAnnotationForm && (
             <AddAnnotationForm
               clientId={clientId}
@@ -503,13 +587,16 @@ export default function ClientDetail({
 
           {!showAddAnnotationForm && (
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle>Anotações e Observações</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0 pb-4">
+                <CardTitle className="text-lg sm:text-xl">
+                  Anotações e Observações
+                </CardTitle>
                 <Button
                   onClick={() => {
                     setEditingAnnotation(null);
                     setShowAddAnnotationForm(true);
                   }}
+                  className="w-full sm:w-auto"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Nova Anotação
@@ -635,18 +722,20 @@ export default function ClientDetail({
           )}
         </TabsContent>
 
-        <TabsContent value="files" className="space-y-4">
+        <TabsContent value="files" className="space-y-3 sm:space-y-4">
           <FileManager clientId={clientId} />
         </TabsContent>
 
-        <TabsContent value="perdcomps" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">PER/DCOMPs do Cliente</h3>
-            <Button onClick={onAddPerdComp}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo PER/DCOMP
-            </Button>
-          </div>
+        <TabsContent value="perdcomps" className="space-y-3 sm:space-y-4">
+          {clientPerdComps.length > 0 && (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+              <h3 className="text-lg font-semibold">PER/DCOMPs do Cliente</h3>
+              <Button onClick={onAddPerdComp} className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo PER/DCOMP
+              </Button>
+            </div>
+          )}
 
           {loadingPerdComps ? (
             <Card>
@@ -664,25 +753,23 @@ export default function ClientDetail({
                   key={perdcomp.id}
                   className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/30"
                 >
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <CardContent className="p-4">
+                    {/* Header Section */}
+                    <div className="flex flex-col space-y-3 mb-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                           <FileText className="h-5 w-5 text-primary" />
                         </div>
-                        <div>
-                          <h4 className="font-bold text-lg text-foreground">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-base text-foreground">
                             {perdcomp.numero || "Documento sem número"}
                           </h4>
                           <p className="text-sm text-muted-foreground">
                             Tributo: {perdcomp.tributo_pedido}
                           </p>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
                         <Badge
-                          className="text-xs font-medium"
+                          className="text-xs font-medium flex-shrink-0"
                           variant={
                             perdcomp.status === "DEFERIDO"
                               ? "default"
@@ -695,39 +782,41 @@ export default function ClientDetail({
                         >
                           {perdcomp.status}
                         </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewPerdComp(perdcomp.id)}
-                          className="shrink-0"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver Detalhes
-                        </Button>
                       </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewPerdComp(perdcomp.id)}
+                        className="w-full"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Detalhes
+                      </Button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1">
+                    {/* Info Grid */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2 border-b border-muted/30">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span className="text-xs font-medium uppercase tracking-wide">
+                          <span className="text-sm font-medium">
                             Competência
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-foreground pl-6">
+                        <p className="text-sm font-medium text-foreground">
                           {perdcomp.competencia}
                         </p>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="flex items-center justify-between py-2 border-b border-muted/30">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <DollarSign className="h-4 w-4" />
-                          <span className="text-xs font-medium uppercase tracking-wide">
+                          <span className="text-sm font-medium">
                             Valor Pedido
                           </span>
                         </div>
-                        <p className="text-sm font-bold text-primary pl-6">
+                        <p className="text-sm font-bold text-primary">
                           {(() => {
                             if (!perdcomp.valor_pedido) return "R$ 0,00";
 
@@ -752,36 +841,39 @@ export default function ClientDetail({
                       </div>
 
                       {perdcomp.data_vencimento && (
-                        <div className="space-y-1">
+                        <div className="flex items-center justify-between py-2 border-b border-muted/30">
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Calendar className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-wide">
+                            <span className="text-sm font-medium">
                               Vencimento
                             </span>
                           </div>
-                          <p className="text-sm font-medium text-foreground pl-6">
+                          <p className="text-sm font-medium text-foreground">
                             {formatDate(perdcomp.data_vencimento)}
                           </p>
                         </div>
                       )}
                     </div>
 
+                    {/* Footer Info */}
                     {(perdcomp.data_transmissao ||
                       perdcomp.processo_protocolo) && (
-                      <div className="mt-4 pt-4 border-t border-muted/30">
-                        <div className="flex gap-6 text-xs text-muted-foreground">
+                      <div className="mt-4 pt-3 border-t border-muted/30">
+                        <div className="space-y-1 text-xs text-muted-foreground">
                           {perdcomp.data_transmissao && (
-                            <div>
-                              <span className="font-medium">
-                                Transmitido em:
-                              </span>{" "}
-                              {formatDate(perdcomp.data_transmissao)}
+                            <div className="flex justify-between">
+                              <span>Transmitido em:</span>
+                              <span>
+                                {formatDate(perdcomp.data_transmissao)}
+                              </span>
                             </div>
                           )}
                           {perdcomp.processo_protocolo && (
-                            <div>
-                              <span className="font-medium">Protocolo:</span>{" "}
-                              {perdcomp.processo_protocolo}
+                            <div className="flex justify-between">
+                              <span>Protocolo:</span>
+                              <span className="font-mono">
+                                {perdcomp.processo_protocolo}
+                              </span>
                             </div>
                           )}
                         </div>

@@ -447,22 +447,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Enhanced Header */}
+      {/* Enhanced Header - Mobile Optimized */}
       <div className="relative overflow-hidden border-b border-border/40">
-        {/* Background Pattern */}
+        {/* Background Pattern - Simplified for mobile */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-purple-50/60 to-emerald-50/80 dark:from-blue-950/20 dark:via-purple-950/15 dark:to-emerald-950/20" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(120,119,198,0.1),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_40%,rgba(120,119,198,0.05),transparent_50%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.08),transparent_50%)] dark:bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.03),transparent_50%)]" />
 
-        {/* Floating Elements */}
-        <div className="absolute top-4 right-4 h-16 w-16 rounded-full bg-gradient-to-br from-blue-200/30 to-purple-200/30 dark:from-blue-800/20 dark:to-purple-800/20 blur-xl" />
-        <div className="absolute bottom-6 left-8 h-12 w-12 rounded-full bg-gradient-to-br from-emerald-200/40 to-teal-200/40 dark:from-emerald-800/25 dark:to-teal-800/25 blur-lg" />
+        {/* Floating Elements - Hidden on mobile for performance */}
+        <div className="absolute top-4 right-4 h-16 w-16 rounded-full bg-gradient-to-br from-blue-200/30 to-purple-200/30 dark:from-blue-800/20 dark:to-purple-800/20 blur-xl hidden md:block" />
+        <div className="absolute bottom-6 left-8 h-12 w-12 rounded-full bg-gradient-to-br from-emerald-200/40 to-teal-200/40 dark:from-emerald-800/25 dark:to-teal-800/25 blur-lg hidden md:block" />
 
-        <div className="relative container mx-auto px-4 py-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="relative container mx-auto px-4 py-6 md:py-8">
+          <div className="flex flex-col gap-4 md:gap-6 md:flex-row md:items-center md:justify-between">
             {/* Left Side - Greeting & Info */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
+            <div className="space-y-3 md:space-y-4">
+              <div className="flex items-center gap-3 md:gap-4">
                 {/* User Avatar */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -470,23 +470,23 @@ export default function Home() {
                   transition={{ duration: 0.3 }}
                   className="relative"
                 >
-                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 p-0.5">
+                  <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 p-0.5">
                     <div className="h-full w-full rounded-2xl bg-background flex items-center justify-center">
-                      <span className="text-lg font-semibold bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      <span className="text-base md:text-lg font-semibold bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         {displayName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-background" />
+                  <div className="absolute -bottom-1 -right-1 h-3 w-3 md:h-4 md:w-4 rounded-full bg-emerald-500 border-2 border-background" />
                 </motion.div>
 
                 {/* Greeting */}
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <motion.h1
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: 0.1 }}
-                    className="text-2xl md:text-3xl font-bold tracking-tight"
+                    className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight"
                   >
                     {greeting.text}, {displayName}!
                   </motion.h1>
@@ -494,49 +494,50 @@ export default function Home() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: 0.15 }}
-                    className="text-sm md:text-base text-muted-foreground font-medium"
+                    className="text-xs md:text-sm lg:text-base text-muted-foreground font-medium leading-tight"
                   >
                     {motivationalMsg}
                   </motion.p>
                 </div>
               </div>
 
-              {/* System Features Badges */}
+              {/* System Features Badges - More compact on mobile */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
-                className="flex flex-wrap items-center gap-3"
+                className="flex flex-wrap items-center gap-2 md:gap-3"
               >
-                <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-900/30 px-3 py-1.5 border border-blue-200 dark:border-blue-800/50">
-                  <BarChart3 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 md:px-3 py-1 md:py-1.5 border border-blue-200 dark:border-blue-800/50">
+                  <BarChart3 className="h-3 w-3 md:h-3.5 md:w-3.5 text-blue-600 dark:text-blue-400" />
                   <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                    Analytics Avançados
+                    Analytics
                   </span>
                 </div>
 
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1.5 border border-emerald-200 dark:border-emerald-800/50">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 md:px-3 py-1 md:py-1.5 border border-emerald-200 dark:border-emerald-800/50">
+                  <div className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                    Sistema Saudável
+                    Online
                   </span>
                 </div>
 
-                <div className="inline-flex items-center gap-2 rounded-full bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 border border-purple-200 dark:border-purple-800/50">
-                  <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-purple-100 dark:bg-purple-900/30 px-2 md:px-3 py-1 md:py-1.5 border border-purple-200 dark:border-purple-800/50">
+                  <FileText className="h-3 w-3 md:h-3.5 md:w-3.5 text-purple-600 dark:text-purple-400" />
                   <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                    Gestão Completa
+                    <span className="hidden sm:inline">Gestão</span>
+                    <span className="sm:hidden">Docs</span>
                   </span>
                 </div>
               </motion.div>
             </div>
 
-            {/* Right Side - System Info */}
+            {/* Right Side - System Info - Hidden on small mobile */}
             <motion.div
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.25 }}
-              className="text-right space-y-2"
+              className="text-right space-y-2 hidden sm:block"
             >
               <div className="text-sm text-muted-foreground">
                 {formattedDate}
@@ -557,13 +558,13 @@ export default function Home() {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="container mx-auto px-4 py-6 md:py-8 space-y-6 md:space-y-8">
         {/* Quick Stats */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.05 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
         >
           {quickStats.map((stat, index) => {
             const Icon = stat.icon;
@@ -572,28 +573,32 @@ export default function Home() {
                 key={index}
                 className="relative overflow-hidden border border-border/70 shadow-sm hover:shadow-md transition-shadow"
               >
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                        <Icon className="h-5 w-5 text-primary" />
+                <CardContent className="p-3 md:p-4 space-y-2 md:space-y-3">
+                  <div className="flex items-start justify-between gap-2 md:gap-3">
+                    <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                      <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Icon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-muted-foreground">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium text-muted-foreground truncate">
                           {stat.title}
                         </span>
                         {isLoading ? (
-                          <div className="mt-1 h-7 w-16 rounded bg-muted animate-pulse" />
+                          <div className="mt-1 h-5 md:h-7 w-12 md:w-16 rounded bg-muted animate-pulse" />
                         ) : (
-                          <span className="mt-1 text-2xl font-semibold">
+                          <span className="mt-1 text-lg md:text-2xl font-semibold">
                             {stat.value}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="mt-1">{getTrendIcon(stat.trend)}</div>
+                    <div className="mt-1 flex-shrink-0">
+                      {getTrendIcon(stat.trend)}
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">{stat.change}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {stat.change}
+                  </p>
                 </CardContent>
                 <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
               </Card>
@@ -601,12 +606,12 @@ export default function Home() {
           })}
         </motion.section>
 
-        {/* Navigation Cards */}
+        {/* Navigation Cards - Hidden on mobile per user request */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           {navigationCards.map((card, index) => {
             const Icon = card.icon;
@@ -652,24 +657,30 @@ export default function Home() {
           })}
         </motion.section>
 
-        {/* Charts */}
+        {/* Charts - Mobile Optimized */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6"
         >
           {/* Monthly Activity Chart */}
           <Card className="border border-border/70 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <CardTitle className="flex items-center gap-2 text-sm md:text-base font-semibold">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                Atividade dos Últimos 6 Meses
+                <span className="hidden sm:inline">
+                  Atividade dos Últimos 6 Meses
+                </span>
+                <span className="sm:hidden">Atividade Mensal</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={monthlyData}>
+            <CardContent className="px-3 md:px-6 pb-3 md:pb-6">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={monthlyData}
+                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                >
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="currentColor"
@@ -679,35 +690,46 @@ export default function Home() {
                     dataKey="month"
                     stroke="currentColor"
                     className="text-foreground"
-                    fontSize={12}
+                    fontSize={10}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={40}
                   />
                   <YAxis
                     stroke="currentColor"
                     className="text-foreground"
-                    fontSize={12}
+                    fontSize={10}
+                    width={30}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--background))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "8px",
-                      fontSize: "0.875rem",
+                      fontSize: "0.75rem",
                       color: "hsl(var(--foreground))",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
                   />
-                  <Legend wrapperStyle={{ color: "hsl(var(--foreground))" }} />
+                  <Legend
+                    wrapperStyle={{
+                      color: "hsl(var(--foreground))",
+                      fontSize: "12px",
+                    }}
+                    iconType="rect"
+                  />
                   <Bar
                     dataKey="clientes"
                     fill="#3b82f6"
-                    name="Novos Clientes"
-                    radius={[4, 4, 0, 0]}
+                    name="Clientes"
+                    radius={[2, 2, 0, 0]}
                   />
                   <Bar
                     dataKey="perdcomps"
                     fill="#8b5cf6"
-                    name="Novos PER/DCOMPs"
-                    radius={[4, 4, 0, 0]}
+                    name="PER/DCOMPs"
+                    radius={[2, 2, 0, 0]}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -717,21 +739,22 @@ export default function Home() {
           {/* Status Distribution Chart */}
           <Card className="border border-border/70 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <CardTitle className="flex items-center gap-2 text-sm md:text-base font-semibold">
                 <Target className="h-4 w-4 text-primary" />
-                Distribuição de Status
+                <span className="hidden sm:inline">Distribuição de Status</span>
+                <span className="sm:hidden">Status</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
+            <CardContent className="px-3 md:px-6 pb-3 md:pb-6">
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
                     data={statusData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={3}
+                    innerRadius={40}
+                    outerRadius={80}
+                    paddingAngle={2}
                     dataKey="value"
                   >
                     {statusData.map((entry, index) => (
@@ -743,7 +766,7 @@ export default function Home() {
                       backgroundColor: "hsl(var(--background))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "8px",
-                      fontSize: "0.875rem",
+                      fontSize: "0.75rem",
                       color: "hsl(var(--foreground))",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
@@ -751,9 +774,12 @@ export default function Home() {
                   <Legend
                     wrapperStyle={{
                       color: "hsl(var(--foreground))",
-                      fontSize: "14px",
+                      fontSize: "12px",
                     }}
                     iconType="circle"
+                    layout="horizontal"
+                    align="center"
+                    verticalAlign="bottom"
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -761,7 +787,7 @@ export default function Home() {
           </Card>
         </motion.section>
 
-        {/* Recent Activity */}
+        {/* Recent Activity - Mobile Optimized */}
         <motion.section
           id="recent-activities"
           initial={{ opacity: 0, y: 12 }}
@@ -769,24 +795,32 @@ export default function Home() {
           transition={{ duration: 0.3, delay: 0.2 }}
         >
           <Card className="border border-border/70 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <CardHeader className="pb-3 px-4 md:px-6">
+              <div className="flex items-center justify-between gap-4">
+                <CardTitle className="flex items-center gap-2 text-sm md:text-base font-semibold">
                   <Activity className="h-4 w-4 text-primary" />
-                  Atividade Recente
+                  <span className="hidden sm:inline">Atividade Recente</span>
+                  <span className="sm:hidden">Atividades</span>
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
+                  <Badge
+                    variant="outline"
+                    className="text-xs hidden sm:inline-flex"
+                  >
                     {getPeriodLabel()} • {totalCount} itens
+                  </Badge>
+                  <Badge variant="outline" className="text-xs sm:hidden">
+                    {totalCount}
                   </Badge>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={refreshActivities}
                     disabled={activityLoading}
+                    className="h-8 w-8 p-0"
                   >
                     <RefreshCw
-                      className={`h-4 w-4 ${
+                      className={`h-3 w-3 md:h-4 md:w-4 ${
                         activityLoading ? "animate-spin" : ""
                       }`}
                     />
@@ -794,8 +828,10 @@ export default function Home() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <ActivityTable />
+            <CardContent className="px-0 md:px-6 pb-4 md:pb-6">
+              <div className="overflow-x-auto">
+                <ActivityTable />
+              </div>
             </CardContent>
           </Card>
         </motion.section>

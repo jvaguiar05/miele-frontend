@@ -13,17 +13,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search } from "lucide-react";
+import {
+  Search,
+  ChevronDown,
+  Check,
+  ChevronsUpDown,
+  User,
+  Phone,
+  FileText,
+  Building2,
+  MapPin,
+} from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { EmailInput } from "@/components/ui/email-input";
 import { WebsiteInput } from "@/components/ui/website-input";
 import { CapitalizedInput } from "@/components/ui/capitalized-input";
 import { JsonInput } from "@/components/ui/json-input";
+import { cn } from "@/lib/utils";
 
 const clientSchema = z.object({
   // Dados principais
@@ -405,6 +429,7 @@ export default function ClientForm({
   const { toast } = useToast();
   const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
   const [isSearchingCNPJ, setIsSearchingCNPJ] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
   const isEditing = Boolean(client);
 
   const {
@@ -654,19 +679,79 @@ export default function ClientForm({
   }, [errors]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="contact">Contato</TabsTrigger>
-          <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
-          <TabsTrigger value="docs">Documentos</TabsTrigger>
-          <TabsTrigger value="address">Endereço</TabsTrigger>
+    <form
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      className="space-y-3 sm:space-y-4"
+    >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Desktop Tabs */}
+        <TabsList className="hidden sm:grid w-full grid-cols-5">
+          <TabsTrigger value="general" className="text-sm px-3">
+            <User className="w-4 h-4 mr-2" />
+            Geral
+          </TabsTrigger>
+          <TabsTrigger value="contact" className="text-sm px-3">
+            <Phone className="w-4 h-4 mr-2" />
+            Contato
+          </TabsTrigger>
+          <TabsTrigger value="fiscal" className="text-sm px-3">
+            <FileText className="w-4 h-4 mr-2" />
+            Fiscal
+          </TabsTrigger>
+          <TabsTrigger value="docs" className="text-sm px-3">
+            <Building2 className="w-4 h-4 mr-2" />
+            Documentos
+          </TabsTrigger>
+          <TabsTrigger value="address" className="text-sm px-3">
+            <MapPin className="w-4 h-4 mr-2" />
+            Endereço
+          </TabsTrigger>
         </TabsList>
 
+        {/* Mobile Dropdown */}
+        <div className="sm:hidden mb-4">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecione uma seção" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Geral
+                </div>
+              </SelectItem>
+              <SelectItem value="contact">
+                <div className="flex items-center">
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contato
+                </div>
+              </SelectItem>
+              <SelectItem value="fiscal">
+                <div className="flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Fiscal
+                </div>
+              </SelectItem>
+              <SelectItem value="docs">
+                <div className="flex items-center">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Documentos
+                </div>
+              </SelectItem>
+              <SelectItem value="address">
+                <div className="flex items-center">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Endereço
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Aba Geral */}
-        <TabsContent value="general" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="general" className="space-y-2 sm:space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="cnpj">CNPJ *</Label>
               <div className="flex gap-2">
@@ -708,28 +793,96 @@ export default function ClientForm({
 
             <div className="space-y-2">
               <Label htmlFor="tipo_empresa">Natureza Jurídica *</Label>
-              <Select
-                onValueChange={(value) => {
-                  setValue("tipo_empresa", value);
-                  setTipoEmpresa(value);
-                }}
-                value={tipoEmpresa}
-              >
-                <SelectTrigger
-                  className={errors.tipo_empresa ? "border-destructive" : ""}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between",
+                      !tipoEmpresa && "text-muted-foreground",
+                      errors.tipo_empresa && "border-destructive"
+                    )}
+                  >
+                    <span className="truncate">
+                      {tipoEmpresa || "Selecione a natureza jurídica"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-0 overflow-hidden"
+                  side="bottom"
+                  align="start"
                 >
-                  <SelectValue placeholder="Selecione a natureza jurídica" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {Object.entries(NATUREZAS_JURIDICAS)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([codigo, descricao]) => (
-                      <SelectItem key={codigo} value={descricao}>
-                        {descricao}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                  <Command className="rounded-lg border-none shadow-none">
+                    <CommandInput
+                      placeholder="Buscar natureza jurídica..."
+                      className="h-9"
+                    />
+                    <CommandEmpty className="py-6 text-center text-sm">
+                      Nenhuma natureza jurídica encontrada.
+                    </CommandEmpty>
+                    <CommandList
+                      className="max-h-[30vh] sm:max-h-[35vh]"
+                      style={{
+                        overflowY: "auto",
+                        WebkitOverflowScrolling: "touch",
+                        scrollBehavior: "smooth",
+                      }}
+                      onWheel={(e) => {
+                        e.stopPropagation();
+                        const target = e.currentTarget;
+                        target.scrollTop += e.deltaY;
+                      }}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                    >
+                      <CommandGroup>
+                        {Object.entries(NATUREZAS_JURIDICAS)
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([codigo, descricao]) => (
+                            <CommandItem
+                              key={codigo}
+                              value={descricao}
+                              onSelect={(currentValue) => {
+                                setValue(
+                                  "tipo_empresa",
+                                  currentValue === tipoEmpresa
+                                    ? ""
+                                    : currentValue
+                                );
+                                setTipoEmpresa(
+                                  currentValue === tipoEmpresa
+                                    ? ""
+                                    : currentValue
+                                );
+                              }}
+                              className="flex items-start py-3 px-3 cursor-pointer hover:bg-accent"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-3 h-4 w-4 mt-0.5 shrink-0",
+                                  tipoEmpresa === descricao
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-xs text-muted-foreground font-mono mb-1">
+                                  {codigo}
+                                </span>
+                                <span className="text-sm font-medium leading-tight break-words">
+                                  {descricao.replace(codigo + " - ", "")}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {errors.tipo_empresa && (
                 <p className="text-sm text-destructive">
                   {errors.tipo_empresa.message}
@@ -776,7 +929,7 @@ export default function ClientForm({
               )}
             />
           </div>{" "}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="inscricao_estadual">Inscrição Estadual</Label>
               <Input
@@ -793,7 +946,7 @@ export default function ClientForm({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="flex items-center space-x-2">
               <Switch
                 id="recuperacao_judicial"
@@ -823,8 +976,8 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Contato */}
-        <TabsContent value="contact" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="contact" className="space-y-2 sm:space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_contato">Email de Contato</Label>
               <Controller
@@ -869,7 +1022,7 @@ export default function ClientForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="email_comercial">Email Comercial</Label>
               <Controller
@@ -906,7 +1059,7 @@ export default function ClientForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="responsavel_financeiro">
                 Responsável Financeiro
@@ -928,7 +1081,7 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Fiscal */}
-        <TabsContent value="fiscal" className="space-y-4">
+        <TabsContent value="fiscal" className="space-y-2 sm:space-y-3">
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="regime_tributacao">Regime Tributário</Label>
@@ -991,13 +1144,14 @@ export default function ClientForm({
         </TabsContent>
 
         {/* Aba Documentos */}
-        <TabsContent value="docs" className="space-y-4">
+        <TabsContent value="docs" className="space-y-2 sm:space-y-3">
           <div className="space-y-2">
             <Label htmlFor="contrato_social">Contrato Social</Label>
             <Textarea
               id="contrato_social"
               {...register("contrato_social")}
               rows={4}
+              className="text-sm"
             />
           </div>
 
@@ -1009,7 +1163,7 @@ export default function ClientForm({
               id="ultima_alteracao_contratual"
               type="date"
               {...register("ultima_alteracao_contratual")}
-              className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer text-sm"
             />
           </div>
 
@@ -1020,6 +1174,7 @@ export default function ClientForm({
               {...register("rg_cpf_socios")}
               placeholder="Liste os documentos dos sócios"
               rows={4}
+              className="text-sm"
             />
           </div>
 
@@ -1030,12 +1185,13 @@ export default function ClientForm({
               {...register("certificado_digital")}
               placeholder="Informações sobre certificados digitais"
               rows={3}
+              className="text-sm"
             />
           </div>
         </TabsContent>
 
         {/* Aba Endereço */}
-        <TabsContent value="address" className="space-y-4">
+        <TabsContent value="address" className="space-y-2 sm:space-y-3">
           <div className="space-y-2">
             <Label htmlFor="cep">CEP</Label>
             <Controller
@@ -1052,8 +1208,8 @@ export default function ClientForm({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="sm:col-span-2 space-y-2">
               <Label htmlFor="logradouro">Logradouro</Label>
               <Controller
                 name="logradouro"
@@ -1091,7 +1247,7 @@ export default function ClientForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="bairro">Bairro</Label>
               <Controller
@@ -1168,11 +1324,20 @@ export default function ClientForm({
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-3 border-t">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="order-2 sm:order-1"
+        >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="order-1 sm:order-2"
+        >
           {isSubmitting ? "Salvando..." : client?.id ? "Atualizar" : "Criar"}
         </Button>
       </div>

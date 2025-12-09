@@ -49,6 +49,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileManager } from "@/hooks/use-file-manager";
 import { FileMetadata, ClientFileType } from "@/types/api";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface FileManagerProps {
   clientId: string;
@@ -79,7 +80,10 @@ export default function FileManager({ clientId }: FileManagerProps) {
     url: string;
   } | null>(null);
   const [editingFile, setEditingFile] = useState<FileMetadata | null>(null);
-  const [editForm, setEditForm] = useState({ file_name: "", description: "" });
+  const [editForm, setEditForm] = useState({
+    file_name: "",
+    description: "",
+  });
 
   // Load files on component mount
   useEffect(() => {
@@ -195,15 +199,15 @@ export default function FileManager({ clientId }: FileManagerProps) {
 
   const renderModernFileCard = (file: FileMetadata) => (
     <Card key={file.id} className="group hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
           {/* File Info */}
-          <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
             <div className="flex-shrink-0">
               {file.mime_type === "application/pdf" ? (
-                <File className="h-8 w-8 text-red-500" />
+                <File className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
               ) : (
-                <FileImage className="h-8 w-8 text-blue-500" />
+                <FileImage className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
               )}
             </div>
 
@@ -231,8 +235,12 @@ export default function FileManager({ clientId }: FileManagerProps) {
                     }
                     placeholder="Descrição do arquivo"
                   />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSaveEdit}>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveEdit}
+                      className="flex-1 sm:flex-initial"
+                    >
                       <Save className="h-3 w-3 mr-1" />
                       Salvar
                     </Button>
@@ -240,6 +248,7 @@ export default function FileManager({ clientId }: FileManagerProps) {
                       size="sm"
                       variant="outline"
                       onClick={() => setEditingFile(null)}
+                      className="flex-1 sm:flex-initial"
                     >
                       <X className="h-3 w-3 mr-1" />
                       Cancelar
@@ -296,33 +305,33 @@ export default function FileManager({ clientId }: FileManagerProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-8 w-8 p-0 shrink-0"
                 >
-                  <MoreVertical className="h-4 w-4" />
+                  <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onClick={() => handlePreviewFile(file.id)}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Visualizar
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  <span className="text-sm">Visualizar</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleDownloadFile(file.id, file.file_name)}
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  <span className="text-sm">Download</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => startEditing(file)}>
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Editar
+                  <Edit2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  <span className="text-sm">Editar</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleDeleteFile(file.id)}
                   className="text-destructive focus:text-destructive"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  <span className="text-sm">Excluir</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -344,225 +353,249 @@ export default function FileManager({ clientId }: FileManagerProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6">
       {/* Modern Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Arquivos</h2>
-          <p className="text-sm text-muted-foreground">
-            Gerencie contratos e documentos do cliente
-          </p>
+      <div className="flex flex-col gap-3 border-b border-border pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+              Arquivos
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Gerencie contratos e documentos do cliente
+            </p>
+          </div>
+
+          <Dialog
+            open={isUploadDialogOpen}
+            onOpenChange={setIsUploadDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button
+                className="flex items-center gap-2 w-full sm:w-auto"
+                disabled={uploading}
+              >
+                <Plus className="h-4 w-4" />
+                {uploading ? "Enviando..." : "Novo Arquivo"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[80vh] overflow-y-auto p-4 sm:p-6">
+              <DialogHeader>
+                <DialogTitle>Enviar Arquivo</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Adicione um novo documento
+                </p>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {/* File Type Selection - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tipo de Arquivo</Label>
+                  <div className="flex gap-2">
+                    {getFileTypeOptions().map((option) => (
+                      <Button
+                        key={option.value}
+                        type="button"
+                        size="sm"
+                        variant={
+                          selectedFileType === option.value
+                            ? "default"
+                            : "outline"
+                        }
+                        onClick={() => {
+                          setSelectedFileType(option.value);
+                          if (option.value !== "contrato") {
+                            setExpirationDate(undefined);
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Expiration Date - Compact */}
+                {selectedFileType === "contrato" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-3 w-3 text-amber-500" />
+                      <Label className="text-sm font-medium">
+                        Data de Validade
+                      </Label>
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "w-full justify-start text-left",
+                            !expirationDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-3 w-3" />
+                          {expirationDate
+                            ? format(expirationDate, "dd/MM/yyyy")
+                            : "Selecionar data"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={expirationDate}
+                          onSelect={setExpirationDate}
+                          initialFocus
+                          disabled={(date) => date < new Date()}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {/* Description - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Descrição</Label>
+                  <Textarea
+                    placeholder="Descrição do arquivo (opcional)"
+                    value={uploadDescription}
+                    onChange={(e) => setUploadDescription(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+
+                {/* File Upload - Compact */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Arquivo</Label>
+                  <div
+                    {...getRootProps()}
+                    className={cn(
+                      "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                      isDragActive && "border-primary bg-primary/5",
+                      uploading && "opacity-50 cursor-not-allowed",
+                      selectedFileType === "contrato" &&
+                        !expirationDate &&
+                        "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <input
+                      {...getInputProps()}
+                      disabled={
+                        uploading ||
+                        (selectedFileType === "contrato" && !expirationDate)
+                      }
+                    />
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                      {uploading ? (
+                        <p className="text-xs text-muted-foreground">
+                          Enviando...
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Clique ou arraste para enviar
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2" disabled={uploading}>
-              <Plus className="h-4 w-4" />
-              {uploading ? "Enviando..." : "Novo Arquivo"}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Enviar Arquivo</DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                Adicione um novo documento
-              </p>
-            </DialogHeader>
+        {/* Files Tabs */}
+        <Tabs defaultValue="contratos" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger
+              value="contratos"
+              className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+            >
+              <FileCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="truncate">
+                Contratos ({contratoFiles.length})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="cnpj"
+              className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+            >
+              <FileImage className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="truncate">CNPJ ({cnpjFiles.length})</span>
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="space-y-4">
-              {/* File Type Selection - Compact */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Tipo de Arquivo</Label>
-                <div className="flex gap-2">
-                  {getFileTypeOptions().map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      size="sm"
-                      variant={
-                        selectedFileType === option.value
-                          ? "default"
-                          : "outline"
-                      }
-                      onClick={() => {
-                        setSelectedFileType(option.value);
-                        if (option.value !== "contrato") {
-                          setExpirationDate(undefined);
-                        }
-                      }}
-                      className="flex-1"
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
+          <TabsContent value="contratos" className="mt-6">
+            {contratoFiles.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileCheck className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p className="text-sm">Nenhum contrato encontrado</p>
+                <p className="text-xs mt-1">
+                  Faça o upload do primeiro contrato
+                </p>
               </div>
-
-              {/* Expiration Date - Compact */}
-              {selectedFileType === "contrato" && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                    <Label className="text-sm font-medium">
-                      Data de Validade
-                    </Label>
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "w-full justify-start text-left",
-                          !expirationDate && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-3 w-3" />
-                        {expirationDate
-                          ? format(expirationDate, "dd/MM/yyyy")
-                          : "Selecionar data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={expirationDate}
-                        onSelect={setExpirationDate}
-                        initialFocus
-                        disabled={(date) => date < new Date()}
-                      />
-                    </PopoverContent>
-                  </Popover>
+            ) : (
+              <ScrollArea className="h-[50vh] sm:h-[40vh] pr-2 sm:pr-3">
+                <div className="grid gap-3">
+                  {contratoFiles.map((file) => renderModernFileCard(file))}
                 </div>
-              )}
+              </ScrollArea>
+            )}
+          </TabsContent>
 
-              {/* Description - Compact */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Descrição</Label>
-                <Textarea
-                  placeholder="Descrição do arquivo (opcional)"
-                  value={uploadDescription}
-                  onChange={(e) => setUploadDescription(e.target.value)}
-                  rows={2}
-                  className="resize-none"
-                />
+          <TabsContent value="cnpj" className="mt-6">
+            {cnpjFiles.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileImage className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p className="text-sm">Nenhum cartão CNPJ encontrado</p>
+                <p className="text-xs mt-1">
+                  Faça o upload do primeiro cartão CNPJ
+                </p>
               </div>
+            ) : (
+              <ScrollArea className="h-[50vh] sm:h-[40vh] pr-2 sm:pr-3">
+                <div className="grid gap-3">
+                  {cnpjFiles.map((file) => renderModernFileCard(file))}
+                </div>
+              </ScrollArea>
+            )}
+          </TabsContent>
+        </Tabs>
 
-              {/* File Upload - Compact */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Arquivo</Label>
-                <div
-                  {...getRootProps()}
-                  className={cn(
-                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
-                    isDragActive && "border-primary bg-primary/5",
-                    uploading && "opacity-50 cursor-not-allowed",
-                    selectedFileType === "contrato" &&
-                      !expirationDate &&
-                      "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <input
-                    {...getInputProps()}
-                    disabled={
-                      uploading ||
-                      (selectedFileType === "contrato" && !expirationDate)
-                    }
+        {/* Preview Dialog */}
+        {previewFileData && (
+          <Dialog
+            open={!!previewFileData}
+            onOpenChange={() => setPreviewFileData(null)}
+          >
+            <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+              <DialogHeader className="p-4 sm:p-6 pb-0">
+                <DialogTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  {previewFileData.file.file_name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-4 sm:p-6 pt-0">
+                {previewFileData.file.mime_type === "application/pdf" ? (
+                  <iframe
+                    src={previewFileData.url}
+                    className="w-full h-[70vh] border-0 rounded-md"
+                    title={`Preview: ${previewFileData.file.file_name}`}
                   />
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-6 w-6 text-muted-foreground" />
-                    {uploading ? (
-                      <p className="text-xs text-muted-foreground">
-                        Enviando...
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Clique ou arraste para enviar
-                      </p>
-                    )}
-                  </div>
-                </div>
+                ) : (
+                  <img
+                    src={previewFileData.url}
+                    alt={previewFileData.file.file_name}
+                    className="w-full h-[70vh] object-contain rounded-md"
+                  />
+                )}
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
-
-      {/* Files Tabs */}
-      <Tabs defaultValue="contratos" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="contratos" className="flex items-center gap-2">
-            <FileCheck className="h-4 w-4" />
-            Contratos ({contratoFiles.length})
-          </TabsTrigger>
-          <TabsTrigger value="cnpj" className="flex items-center gap-2">
-            <FileImage className="h-4 w-4" />
-            Cartão CNPJ ({cnpjFiles.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="contratos" className="space-y-4 mt-6">
-          {contratoFiles.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileCheck className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p className="text-sm">Nenhum contrato encontrado</p>
-              <p className="text-xs mt-1">Faça o upload do primeiro contrato</p>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {contratoFiles.map((file) => renderModernFileCard(file))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="cnpj" className="space-y-4 mt-6">
-          {cnpjFiles.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileImage className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p className="text-sm">Nenhum cartão CNPJ encontrado</p>
-              <p className="text-xs mt-1">
-                Faça o upload do primeiro cartão CNPJ
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {cnpjFiles.map((file) => renderModernFileCard(file))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Preview Dialog */}
-      {previewFileData && (
-        <Dialog
-          open={!!previewFileData}
-          onOpenChange={() => setPreviewFileData(null)}
-        >
-          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-            <DialogHeader className="p-6 pb-0">
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                {previewFileData.file.file_name}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-hidden p-6 pt-0">
-              {previewFileData.file.mime_type === "application/pdf" ? (
-                <iframe
-                  src={previewFileData.url}
-                  className="w-full h-[70vh] border-0 rounded-md"
-                  title={`Preview: ${previewFileData.file.file_name}`}
-                />
-              ) : (
-                <img
-                  src={previewFileData.url}
-                  alt={previewFileData.file.file_name}
-                  className="w-full h-[70vh] object-contain rounded-md"
-                />
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
