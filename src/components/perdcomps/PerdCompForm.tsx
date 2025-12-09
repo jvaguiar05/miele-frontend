@@ -207,6 +207,15 @@ export default function PerdCompForm({
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [searchedClients, setSearchedClients] = useState<any[]>([]);
   const [isSearchingClients, setIsSearchingClients] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
+
+  // Tab options
+  const tabOptions = [
+    { value: "general", label: "📋 Geral", icon: "📋" },
+    { value: "dates", label: "📅 Datas", icon: "📅" },
+    { value: "values", label: "💰 Valores", icon: "💰" },
+    { value: "fiscal", label: "🏛️ Fiscal", icon: "🏛️" },
+  ];
 
   // Debounced client search effect
   const debouncedClientSearch = useCallback(
@@ -261,42 +270,42 @@ export default function PerdCompForm({
     resolver: zodResolver(perdcompSchema),
     defaultValues: perdcomp
       ? {
-        client_id: "", // Will be set when we find the client by CNPJ
-        cnpj: perdcomp.cnpj,
-        numero: perdcomp.numero,
-        numero_perdcomp: perdcomp.numero_perdcomp,
-        processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
-        // Convert dates from YYYY-MM-DD to YYYY-MM-DD for date inputs
-        data_transmissao: perdcomp.data_transmissao
-          ? perdcomp.data_transmissao.split("T")[0]
-          : undefined,
-        data_vencimento: perdcomp.data_vencimento
-          ? perdcomp.data_vencimento.split("T")[0]
-          : undefined,
-        data_competencia: perdcomp.data_competencia
-          ? perdcomp.data_competencia.split("T")[0]
-          : undefined,
-        tributo_pedido: perdcomp.tributo_pedido,
-        competencia: perdcomp.competencia,
-        valor_pedido: perdcomp.valor_pedido,
-        valor_compensado: perdcomp.valor_compensado,
-        valor_recebido: perdcomp.valor_recebido,
-        valor_saldo: perdcomp.valor_saldo,
-        valor_selic: perdcomp.valor_selic,
-        status: perdcomp.status,
-        is_active: perdcomp.is_active ?? true,
-      }
+          client_id: "", // Will be set when we find the client by CNPJ
+          cnpj: perdcomp.cnpj,
+          numero: perdcomp.numero,
+          numero_perdcomp: perdcomp.numero_perdcomp,
+          processo_protocolo: perdcomp.processo_protocolo?.toString() || "",
+          // Convert dates from YYYY-MM-DD to YYYY-MM-DD for date inputs
+          data_transmissao: perdcomp.data_transmissao
+            ? perdcomp.data_transmissao.split("T")[0]
+            : undefined,
+          data_vencimento: perdcomp.data_vencimento
+            ? perdcomp.data_vencimento.split("T")[0]
+            : undefined,
+          data_competencia: perdcomp.data_competencia
+            ? perdcomp.data_competencia.split("T")[0]
+            : undefined,
+          tributo_pedido: perdcomp.tributo_pedido,
+          competencia: perdcomp.competencia,
+          valor_pedido: perdcomp.valor_pedido,
+          valor_compensado: perdcomp.valor_compensado,
+          valor_recebido: perdcomp.valor_recebido,
+          valor_saldo: perdcomp.valor_saldo,
+          valor_selic: perdcomp.valor_selic,
+          status: perdcomp.status,
+          is_active: perdcomp.is_active ?? true,
+        }
       : {
-        client_id: clientId || "",
-        cnpj: "", // Will be populated by useEffect when client loads
-        status: "RASCUNHO" as any,
-        valor_pedido: "",
-        valor_compensado: "",
-        valor_recebido: "",
-        valor_saldo: "",
-        valor_selic: "",
-        is_active: true,
-      },
+          client_id: clientId || "",
+          cnpj: "", // Will be populated by useEffect when client loads
+          status: "RASCUNHO" as any,
+          valor_pedido: "",
+          valor_compensado: "",
+          valor_recebido: "",
+          valor_saldo: "",
+          valor_selic: "",
+          is_active: true,
+        },
   });
 
   // Reset form when perdcomp changes
@@ -473,12 +482,40 @@ export default function PerdCompForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="dates">Datas</TabsTrigger>
-          <TabsTrigger value="values">Valores</TabsTrigger>
-          <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
+      {/* Mobile Navigation Dropdown */}
+      <div className="block sm:hidden">
+        <Label htmlFor="tab-select" className="text-sm font-medium">
+          Seção do Formulário
+        </Label>
+        <Select value={activeTab} onValueChange={setActiveTab}>
+          <SelectTrigger className="w-full mt-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {tabOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Desktop Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="hidden sm:grid w-full grid-cols-4">
+          <TabsTrigger value="general" className="text-sm px-3">
+            📋 Geral
+          </TabsTrigger>
+          <TabsTrigger value="dates" className="text-sm px-3">
+            📅 Datas
+          </TabsTrigger>
+          <TabsTrigger value="values" className="text-sm px-3">
+            💰 Valores
+          </TabsTrigger>
+          <TabsTrigger value="fiscal" className="text-sm px-3">
+            🏛️ Fiscal
+          </TabsTrigger>
         </TabsList>
 
         {/* Aba Geral */}
@@ -491,8 +528,9 @@ export default function PerdCompForm({
                   variant="outline"
                   role="combobox"
                   aria-expanded={clientSearchOpen}
-                  className={`w-full justify-between ${errors.client_id ? "border-destructive" : ""
-                    }`}
+                  className={`w-full justify-between ${
+                    errors.client_id ? "border-destructive" : ""
+                  }`}
                   disabled={!!clientId && !perdcomp}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -500,14 +538,14 @@ export default function PerdCompForm({
                     <span className="truncate text-sm">
                       {selectedClientData
                         ? selectedClientData.nome_fantasia ||
-                        selectedClientData.razao_social
+                          selectedClientData.razao_social
                         : "Selecione o cliente"}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] max-w-[90vw] p-0 z-50 bg-popover border shadow-md">
+              <PopoverContent className="w-[90vw] sm:w-[400px] p-0 z-50 bg-popover border shadow-md">
                 <Command shouldFilter={false}>
                   <CommandInput
                     placeholder="Buscar por CNPJ, nome fantasia ou razão social..."
@@ -528,7 +566,7 @@ export default function PerdCompForm({
                     ) : (
                       <>
                         {displayClients.length === 0 &&
-                          clientSearchQuery.trim() ? (
+                        clientSearchQuery.trim() ? (
                           <CommandEmpty>
                             Nenhum cliente encontrado.
                           </CommandEmpty>
@@ -539,8 +577,9 @@ export default function PerdCompForm({
                                 client.nome_fantasia ||
                                 client.razao_social ||
                                 "Cliente sem nome";
-                              const searchText = `${client.cnpj} ${client.nome_fantasia || ""
-                                } ${client.razao_social || ""}`;
+                              const searchText = `${client.cnpj} ${
+                                client.nome_fantasia || ""
+                              } ${client.razao_social || ""}`;
 
                               return (
                                 <CommandItem
@@ -552,11 +591,12 @@ export default function PerdCompForm({
                                   className="cursor-pointer py-3 px-2"
                                 >
                                   <Check
-                                    className={`mr-2 h-4 w-4 shrink-0 ${selectedClientData?.id ===
-                                        client.id.toString()
+                                    className={`mr-2 h-4 w-4 shrink-0 ${
+                                      selectedClientData?.id ===
+                                      client.id.toString()
                                         ? "opacity-100"
                                         : "opacity-0"
-                                      }`}
+                                    }`}
                                   />
                                   <div className="flex flex-col items-start min-w-0 flex-1 gap-1">
                                     <span className="text-sm font-medium leading-tight break-words">
@@ -601,24 +641,31 @@ export default function PerdCompForm({
                 !!clientId && !perdcomp ? "bg-muted cursor-not-allowed" : ""
               }
               readOnly={!!clientId && !perdcomp}
+              aria-describedby={
+                !!clientId && !perdcomp ? "cnpj-description" : undefined
+              }
               {...(!!clientId && !perdcomp
                 ? {}
                 : { onChange: (e) => setValue("cnpj", e.target.value) })}
             />
             {!!clientId && !perdcomp && (
-              <p className="text-xs text-muted-foreground">
+              <p
+                className="text-xs text-muted-foreground"
+                id="cnpj-description"
+              >
                 CNPJ preenchido automaticamente com base no cliente selecionado
               </p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="numero">Número do Documento</Label>
               <Input
                 id="numero"
                 {...register("numero")}
                 className={errors.numero ? "border-destructive" : ""}
+                placeholder="Ex: 123456789"
               />
               {errors.numero && (
                 <p className="text-sm text-destructive">
@@ -717,7 +764,7 @@ export default function PerdCompForm({
 
         {/* Aba Valores */}
         <TabsContent value="values" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valor_pedido">Valor do Pedido *</Label>
               <div className="relative">
@@ -731,13 +778,16 @@ export default function PerdCompForm({
                     <Input
                       id="valor_pedido"
                       placeholder="0,00"
-                      className={`pl-10 ${errors.valor_pedido ? "border-destructive" : ""
-                        }`}
+                      className={`pl-10 ${
+                        errors.valor_pedido ? "border-destructive" : ""
+                      }`}
                       value={formatCurrencyDisplay(field.value || "")}
                       onChange={(e) => {
                         const unformatted = unformatCurrency(e.target.value);
                         field.onChange(unformatted);
-                        setValue("valor_pedido", unformatted, { shouldValidate: true });
+                        setValue("valor_pedido", unformatted, {
+                          shouldValidate: true,
+                        });
                       }}
                       onBlur={field.onBlur}
                     />
@@ -772,7 +822,9 @@ export default function PerdCompForm({
                       onChange={(e) => {
                         const unformatted = unformatCurrency(e.target.value);
                         field.onChange(unformatted);
-                        setValue("valor_compensado", unformatted, { shouldValidate: true });
+                        setValue("valor_compensado", unformatted, {
+                          shouldValidate: true,
+                        });
                       }}
                       onBlur={field.onBlur}
                     />
@@ -785,7 +837,7 @@ export default function PerdCompForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valor_recebido">Valor Recebido</Label>
               <div className="relative">
@@ -804,7 +856,9 @@ export default function PerdCompForm({
                       onChange={(e) => {
                         const unformatted = unformatCurrency(e.target.value);
                         field.onChange(unformatted);
-                        setValue("valor_recebido", unformatted, { shouldValidate: true });
+                        setValue("valor_recebido", unformatted, {
+                          shouldValidate: true,
+                        });
                       }}
                       onBlur={field.onBlur}
                     />
@@ -834,7 +888,9 @@ export default function PerdCompForm({
                       onChange={(e) => {
                         const unformatted = unformatCurrency(e.target.value);
                         field.onChange(unformatted);
-                        setValue("valor_saldo", unformatted, { shouldValidate: true });
+                        setValue("valor_saldo", unformatted, {
+                          shouldValidate: true,
+                        });
                       }}
                       onBlur={field.onBlur}
                     />
@@ -865,7 +921,9 @@ export default function PerdCompForm({
                     onChange={(e) => {
                       const unformatted = unformatCurrency(e.target.value);
                       field.onChange(unformatted);
-                      setValue("valor_selic", unformatted, { shouldValidate: true });
+                      setValue("valor_selic", unformatted, {
+                        shouldValidate: true,
+                      });
                     }}
                     onBlur={field.onBlur}
                   />
@@ -928,11 +986,20 @@ export default function PerdCompForm({
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="w-full sm:w-auto"
+        >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full sm:w-auto"
+        >
           {isSubmitting ? "Salvando..." : perdcomp?.id ? "Atualizar" : "Criar"}
         </Button>
       </div>
