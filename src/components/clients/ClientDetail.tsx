@@ -10,6 +10,11 @@ import {
   DollarSign,
   Eye,
   ChevronDown,
+  User,
+  Phone,
+  StickyNote,
+  Folder,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -204,18 +209,23 @@ export default function ClientDetail({
         {/* Desktop Tabs */}
         <TabsList className="hidden sm:grid w-full grid-cols-5">
           <TabsTrigger value="info" className="text-sm px-3">
+            <User className="w-4 h-4 mr-2" />
             Informações
           </TabsTrigger>
           <TabsTrigger value="contact" className="text-sm px-3">
+            <Phone className="w-4 h-4 mr-2" />
             Contato
           </TabsTrigger>
           <TabsTrigger value="notes" className="text-sm px-3">
+            <StickyNote className="w-4 h-4 mr-2" />
             Anotações
           </TabsTrigger>
           <TabsTrigger value="files" className="text-sm px-3">
+            <Folder className="w-4 h-4 mr-2" />
             Arquivos
           </TabsTrigger>
           <TabsTrigger value="perdcomps" className="text-sm px-3">
+            <BarChart3 className="w-4 h-4 mr-2" />
             PER/DCOMPs
           </TabsTrigger>
         </TabsList>
@@ -227,11 +237,36 @@ export default function ClientDetail({
               <SelectValue placeholder="Selecione uma seção" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="info">📋 Informações</SelectItem>
-              <SelectItem value="contact">📞 Contato</SelectItem>
-              <SelectItem value="notes">📝 Anotações</SelectItem>
-              <SelectItem value="files">📁 Arquivos</SelectItem>
-              <SelectItem value="perdcomps">📊 PER/DCOMPs</SelectItem>
+              <SelectItem value="info">
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Informações
+                </div>
+              </SelectItem>
+              <SelectItem value="contact">
+                <div className="flex items-center">
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contato
+                </div>
+              </SelectItem>
+              <SelectItem value="notes">
+                <div className="flex items-center">
+                  <StickyNote className="w-4 h-4 mr-2" />
+                  Anotações
+                </div>
+              </SelectItem>
+              <SelectItem value="files">
+                <div className="flex items-center">
+                  <Folder className="w-4 h-4 mr-2" />
+                  Arquivos
+                </div>
+              </SelectItem>
+              <SelectItem value="perdcomps">
+                <div className="flex items-center">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  PER/DCOMPs
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -748,7 +783,7 @@ export default function ClientDetail({
                           {perdcomp.status}
                         </Badge>
                       </div>
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -765,7 +800,9 @@ export default function ClientDetail({
                       <div className="flex items-center justify-between py-2 border-b border-muted/30">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span className="text-sm font-medium">Competência</span>
+                          <span className="text-sm font-medium">
+                            Competência
+                          </span>
                         </div>
                         <p className="text-sm font-medium text-foreground">
                           {perdcomp.competencia}
@@ -775,7 +812,9 @@ export default function ClientDetail({
                       <div className="flex items-center justify-between py-2 border-b border-muted/30">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <DollarSign className="h-4 w-4" />
-                          <span className="text-sm font-medium">Valor Pedido</span>
+                          <span className="text-sm font-medium">
+                            Valor Pedido
+                          </span>
                         </div>
                         <p className="text-sm font-bold text-primary">
                           {(() => {
@@ -805,7 +844,9 @@ export default function ClientDetail({
                         <div className="flex items-center justify-between py-2 border-b border-muted/30">
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Calendar className="h-4 w-4" />
-                            <span className="text-sm font-medium">Vencimento</span>
+                            <span className="text-sm font-medium">
+                              Vencimento
+                            </span>
                           </div>
                           <p className="text-sm font-medium text-foreground">
                             {formatDate(perdcomp.data_vencimento)}
@@ -822,13 +863,17 @@ export default function ClientDetail({
                           {perdcomp.data_transmissao && (
                             <div className="flex justify-between">
                               <span>Transmitido em:</span>
-                              <span>{formatDate(perdcomp.data_transmissao)}</span>
+                              <span>
+                                {formatDate(perdcomp.data_transmissao)}
+                              </span>
                             </div>
                           )}
                           {perdcomp.processo_protocolo && (
                             <div className="flex justify-between">
                               <span>Protocolo:</span>
-                              <span className="font-mono">{perdcomp.processo_protocolo}</span>
+                              <span className="font-mono">
+                                {perdcomp.processo_protocolo}
+                              </span>
                             </div>
                           )}
                         </div>

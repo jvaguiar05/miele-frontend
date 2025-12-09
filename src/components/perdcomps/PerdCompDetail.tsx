@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Edit, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Plus,
+  Trash2,
+  FileText,
+  DollarSign,
+  StickyNote,
+  Folder,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,10 +50,46 @@ export default function PerdCompDetail({
 
   // Tab options
   const tabOptions = [
-    { value: "info", label: "📋 Informações Gerais", icon: "📋" },
-    { value: "values", label: "💰 Valores", icon: "💰" },
-    { value: "notes", label: "📝 Anotações", icon: "📝" },
-    { value: "files", label: "📁 Arquivos", icon: "📁" },
+    {
+      value: "info",
+      label: (
+        <div className="flex items-center">
+          <FileText className="w-4 h-4 mr-2" />
+          Geral
+        </div>
+      ),
+      icon: "📋",
+    },
+    {
+      value: "values",
+      label: (
+        <div className="flex items-center">
+          <DollarSign className="w-4 h-4 mr-2" />
+          Valores
+        </div>
+      ),
+      icon: "💰",
+    },
+    {
+      value: "notes",
+      label: (
+        <div className="flex items-center">
+          <StickyNote className="w-4 h-4 mr-2" />
+          Anotações
+        </div>
+      ),
+      icon: "📝",
+    },
+    {
+      value: "files",
+      label: (
+        <div className="flex items-center">
+          <Folder className="w-4 h-4 mr-2" />
+          Arquivos
+        </div>
+      ),
+      icon: "📁",
+    },
   ];
 
   const handleDeleteAnnotation = async (annotationId: string) => {
@@ -165,16 +210,20 @@ export default function PerdCompDetail({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="hidden sm:grid w-full grid-cols-4">
           <TabsTrigger value="info" className="text-sm px-3">
-            📋 Informações Gerais
+            <FileText className="w-4 h-4 mr-2" />
+            Geral
           </TabsTrigger>
           <TabsTrigger value="values" className="text-sm px-3">
-            💰 Valores
+            <DollarSign className="w-4 h-4 mr-2" />
+            Valores
           </TabsTrigger>
           <TabsTrigger value="notes" className="text-sm px-3">
-            📝 Anotações
+            <StickyNote className="w-4 h-4 mr-2" />
+            Anotações
           </TabsTrigger>
           <TabsTrigger value="files" className="text-sm px-3">
-            📁 Arquivos
+            <Folder className="w-4 h-4 mr-2" />
+            Arquivos
           </TabsTrigger>
         </TabsList>
 

@@ -30,7 +30,17 @@ import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, ChevronDown, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Search,
+  ChevronDown,
+  Check,
+  ChevronsUpDown,
+  User,
+  Phone,
+  FileText,
+  Building2,
+  MapPin,
+} from "lucide-react";
 import { MaskedInput } from "@/components/ui/input-mask";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { EmailInput } from "@/components/ui/email-input";
@@ -677,18 +687,23 @@ export default function ClientForm({
         {/* Desktop Tabs */}
         <TabsList className="hidden sm:grid w-full grid-cols-5">
           <TabsTrigger value="general" className="text-sm px-3">
+            <User className="w-4 h-4 mr-2" />
             Geral
           </TabsTrigger>
           <TabsTrigger value="contact" className="text-sm px-3">
+            <Phone className="w-4 h-4 mr-2" />
             Contato
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="text-sm px-3">
+            <FileText className="w-4 h-4 mr-2" />
             Fiscal
           </TabsTrigger>
           <TabsTrigger value="docs" className="text-sm px-3">
+            <Building2 className="w-4 h-4 mr-2" />
             Documentos
           </TabsTrigger>
           <TabsTrigger value="address" className="text-sm px-3">
+            <MapPin className="w-4 h-4 mr-2" />
             Endereço
           </TabsTrigger>
         </TabsList>
@@ -700,11 +715,36 @@ export default function ClientForm({
               <SelectValue placeholder="Selecione uma seção" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="general">🏢 Geral</SelectItem>
-              <SelectItem value="contact">📞 Contato</SelectItem>
-              <SelectItem value="fiscal">📋 Fiscal</SelectItem>
-              <SelectItem value="docs">📄 Documentos</SelectItem>
-              <SelectItem value="address">📍 Endereço</SelectItem>
+              <SelectItem value="general">
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Geral
+                </div>
+              </SelectItem>
+              <SelectItem value="contact">
+                <div className="flex items-center">
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contato
+                </div>
+              </SelectItem>
+              <SelectItem value="fiscal">
+                <div className="flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Fiscal
+                </div>
+              </SelectItem>
+              <SelectItem value="docs">
+                <div className="flex items-center">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Documentos
+                </div>
+              </SelectItem>
+              <SelectItem value="address">
+                <div className="flex items-center">
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Endereço
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

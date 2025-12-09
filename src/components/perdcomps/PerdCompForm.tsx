@@ -35,7 +35,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState, useCallback } from "react";
 import { MaskedInput } from "@/components/ui/input-mask";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Search,
+  FileText,
+  Calendar,
+  DollarSign,
+  Building2,
+} from "lucide-react";
 
 // Funções helper para formatação monetária brasileira
 const formatCurrencyDisplay = (value: string | undefined | null): string => {
@@ -211,10 +219,46 @@ export default function PerdCompForm({
 
   // Tab options
   const tabOptions = [
-    { value: "general", label: "📋 Geral", icon: "📋" },
-    { value: "dates", label: "📅 Datas", icon: "📅" },
-    { value: "values", label: "💰 Valores", icon: "💰" },
-    { value: "fiscal", label: "🏛️ Fiscal", icon: "🏛️" },
+    {
+      value: "general",
+      label: (
+        <div className="flex items-center">
+          <FileText className="w-4 h-4 mr-2" />
+          Geral
+        </div>
+      ),
+      icon: "📋",
+    },
+    {
+      value: "dates",
+      label: (
+        <div className="flex items-center">
+          <Calendar className="w-4 h-4 mr-2" />
+          Datas
+        </div>
+      ),
+      icon: "📅",
+    },
+    {
+      value: "values",
+      label: (
+        <div className="flex items-center">
+          <DollarSign className="w-4 h-4 mr-2" />
+          Valores
+        </div>
+      ),
+      icon: "💰",
+    },
+    {
+      value: "fiscal",
+      label: (
+        <div className="flex items-center">
+          <Building2 className="w-4 h-4 mr-2" />
+          Fiscal
+        </div>
+      ),
+      icon: "🏛️",
+    },
   ];
 
   // Debounced client search effect
@@ -505,16 +549,20 @@ export default function PerdCompForm({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="hidden sm:grid w-full grid-cols-4">
           <TabsTrigger value="general" className="text-sm px-3">
-            📋 Geral
+            <FileText className="w-4 h-4 mr-2" />
+            Geral
           </TabsTrigger>
           <TabsTrigger value="dates" className="text-sm px-3">
-            📅 Datas
+            <Calendar className="w-4 h-4 mr-2" />
+            Datas
           </TabsTrigger>
           <TabsTrigger value="values" className="text-sm px-3">
-            💰 Valores
+            <DollarSign className="w-4 h-4 mr-2" />
+            Valores
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="text-sm px-3">
-            🏛️ Fiscal
+            <Building2 className="w-4 h-4 mr-2" />
+            Fiscal
           </TabsTrigger>
         </TabsList>
 
