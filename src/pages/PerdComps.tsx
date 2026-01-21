@@ -69,6 +69,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { extractPdfText } from "@/lib/pdf/extractPdfText";
+import { parsePerdcompReceiptText } from "@/lib/pdf/parsePerdcompReceipt";
 
 export default function PerdCompsPage() {
   const { id } = useParams();
@@ -249,11 +251,70 @@ export default function PerdCompsPage() {
     });
   };
 
-  const handleImportExcel = () => {
-    toast({
-      title: "Importar Excel",
-      description: "Funcionalidade em desenvolvimento.",
-    });
+  const handleImportExcel = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/pdf";
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (file.type !== "application/pdf") {
+        toast({
+          title: "Arquivo inválido",
+          description: "Selecione um PDF.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        const text = await extractPdfText(file);
+
+        if (!text || text.trim().length < 30) {
+          toast({
+            title: "Não foi possível ler o PDF",
+            description:
+              "Esse PDF parece ser um scan (imagem) ou está protegido. Sem OCR não dá para extrair os dados.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const parsed = parsePerdcompReceiptText(text);
+
+        // validação mínima: se faltar isso, nem abre o form
+        if (!parsed.cnpj || !parsed.numero_perdcomp) {
+          toast({
+            title: "PDF fora do padrão",
+            description:
+              "CNPJ e/ou Número do Documento não foi encontrado no texto do PDF.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // abre o form preenchido
+        setEditingPerdComp(parsed as PerdComp);
+        setPreSelectedClientId(null);
+        setIsFormOpen(true);
+
+        toast({
+          title: "Dados importados",
+          description:
+            "Formulário preenchido. Confira e complete o que faltar.",
+        });
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: "Erro ao importar PDF",
+          description: "Falha ao processar o arquivo.",
+          variant: "destructive",
+        });
+      }
+    };
   };
 
   const handleStatusFilterChange = (status: string) => {

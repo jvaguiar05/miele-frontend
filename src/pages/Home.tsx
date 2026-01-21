@@ -546,7 +546,7 @@ export default function Home() {
                 <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800/50 px-3 py-1.5 border border-slate-200 dark:border-slate-700/50">
                   <div className="h-2 w-2 rounded-full bg-green-500" />
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    v1.0.0
+                    v1.1.0
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground whitespace-nowrap">
