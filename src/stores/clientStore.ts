@@ -4,7 +4,7 @@ import api, { apiHelpers } from "@/lib/api";
 // Helper function to extract error messages from API responses
 const extractErrorMessage = (
   error: any,
-  fallback: string = "Erro desconhecido"
+  fallback: string = "Erro desconhecido",
 ): string => {
   if (error.response) {
     const { status, data } = error.response;
@@ -63,6 +63,7 @@ export interface ClientAnnotation {
 // Client interface matching Django API structure
 export interface Client {
   id: string; // UUID
+  public_id?: string; // Public UUID for external references
   razao_social: string;
   nome_fantasia: string;
   cnpj: string;
@@ -132,23 +133,23 @@ interface ClientState {
   fetchClients: (
     page?: number,
     searchQuery?: string,
-    filters?: ClientFilters
+    filters?: ClientFilters,
   ) => Promise<void>;
   fetchClientById: (id: string | number) => Promise<Client>;
   fetchClientAnnotations: (clientId: string) => Promise<ClientAnnotation[]>;
   createAnnotation: (
     clientId: string,
-    annotationData: any
+    annotationData: any,
   ) => Promise<ClientAnnotation>;
   updateAnnotation: (
     annotationId: string,
-    annotationData: any
+    annotationData: any,
   ) => Promise<ClientAnnotation>;
   deleteAnnotation: (annotationId: string) => Promise<void>;
   createClient: (clientData: Partial<Client>) => Promise<Client>;
   updateClient: (
     id: string | number,
-    clientData: Partial<Client>
+    clientData: Partial<Client>,
   ) => Promise<Client>;
   deleteClient: (id: string | number) => Promise<void>;
   setSelectedClient: (client: Client | null) => void;
@@ -156,6 +157,9 @@ interface ClientState {
   setCurrentPage: (page: number) => void;
   setFilters: (filters: ClientFilters) => void;
   clearFilters: () => void;
+
+  // Export actions
+  exportExcel: () => Promise<{ success: boolean; filename: string }>;
 }
 
 export const useClientStore = create<ClientState>((set, get) => ({
@@ -208,7 +212,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
     } catch (error: any) {
       const errorMessage = extractErrorMessage(
         error,
-        "Erro ao buscar clientes"
+        "Erro ao buscar clientes",
       );
       set({
         error: errorMessage,
@@ -228,7 +232,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
       // Fetch client annotations
       try {
         const annotationsResponse = await api.get(
-          `/clients/annotations/by-client/${id}/`
+          `/clients/annotations/by-client/${id}/`,
         );
         client.annotations = annotationsResponse.data.results || [];
       } catch (annotationError) {
@@ -255,13 +259,13 @@ export const useClientStore = create<ClientState>((set, get) => ({
   fetchClientAnnotations: async (clientId: string) => {
     try {
       const response = await api.get(
-        `/clients/annotations/by-client/${clientId}/`
+        `/clients/annotations/by-client/${clientId}/`,
       );
       return response.data.results || [];
     } catch (error: any) {
       const errorMessage = extractErrorMessage(
         error,
-        "Error fetching client annotations"
+        "Error fetching client annotations",
       );
       console.error("Error fetching client annotations:", errorMessage, error);
       throw error;
@@ -289,7 +293,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
     } catch (error: any) {
       const errorMessage = extractErrorMessage(
         error,
-        "Error creating annotation"
+        "Error creating annotation",
       );
       console.error("Error creating annotation:", errorMessage, error);
       console.error("Error response:", error.response?.data);
@@ -302,7 +306,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
     try {
       const response = await api.put(
         `/clients/annotations/${annotationId}/`,
-        annotationData
+        annotationData,
       );
       return response.data;
     } catch (error: any) {
@@ -317,7 +321,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
     } catch (error: any) {
       const errorMessage = extractErrorMessage(
         error,
-        "Error deleting annotation"
+        "Error deleting annotation",
       );
       console.error("Error deleting annotation:", errorMessage, error);
       throw error;
@@ -382,7 +386,7 @@ export const useClientStore = create<ClientState>((set, get) => ({
       // Update local state
       set((state) => ({
         clients: state.clients.map((client) =>
-          client.id === id ? updatedClient : client
+          client.id === id ? updatedClient : client,
         ),
         selectedClient:
           state.selectedClient?.id === id
@@ -446,5 +450,92 @@ export const useClientStore = create<ClientState>((set, get) => ({
   clearFilters: () => {
     set({ filters: {} });
     get().fetchClients(1, "", {});
+  },
+
+  // Export functions
+  exportExcel: async () => {
+    try {
+      const response = await api.get(`/clients/export-excel/`, {
+        responseType: "blob", // Important for file downloads
+      });
+
+      // Create blob from response
+      const blob = new Blob([response.data]);
+
+      // Try to get filename from Content-Disposition header
+      const contentDisposition = response.headers["content-disposition"];
+      let defaultFilename = "clients_export.xlsx";
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
+        if (filenameMatch) {
+          defaultFilename = filenameMatch[1];
+        }
+      }
+
+      // Check if File System Access API is supported
+      if ("showSaveFilePicker" in window) {
+        try {
+          // Use File System Access API to let user choose location and name
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultFilename,
+            types: [
+              {
+                description: "Excel files",
+                accept: {
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                    [".xlsx"],
+                },
+              },
+            ],
+          });
+
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+
+          return { success: true, filename: fileHandle.name };
+        } catch (error: any) {
+          // User cancelled the dialog or other error
+          if (error.name === "AbortError") {
+            throw new Error("Operação cancelada pelo usuário");
+          }
+          // Fallback to automatic download if File System API fails
+          console.warn(
+            "File System Access API failed, falling back to automatic download:",
+            error,
+          );
+        }
+      }
+
+      // Fallback: automatic download (for unsupported browsers or when File System API fails)
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", defaultFilename);
+      
+      // Ensure the download is visible in browser downloads
+      link.style.display = "none";
+      document.body.appendChild(link);
+      
+      // Add a small delay to ensure the download is registered
+      setTimeout(() => {
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up after a longer delay to ensure download completes
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 2000);
+      }, 100);
+
+      return { success: true, filename: defaultFilename };
+    } catch (error: any) {
+      console.error("Error exporting Excel:", error);
+      const errorMessage = extractErrorMessage(
+        error,
+        "Erro ao exportar dados para Excel",
+      );
+      throw new Error(errorMessage);
+    }
   },
 }));

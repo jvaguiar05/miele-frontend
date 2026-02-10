@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 // Helper function to extract error messages from API responses
 const extractErrorMessage = (
   error: any,
-  fallback: string = "Erro desconhecido"
+  fallback: string = "Erro desconhecido",
 ): string => {
   if (error.response) {
     const { status, data } = error.response;
@@ -147,13 +147,13 @@ interface PerdCompState {
   fetchPerdComps: (
     page?: number,
     searchQuery?: string,
-    filters?: PerdCompFilters
+    filters?: PerdCompFilters,
   ) => Promise<void>;
   fetchPerdCompById: (id: string | number) => Promise<PerdComp>;
   createPerdComp: (perdcompData: Partial<PerdComp>) => Promise<PerdComp>;
   updatePerdComp: (
     id: string | number,
-    perdcompData: Partial<PerdComp>
+    perdcompData: Partial<PerdComp>,
   ) => Promise<PerdComp>;
   deletePerdComp: (id: string | number) => Promise<void>;
   setSelectedPerdComp: (perdcomp: PerdComp | null) => void;
@@ -164,15 +164,15 @@ interface PerdCompState {
 
   // Annotation actions
   fetchPerdCompAnnotations: (
-    perdcompId: string
+    perdcompId: string,
   ) => Promise<PerdCompAnnotation[]>;
   createAnnotation: (
     perdcompId: string,
-    annotationData: any
+    annotationData: any,
   ) => Promise<PerdCompAnnotation>;
   updateAnnotation: (
     annotationId: string,
-    annotationData: any
+    annotationData: any,
   ) => Promise<PerdCompAnnotation>;
   deleteAnnotation: (annotationId: string) => Promise<void>;
 
@@ -181,8 +181,14 @@ interface PerdCompState {
   cancelarPerdComp: (id: string | number, reason?: string) => Promise<PerdComp>;
   atualizarStatus: (
     id: string | number,
-    status: PerDcompStatus
+    status: PerDcompStatus,
   ) => Promise<PerdComp>;
+
+  // Export actions
+  exportExcel: (
+    clientPublicId: string,
+    clientData?: { cnpj?: string; nome_fantasia?: string },
+  ) => Promise<{ success: boolean; filename: string }>;
 }
 
 export const usePerdCompStore = create<PerdCompState>((set, get) => ({
@@ -280,7 +286,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Fetch perdcomp annotations
       try {
         const annotationsResponse = await api.get(
-          `/perdcomps/annotations/by-perdcomp/${perdcomp.id}/`
+          `/perdcomps/annotations/by-perdcomp/${perdcomp.id}/`,
         );
         perdcomp.annotations = annotationsResponse.data.results || [];
       } catch (annotationError) {
@@ -337,7 +343,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
 
   updatePerdComp: async (
     id: string | number,
-    perdcompData: Partial<PerdComp>
+    perdcompData: Partial<PerdComp>,
   ) => {
     set({ isLoading: true, error: null });
     try {
@@ -363,7 +369,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       console.log("📊 Status:", response.status);
       console.log(
         "📨 Response Data:",
-        JSON.stringify(updatedPerdComp, null, 2)
+        JSON.stringify(updatedPerdComp, null, 2),
       );
       console.log("⏰ Timestamp:", new Date().toISOString());
       console.log("───────────────────────────────────────");
@@ -371,7 +377,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id ? updatedPerdComp : perdcomp
+          perdcomp.id === id ? updatedPerdComp : perdcomp,
         ),
         selectedPerdComp:
           state.selectedPerdComp?.id === id
@@ -413,7 +419,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
     } catch (error: any) {
       const errorMessage = extractErrorMessage(
         error,
-        "Erro ao deletar PER/DCOMP"
+        "Erro ao deletar PER/DCOMP",
       );
       set({
         error: errorMessage,
@@ -458,7 +464,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id.toString() ? updatedPerdComp : perdcomp
+          perdcomp.id === id.toString() ? updatedPerdComp : perdcomp,
         ),
         selectedPerdComp:
           state.selectedPerdComp?.id === id.toString()
@@ -489,7 +495,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
       // Update local state
       set((state) => ({
         perdcomps: state.perdcomps.map((perdcomp) =>
-          perdcomp.id === id.toString() ? updatedPerdComp : perdcomp
+          perdcomp.id === id.toString() ? updatedPerdComp : perdcomp,
         ),
         selectedPerdComp:
           state.selectedPerdComp?.id === id.toString()
@@ -516,7 +522,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
   fetchPerdCompAnnotations: async (perdcompId: string) => {
     try {
       const response = await api.get(
-        `/perdcomps/annotations/by-perdcomp/${perdcompId}/`
+        `/perdcomps/annotations/by-perdcomp/${perdcompId}/`,
       );
       return response.data.results || [];
     } catch (error: any) {
@@ -555,7 +561,7 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
     try {
       const response = await api.put(
         `/perdcomps/annotations/${annotationId}/`,
-        annotationData
+        annotationData,
       );
       return response.data;
     } catch (error: any) {
@@ -570,6 +576,106 @@ export const usePerdCompStore = create<PerdCompState>((set, get) => ({
     } catch (error: any) {
       console.error("Error deleting annotation:", error);
       throw error;
+    }
+  },
+
+  // Export functions
+  exportExcel: async (
+    clientPublicId: string,
+    clientData?: { cnpj?: string; nome_fantasia?: string },
+  ) => {
+    try {
+      const response = await api.get(
+        `/perdcomps/export-excel/?client_public_id=${clientPublicId}&optimize_size=false`,
+        {
+          responseType: "blob", // Important for file downloads
+        },
+      );
+
+      // Create blob from response
+      const blob = new Blob([response.data]);
+
+      // Create personalized filename with client CNPJ
+      let defaultFilename = "perdcomps_export.xlsx";
+      if (clientData?.cnpj) {
+        // Clean CNPJ (remove dots, slashes, dashes)
+        const cleanCnpj = clientData.cnpj.replace(/[.\/-]/g, "");
+        defaultFilename = `perdcomps_export_${cleanCnpj}.xlsx`;
+      }
+
+      // Try to get filename from Content-Disposition header (but prioritize our custom name)
+      const contentDisposition = response.headers["content-disposition"];
+      if (contentDisposition && !clientData?.cnpj) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
+        if (filenameMatch) {
+          defaultFilename = filenameMatch[1];
+        }
+      }
+
+      // Check if File System Access API is supported
+      if ("showSaveFilePicker" in window) {
+        try {
+          // Use File System Access API to let user choose location and name
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultFilename,
+            types: [
+              {
+                description: "Excel files",
+                accept: {
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                    [".xlsx"],
+                },
+              },
+            ],
+          });
+
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+
+          return { success: true, filename: fileHandle.name };
+        } catch (error: any) {
+          // User cancelled the dialog or other error
+          if (error.name === "AbortError") {
+            throw new Error("Operação cancelada pelo usuário");
+          }
+          // Fallback to automatic download if File System API fails
+          console.warn(
+            "File System Access API failed, falling back to automatic download:",
+            error,
+          );
+        }
+      }
+
+      // Fallback: automatic download (for unsupported browsers or when File System API fails)
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", defaultFilename);
+      
+      // Ensure the download is visible in browser downloads
+      link.style.display = "none";
+      document.body.appendChild(link);
+      
+      // Add a small delay to ensure the download is registered
+      setTimeout(() => {
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up after a longer delay to ensure download completes
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 2000);
+      }, 100);
+
+      return { success: true, filename: defaultFilename };
+    } catch (error: any) {
+      console.error("Error exporting Excel:", error);
+      const errorMessage = extractErrorMessage(
+        error,
+        "Erro ao exportar dados para Excel",
+      );
+      throw new Error(errorMessage);
     }
   },
 }));

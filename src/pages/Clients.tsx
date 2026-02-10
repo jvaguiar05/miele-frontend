@@ -86,7 +86,7 @@ export default function Clients() {
         }, 300);
       };
     })(),
-    [searchClients, fetchClients]
+    [searchClients, fetchClients],
   );
 
   useEffect(() => {
@@ -168,15 +168,35 @@ export default function Clients() {
 
   const getActiveFiltersCount = () => {
     return Object.values(filters).filter(
-      (value) => value !== undefined && value !== null && value !== ""
+      (value) => value !== undefined && value !== null && value !== "",
     ).length;
   };
 
-  const handleExportExcel = () => {
-    toast({
-      title: "Exportando dados",
-      description: "O arquivo Excel será baixado em breve.",
-    });
+  const handleExportExcel = async () => {
+    try {
+      toast({
+        title: "Exportando dados",
+        description: "Escolha onde salvar o arquivo Excel...",
+        duration: 3000,
+      });
+
+      const { exportExcel } = useClientStore.getState();
+      const result = await exportExcel();
+
+      toast({
+        title: "✅ Arquivo baixado com sucesso",
+        description: `${result.filename} foi salvo. Verifique sua pasta de Downloads ou o local escolhido.`,
+        duration: 5000,
+      });
+    } catch (error: any) {
+      console.error("Error exporting Excel:", error);
+      toast({
+        title: "Erro na exportação",
+        description: error.message || "Não foi possível exportar os dados.",
+        variant: "destructive",
+        duration: 4000,
+      });
+    }
   };
 
   const handleImportExcel = () => {
@@ -218,7 +238,7 @@ export default function Clients() {
                 className="gap-2 text-xs sm:text-sm"
                 size="sm"
               >
-                <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Importar</span>
                 <span className="sm:hidden">Import</span>
               </Button>
@@ -228,7 +248,7 @@ export default function Clients() {
                 className="gap-2 text-xs sm:text-sm"
                 size="sm"
               >
-                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Exportar</span>
                 <span className="sm:hidden">Export</span>
               </Button>

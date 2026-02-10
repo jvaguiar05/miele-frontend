@@ -81,7 +81,7 @@ export default function PerdCompsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editingPerdComp, setEditingPerdComp] = useState<PerdComp | null>(null);
   const [preSelectedClientId, setPreSelectedClientId] = useState<string | null>(
-    null
+    null,
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -135,7 +135,7 @@ export default function PerdCompsPage() {
         }, 300);
       };
     })(),
-    []
+    [],
   );
 
   // Debounced search effect
@@ -149,7 +149,7 @@ export default function PerdCompsPage() {
         }, 300);
       };
     })(),
-    [setFilters]
+    [setFilters],
   );
 
   useEffect(() => {
@@ -244,11 +244,74 @@ export default function PerdCompsPage() {
     }
   };
 
-  const handleExportExcel = () => {
-    toast({
-      title: "Exportando dados",
-      description: "O arquivo Excel será baixado em breve.",
-    });
+  const handleExportExcel = async () => {
+    // Check if a client is selected
+    if (filterClient === "all" || !filterClient) {
+      toast({
+        title: "Selecione um cliente",
+        description:
+          "É necessário selecionar um cliente específico para exportar os dados.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Find the selected client
+      const selectedClientData =
+        displayClients.find(
+          (client) => client.id.toString() === filterClient,
+        ) || clients.find((client) => client.id.toString() === filterClient);
+
+      if (!selectedClientData) {
+        toast({
+          title: "Erro",
+          description: "Cliente selecionado não encontrado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Use public_id if available, otherwise use regular id
+      const clientIdentifier =
+        selectedClientData.public_id || selectedClientData.id;
+
+      if (!clientIdentifier) {
+        toast({
+          title: "Erro",
+          description:
+            "Cliente selecionado não possui identificador válido para exportação.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Exportando dados",
+        description: "Escolha onde salvar o arquivo Excel...",
+        duration: 3000,
+      });
+
+      const { exportExcel } = usePerdCompStore.getState();
+      const result = await exportExcel(clientIdentifier, {
+        cnpj: selectedClientData.cnpj,
+        nome_fantasia: selectedClientData.nome_fantasia,
+      });
+
+      toast({
+        title: "✅ Arquivo baixado com sucesso",
+        description: `${result.filename} foi salvo. Verifique sua pasta de Downloads ou o local escolhido.`,
+        duration: 5000,
+      });
+    } catch (error: any) {
+      console.error("Error exporting Excel:", error);
+      toast({
+        title: "Erro na exportação",
+        description: error.message || "Não foi possível exportar os dados.",
+        variant: "destructive",
+        duration: 4000,
+      });
+    }
   };
 
   const handleImportExcel = async () => {
