@@ -29,6 +29,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Search,
@@ -476,40 +477,21 @@ export default function ClientForm({
 
     setIsSearchingCNPJ(true);
     try {
-      // Use allorigins.win as it's working reliably
-      const proxyUrl = "https://api.allorigins.win/raw?url=";
-      const apiUrl = `https://www.receitaws.com.br/v1/cnpj/${cleanCNPJ}`;
-      const requestUrl = `${proxyUrl}${encodeURIComponent(apiUrl)}`;
-
-      console.log(`Fetching CNPJ data from: ${requestUrl}`);
-
-      const response = await fetch(requestUrl, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
+      // Use backend API endpoint via configured axios client
+      const response = await api.get("clients/lookup-cnpj/", {
+        params: { cnpj: cnpjValue },
       });
 
-      if (!response.ok) {
-        throw new Error(`API request failed with status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log("✅ CNPJ data received:", data);
 
-      if (data.status === "ERROR") {
-        toast({
-          title: "CNPJ não encontrado",
-          description:
-            data.message || "Não foi possível encontrar dados para este CNPJ.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       // Map API response to form fields
-      if (data.nome) setValue("razao_social", data.nome);
-      if (data.fantasia) setValue("nome_fantasia", data.fantasia);
+      if (data.razao_social || data.nome) {
+        setValue("razao_social", data.razao_social || data.nome);
+      }
+      if (data.nome_fantasia || data.fantasia) {
+        setValue("nome_fantasia", data.nome_fantasia || data.fantasia);
+      }
       if (data.email) setValue("email_comercial", data.email);
       if (data.telefone) {
         // Split phone numbers: first = contact, second = commercial
@@ -535,52 +517,25 @@ export default function ClientForm({
       }
 
       // Map natureza_juridica from API to tipo_empresa field
-      if (data.natureza_juridica) {
-        const codigo = extractNaturezaJuridicaCode(data.natureza_juridica);
+      if (data.tipo_empresa || data.natureza_juridica) {
+        const tipo = data.tipo_empresa || data.natureza_juridica;
+        const codigo = extractNaturezaJuridicaCode(tipo);
         const naturezaCompleta =
-          NATUREZAS_JURIDICAS[codigo] || data.natureza_juridica;
+          NATUREZAS_JURIDICAS[codigo] || tipo;
         setValue("tipo_empresa", naturezaCompleta);
         setTipoEmpresa(naturezaCompleta);
       }
 
       // Map CNAEs and Atividades to new merged structure
-      if (data.atividade_principal || data.atividades_secundarias) {
-        const atividades = [];
-
-        // Add principal activity
-        if (data.atividade_principal && data.atividade_principal.length > 0) {
-          atividades.push({
-            cnae: data.atividade_principal[0].code,
-            descricao: data.atividade_principal[0].text,
-          });
-        }
-
-        // Add secondary activities
-        if (
-          data.atividades_secundarias &&
-          data.atividades_secundarias.length > 0
-        ) {
-          interface AtividadeSecundaria {
-            code: string;
-            text: string;
-          }
-
-          const secundarias: Array<{ cnae: string; descricao: string }> =
-            data.atividades_secundarias.map((ativ: AtividadeSecundaria) => ({
-              cnae: ativ.code,
-              descricao: ativ.text,
-            }));
-          atividades.push(...secundarias);
-        }
-
-        setValue("atividades", JSON.stringify(atividades));
+      if (data.atividades && data.atividades.length > 0) {
+        setValue("atividades", JSON.stringify(data.atividades));
       }
 
       // Map QSA to Quadro Societário with new structure
       if (data.qsa && data.qsa.length > 0) {
         const quadroSocietario = data.qsa.map((socio) => ({
           nome: socio.nome,
-          cargo: socio.qual,
+          cargo: socio.cargo,
         }));
         setValue("quadro_societario", JSON.stringify(quadroSocietario));
       }
@@ -600,10 +555,14 @@ export default function ClientForm({
       });
     } catch (error) {
       console.error("Error fetching CNPJ data:", error);
+      const errorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : "Não foi possível consultar os dados do CNPJ. Verifique o CNPJ ou tente novamente.";
+
       toast({
         title: "Erro na consulta",
-        description:
-          "Não foi possível consultar os dados do CNPJ. Tente novamente.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
