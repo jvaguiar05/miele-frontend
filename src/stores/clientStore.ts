@@ -1,6 +1,21 @@
 import { create } from "zustand";
 import api, { apiHelpers } from "@/lib/api";
 
+const formatApiErrorValue = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return value.map(formatApiErrorValue).filter(Boolean).join(", ");
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .map(([field, message]) => `${field}: ${formatApiErrorValue(message)}`)
+      .filter((message) => !message.endsWith(": "))
+      .join(", ");
+  }
+
+  return value == null ? "" : String(value);
+};
+
 // Helper function to extract error messages from API responses
 const extractErrorMessage = (
   error: any,
@@ -12,20 +27,16 @@ const extractErrorMessage = (
     if (data && typeof data === "object") {
       // Handle field-specific validation errors
       if (data.detail) {
-        return `Erro ${status}: ${data.detail}`;
+        return `Erro ${status}: ${formatApiErrorValue(data.detail)}`;
       }
 
       // Handle multiple field errors
-      const fieldErrors: string[] = [];
-      Object.entries(data).forEach(([field, messages]) => {
-        if (Array.isArray(messages)) {
-          messages.forEach((msg: string) => {
-            fieldErrors.push(`${field}: ${msg}`);
-          });
-        } else if (typeof messages === "string") {
-          fieldErrors.push(`${field}: ${messages}`);
-        }
-      });
+      const fieldErrors = Object.entries(data)
+        .map(([field, messages]) => {
+          const message = formatApiErrorValue(messages);
+          return message ? `${field}: ${message}` : "";
+        })
+        .filter(Boolean);
 
       if (fieldErrors.length > 0) {
         return `Erro ${status}: ${fieldErrors.join(", ")}`;
