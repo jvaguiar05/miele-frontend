@@ -27,6 +27,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import PerdCompFileManager from "./PerdCompFileManager";
 import AddPerdCompAnnotationForm from "./AddPerdCompAnnotationForm";
+import DeadlineHistory from "./DeadlineHistory";
 
 interface PerdCompDetailProps {
   perdcompId: string;
@@ -50,6 +51,7 @@ export default function PerdCompDetail({
 
   // Tab options
   const tabOptions = [
+    { value: "deadlines", label: "Vencimentos", icon: "📅" },
     {
       value: "info",
       label: (
@@ -208,7 +210,8 @@ export default function PerdCompDetail({
 
       {/* Desktop Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="hidden sm:grid w-full grid-cols-4">
+        <TabsList className="hidden sm:grid w-full grid-cols-5">
+          <TabsTrigger value="deadlines">Vencimentos</TabsTrigger>
           <TabsTrigger value="info" className="text-sm px-3">
             <FileText className="w-4 h-4 mr-2" />
             Geral
@@ -227,6 +230,7 @@ export default function PerdCompDetail({
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="deadlines"><DeadlineHistory key={perdcompId} id={perdcompId} /></TabsContent>
         <TabsContent value="info" className="space-y-3 sm:space-y-4">
           <Card>
             <CardHeader className="pb-3 sm:pb-6">

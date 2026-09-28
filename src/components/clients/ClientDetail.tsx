@@ -34,6 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import PerdCompDetailModal from "@/components/perdcomps/PerdCompDetailModal";
 import FileManager from "./FileManager";
 import AddAnnotationForm from "./AddAnnotationForm";
+import ClientContracts from "./ClientContracts";
 
 interface ClientDetailProps {
   clientId: string;
@@ -207,7 +208,7 @@ export default function ClientDetail({
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Desktop Tabs */}
-        <TabsList className="hidden sm:grid w-full grid-cols-5">
+        <TabsList className="hidden sm:grid w-full grid-cols-6">
           <TabsTrigger value="info" className="text-sm px-3">
             <User className="w-4 h-4 mr-2" />
             Informações
@@ -227,6 +228,10 @@ export default function ClientDetail({
           <TabsTrigger value="perdcomps" className="text-sm px-3">
             <BarChart3 className="w-4 h-4 mr-2" />
             PER/DCOMPs
+          </TabsTrigger>
+          <TabsTrigger value="contracts" className="text-sm px-3">
+            <DollarSign className="w-4 h-4 mr-2" />
+            Contratos
           </TabsTrigger>
         </TabsList>
 
@@ -267,9 +272,14 @@ export default function ClientDetail({
                   PER/DCOMPs
                 </div>
               </SelectItem>
+              <SelectItem value="contracts">
+                <div className="flex items-center"><DollarSign className="w-4 h-4 mr-2" />Contratos</div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        <TabsContent value="contracts"><ClientContracts clientId={clientId} /></TabsContent>
 
         <TabsContent value="info" className="space-y-3 sm:space-y-4">
           <Card>

@@ -14,11 +14,14 @@ import Footer from "@/components/layout/footer";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
-import Home from "./pages/Home";
+import Home from "./pages/OperationalDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Clients from "./pages/Clients";
 import PerdComps from "./pages/PerdComps";
-import Reports from "./pages/Reports";
+import Reports from "./pages/UpcomingReport";
+import StatusReport from "./pages/StatusReport";
+import QuarterClosing from "./pages/QuarterClosing";
+import DailyUpdates from "./pages/DailyUpdates";
 import Configuration from "./pages/Configuration";
 import Profile from "./pages/Profile";
 import Requests from "./pages/Requests";
@@ -72,6 +75,9 @@ const App = () => (
               <Route path="/perdcomps" element={<PerdComps />} />
               <Route path="/perdcomps/:id" element={<PerdComps />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/reports/status" element={<StatusReport />} />
+              <Route path="/reports/quarters" element={<QuarterClosing />} />
+              <Route path="/reports/updates" element={<DailyUpdates />} />
               <Route path="/configuration" element={<Configuration />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/requests" element={<Requests />} />

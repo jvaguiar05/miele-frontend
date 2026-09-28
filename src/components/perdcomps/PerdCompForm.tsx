@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import api from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -107,6 +108,7 @@ const TRIBUTOS_PEDIDO = {
 };
 
 const perdcompSchema = z.object({
+  due_date_reason: z.string().optional(),
   client_id: z.string().min(1, "Cliente é obrigatório"),
   cnpj: z
     .string()
@@ -342,7 +344,7 @@ export default function PerdCompForm({
       : {
           client_id: clientId || "",
           cnpj: "", // Will be populated by useEffect when client loads
-          status: "RASCUNHO" as any,
+          status: "TRANSMITIDO" as PerDcompStatus,
           valor_pedido: "",
           valor_compensado: "",
           valor_recebido: "",
@@ -466,6 +468,7 @@ export default function PerdCompForm({
       // Transform data to match API expectations
       const apiData: any = {
         ...data,
+        recalculate_due_date: automaticDue,
         client_cnpj: data.cnpj, // Send CNPJ for backend identification
         cnpj: undefined, // Remove separate cnpj field since it's now client_cnpj
       };
@@ -523,6 +526,21 @@ export default function PerdCompForm({
       variant: "destructive",
     });
   };
+
+  const [automaticDue, setAutomaticDue] = useState(!perdcomp?.id);
+  const [duePreview, setDuePreview] = useState<{ due: string; alert_start: string } | null>(null);
+  const [previewError, setPreviewError] = useState(false);
+  const transmissionDate = watch("data_transmissao");
+  useEffect(() => {
+    if (!automaticDue || !transmissionDate) { setDuePreview(null); return; }
+    const controller = new AbortController();
+    setDuePreview(null);
+    setPreviewError(false);
+    api.get("/perdcomps/deadline-preview/", { params: { transmission: transmissionDate }, signal: controller.signal })
+      .then(({ data }) => { setDuePreview(data); setValue("data_vencimento", data.due); })
+      .catch(() => { if (!controller.signal.aborted) setPreviewError(true); });
+    return () => controller.abort();
+  }, [transmissionDate, automaticDue, setValue]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
@@ -754,13 +772,13 @@ export default function PerdCompForm({
               onValueChange={(value) =>
                 setValue("status", value as PerDcompStatus)
               }
-              value={watch("status") || "RASCUNHO"}
+              value={watch("status") || "TRANSMITIDO"}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="RASCUNHO">Rascunho</SelectItem>
+                {perdcomp?.status === "RASCUNHO" && <SelectItem value="RASCUNHO" disabled>Rascunho (histórico)</SelectItem>}
                 <SelectItem value="TRANSMITIDO">Transmitido</SelectItem>
                 <SelectItem value="EM_PROCESSAMENTO">
                   Em Processamento
@@ -778,7 +796,16 @@ export default function PerdCompForm({
         </TabsContent>
 
         {/* Aba Datas */}
-        <TabsContent value="dates" className="space-y-4">
+          <TabsContent value="dates" className="space-y-4">
+            {!automaticDue && <div className="space-y-2"><Label htmlFor="due_date_reason">Justificativa da exceção de vencimento</Label><Textarea id="due_date_reason" {...register("due_date_reason")} placeholder="Obrigatória se definir uma nova data diferente do cálculo automático." /></div>}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={automaticDue} onChange={e => setAutomaticDue(e.target.checked)} />
+              Calcular vencimento: transmissão + 1 ano, próximo dia útil
+            </label>
+            <p className="text-xs text-muted-foreground">Calendário: dias de semana, exceto feriados nacionais fixos e datas adicionais configuradas. Ao editar, o vencimento atual é preservado até ativar o cálculo.</p>
+            {automaticDue && !transmissionDate && <p className="text-sm">Informe a transmissão para visualizar a previsão. Se omitida, será usada a data atual ao salvar.</p>}
+            {previewError && <p role="alert" className="text-sm text-destructive">Não foi possível carregar a previsão. O cálculo será validado ao salvar.</p>}
+            {automaticDue && duePreview && <p className="text-sm">Alerta a partir de {duePreview.alert_start.split("-").reverse().join("/")}.</p>}
           <div className="space-y-2">
             <Label htmlFor="data_transmissao">Data de Transmissão</Label>
             <Input
@@ -791,9 +818,10 @@ export default function PerdCompForm({
 
           <div className="space-y-2">
             <Label htmlFor="data_vencimento">Data de Vencimento</Label>
-            <Input
-              id="data_vencimento"
-              type="date"
+              <Input
+                id="data_vencimento"
+                type="date"
+                readOnly={automaticDue}
               {...register("data_vencimento")}
               className="[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer"
             />
@@ -978,6 +1006,7 @@ export default function PerdCompForm({
                 )}
               />
             </div>
+
             <p className="text-xs text-muted-foreground">
               Valor dos juros SELIC aplicados
             </p>
