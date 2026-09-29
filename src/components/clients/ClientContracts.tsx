@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
-type Totals = Record<"requested" | "compensated" | "received", { base: string; calculated: string }>;
-interface Contract { id: string; percentage: string; starts_on: string; ends_on: string | null; reference: string; notes: string; billing_evolution_requested: boolean; process_count: number; totals: Totals; }
+type Total = { base: string; calculated: string; formula?: string };
+type Totals = Record<"requested" | "compensated" | "received" | "contractual", Total>;
+interface Contract { id: string; percentage: string; starts_on: string; ends_on: string | null; reference: string; notes: string; billing_evolution_requested: boolean; process_count: number; calculation_basis: "compensated_plus_received"; totals: Totals; }
 interface Result { mode: "informational"; contracts: Contract[]; uncovered_processes: number; notice: string; }
 const empty = { percentage: "", starts_on: "", ends_on: "", reference: "", notes: "", billing_evolution_requested: false };
 const money = (v: string) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v));
@@ -39,7 +40,7 @@ export default function ClientContracts({ clientId }: { clientId: string }) {
   const labels = { requested: "Valor pedido", compensated: "Valor compensado", received: "Valor recebido" };
 
   return <div className="space-y-4">
-    <Card className="border-amber-300 bg-amber-50/50"><CardContent className="pt-5"><p className="font-medium">Cálculo exclusivamente informativo</p><p className="text-sm text-muted-foreground">Não gera honorários, cobrança, contas a pagar ou obrigação financeira. A vigência é aplicada pela data de transmissão da PER/DCOMP.</p></CardContent></Card>
+    <Card className="border-amber-300 bg-amber-50/50"><CardContent className="pt-5"><p className="font-medium">Cálculo exclusivamente informativo</p><p className="text-sm text-muted-foreground">O percentual contratual incide sobre a soma do valor compensado com o valor recebido. Não gera honorários, cobrança, contas a pagar ou obrigação financeira. A vigência é aplicada pela data de transmissão da PER/DCOMP.</p></CardContent></Card>
     {isAdmin && <Card><CardHeader><CardTitle>{editing ? "Atualizar contrato" : "Adicionar contrato e vigência"}</CardTitle></CardHeader><CardContent>
       <form className="space-y-4" onSubmit={e => { e.preventDefault(); save.mutate(); }}>
         <div className="grid md:grid-cols-4 gap-3">
@@ -56,7 +57,8 @@ export default function ClientContracts({ clientId }: { clientId: string }) {
     {query.isPending && <p>Carregando contratos…</p>}{query.isError && <p className="text-destructive">Não foi possível carregar os contratos.</p>}
     {!!query.data?.uncovered_processes && <p className="text-sm text-amber-700">Atenção: {query.data.uncovered_processes} PER/DCOMP(s) não possuem contrato vigente na data de transmissão e não entram nos cálculos.</p>}
     {query.data?.contracts.map(c => <Card key={c.id}><CardHeader><div className="flex flex-wrap justify-between gap-2"><CardTitle>{Number(c.percentage).toLocaleString("pt-BR")}% · {date(c.starts_on)} até {date(c.ends_on)}</CardTitle>{isAdmin && <Button variant="outline" size="sm" onClick={() => edit(c)}>Atualizar</Button>}</div><p className="text-sm text-muted-foreground">{c.reference || "Sem referência"} · {c.process_count} PER/DCOMP(s)</p></CardHeader><CardContent className="space-y-3">
-      <div className="grid md:grid-cols-3 gap-3">{Object.entries(labels).map(([keyName, label]) => { const total = c.totals[keyName as keyof Totals]; return <div key={keyName} className="border rounded p-3"><p className="text-sm text-muted-foreground">{label}</p><p className="text-sm">Base: {money(total.base)}</p><p className="font-semibold">Informativo: {money(total.calculated)}</p></div>; })}</div>
+      <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-4"><p className="text-sm font-medium text-primary">Percentual contratual sobre Compensado + Recebido</p><p className="text-sm mt-1">Base: {money(c.totals.contractual.base)}</p><p className="text-2xl font-bold mt-1">Resultado informativo: {money(c.totals.contractual.calculated)}</p></div>
+      <div className="grid md:grid-cols-3 gap-3">{Object.entries(labels).map(([keyName, label]) => { const total = c.totals[keyName as "requested" | "compensated" | "received"]; return <div key={keyName} className="border rounded p-3"><p className="text-sm text-muted-foreground">{label}</p><p className="font-semibold">{money(total.base)}</p><p className="text-xs text-muted-foreground">Simulação isolada: {money(total.calculated)}</p></div>; })}</div>
       {c.billing_evolution_requested && <p className="text-sm font-medium text-blue-700">Evolução futura para honorários devidos sinalizada ao desenvolvimento.</p>}{c.notes && <p className="text-sm">Observações: {c.notes}</p>}
     </CardContent></Card>)}
     {query.data && !query.data.contracts.length && <Card><CardContent className="py-6 text-muted-foreground">Nenhum contrato percentual cadastrado.</CardContent></Card>}

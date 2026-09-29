@@ -7,8 +7,8 @@ Acesso: Clientes → abrir um cliente → aba **Contratos**.
 - Um cliente pode possuir vários contratos, cada um com percentual e vigência próprios.
 - A data de transmissão da PER/DCOMP define qual contrato se aplica.
 - Vigências sobrepostas são bloqueadas para evitar dois percentuais aplicáveis ao mesmo processo.
-- O sistema mantém simultaneamente três simulações: percentual sobre valor pedido, compensado e recebido. Nenhuma delas é prioritária neste momento.
-- Cada cartão exibe a soma da base e o valor percentual calculado para os três formatos.
+- O percentual contratual incide sobre a soma `valor compensado + valor recebido`.
+- O resultado contratual é destacado, enquanto pedido, compensado e recebido permanecem visíveis com suas simulações isoladas para conferência.
 - PER/DCOMPs sem contrato vigente são contadas e destacadas, mas não entram em nenhum cálculo.
 - Valores vazios ou inválidos são tratados como zero. Valores em formatos `1000.00` e `1.000,00` são aceitos pelo cálculo.
 
