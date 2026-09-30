@@ -1,23 +1,23 @@
-# Taxa Selic acumulada para pagamento
+# Selic no Miele
 
-Acesso: **Relatórios → Selic acumulada** (`/reports/selic`).
+Acesso: **Relatórios → Selic** (`/reports/selic`).
 
-## Conteúdo e permissões
+## O que a tabela representa
 
-- Carga inicial: 380 índices mensais fornecidos, de fevereiro/1995 a setembro/2026.
-- Fonte inicial: Sicalc — Sistema de Cálculo de Acréscimos Legais; emissão de referência em 25/09/2026.
-- Janeiro/1995 e meses posteriores a setembro/2026 não foram preenchidos e aparecem como indisponíveis, não como zero.
-- Administradores e funcionários aprovados podem consultar, calcular, imprimir e exportar CSV.
-- Somente administradores podem incluir ou alterar uma taxa. Não existe exclusão pela API.
-- Ano e mês são únicos. Taxas negativas, meses inválidos e anos fora de 1995–2100 são rejeitados.
-- Alterações entram no Relatório de Atualizações Diárias como auditoria de Taxa Selic acumulada.
+A carga inicial é o relatório do Sicalc emitido em 25/09/2026, com taxas acumuladas **para pagamento em setembro/2026**. Ela não é uma tabela genérica de taxas mensais.
 
-## Calculadora
+- Fevereiro/1995 a setembro/2026: 380 valores publicados.
+- Janeiro/1995 e outubro a dezembro/2026: vazios; vazio nunca é convertido em zero.
+- Setembro/2026: `0,00`, um valor oficial válido.
 
-Fórmula informativa: `juros = valor-base × taxa acumulada ÷ 100`. O total atualizado é `valor-base + juros`.
+## Atualização segura
 
-A calculadora não decide automaticamente qual competência deve ser usada e não inclui multa ou outros acréscimos. O usuário deve confirmar o período e as regras aplicáveis antes do uso oficial.
+Somente o administrador pode selecionar um novo PDF oficial. O sistema extrai e apresenta uma prévia com competência de pagamento, emissão, quantidade de valores, lacunas e divergências. Nada é salvo antes da confirmação.
 
-## Atualização manual
+Cada confirmação cria uma versão imutável, preservando PDF original, hash, tabela extraída, usuário e data. Uma correção manual exige justificativa e também cria outra versão; o histórico não é sobrescrito.
 
-Na própria aba, o administrador informa ano, mês, taxa, fonte e data de referência. Clicar em uma célula existente carrega seus dados para edição; informar um mês ainda vazio cria o novo índice.
+Todos os usuários aprovados podem consultar versões e exportar CSV. Apenas administradores podem importar ou corrigir.
+
+## Limite atual
+
+As taxas mensais oficiais ainda não foram importadas. O Miele não tenta derivá-las da tabela acumulada e não estima períodos futuros. Para implementar cálculos completos de créditos e débitos, ainda é necessário obter o relatório oficial de taxas mensais e validar as regras de incidência.
