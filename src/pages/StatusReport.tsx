@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ClientMultiFilter, { type ReportClient } from "@/components/reports/ClientMultiFilter";
+import ReportTabs from "@/components/reports/ReportTabs";
 
 const statuses = { RASCUNHO: "Rascunho (histórico)", TRANSMITIDO: "Transmitido", EM_PROCESSAMENTO: "Em processamento", DEFERIDO: "Deferido", INDEFERIDO: "Indeferido", PARCIALMENTE_DEFERIDO: "Parcialmente deferido", CANCELADO: "Cancelado", VENCIDO: "Vencido" };
 const defaults = { client: "", client_id: "", client_ids: "", status: "", tax: "", start: "", end: "", date_field: "data_transmissao", scope: "all" };
@@ -50,6 +51,7 @@ export default function StatusReport() {
   };
   const field = (key: keyof Filters, label: string, type = "text") => <div><Label htmlFor={`status-${key}`}>{label}</Label><Input id={`status-${key}`} type={type} value={draft[key]} onChange={e => setDraft({ ...draft, [key]: e.target.value })} /></div>;
   return <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+    <ReportTabs />
     <div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-3xl font-bold">Relatórios personalizados</h1><p className="text-muted-foreground mt-2">Combine clientes, status, tributo, grupo e período. O resultado representa o estado atual e não reconstrói o status histórico.</p></div><Button asChild variant="outline"><Link to="/reports">Próximos a vencer</Link></Button></div>
     <Card className="p-4"><form className="space-y-4" onSubmit={e => { e.preventDefault(); apply(); }}>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

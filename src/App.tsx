@@ -22,6 +22,7 @@ import Reports from "./pages/UpcomingReport";
 import StatusReport from "./pages/StatusReport";
 import QuarterClosing from "./pages/QuarterClosing";
 import DailyUpdates from "./pages/DailyUpdates";
+import SelicReport from "./pages/SelicReport";
 import Configuration from "./pages/Configuration";
 import Profile from "./pages/Profile";
 import Requests from "./pages/Requests";
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="/reports/status" element={<StatusReport />} />
               <Route path="/reports/quarters" element={<QuarterClosing />} />
               <Route path="/reports/updates" element={<DailyUpdates />} />
+              <Route path="/reports/selic" element={<SelicReport />} />
               <Route path="/configuration" element={<Configuration />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/requests" element={<Requests />} />
