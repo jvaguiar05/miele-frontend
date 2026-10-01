@@ -79,7 +79,8 @@ const App = () => (
               <Route path="/reports/status" element={<StatusReport />} />
               <Route path="/reports/quarters" element={<QuarterClosing />} />
               <Route path="/reports/updates" element={<DailyUpdates />} />
-              <Route path="/reports/selic" element={<SelicReport />} />
+              <Route path="/reports/selic" element={<SelicReport key="accumulated" />} />
+              <Route path="/reports/selic-monthly" element={<SelicReport key="monthly" monthly />} />
               <Route path="/configuration" element={<Configuration />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/requests" element={<Requests />} />

@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const tabs = [
-  ["Personalizado", "/reports/status"], ["Selic acumulada", "/reports/selic"],
+  ["Personalizado", "/reports/status"], ["Selic Acumulada", "/reports/selic"], ["Selic Mensal", "/reports/selic-monthly"],
   ["Próximos a vencer", "/reports"], ["Fechamento trimestral", "/reports/quarters"],
   ["Atualizações diárias", "/reports/updates"],
 ] as const;

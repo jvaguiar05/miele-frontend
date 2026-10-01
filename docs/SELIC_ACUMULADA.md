@@ -1,5 +1,15 @@
 # Selic no Miele
 
+## Selic Mensal
+
+A aba **Selic Mensal**, ao lado da acumulada, usa o mesmo fluxo: selecionar PDF, conferir prévia e confirmar. Cada tipo mantém versões e taxas separadas. Somente ADM importa/corrige; usuários aprovados consultam, exportam CSV e baixam o original.
+
+As duas abas oferecem o link **Consultar taxas no Sicalc**, aberto em uma nova guia. Os PDFs mensais usam a mesma pasta `GDRIVE_SELIC_FOLDER_ID`; não é necessária outra configuração do Drive.
+
+O PDF mensal emitido em 01/10/2026 contém 380 taxas, de fevereiro/1995 a setembro/2026. Setembro/2026: 1,08%. Janeiro/1995 e outubro a dezembro/2026 estão vazios. O relatório foi validado e importado apenas no sandbox; em produção, o ADM deve confirmar sua importação após publicar backend e frontend.
+
+A migração `0014_selic_report_type` classifica os relatórios existentes como acumulados e inclui o tipo na identificação das versões. Esta mudança não realiza cálculos ou alterações nos registros de PER/DCOMP.
+
 Acesso: **Relatórios → Selic** (`/reports/selic`).
 
 ## O que a tabela representa
