@@ -22,6 +22,10 @@ type VersionInfo = { status: "current" | "superseded" | "previous" | "cancelled"
 type Document = { id?: string; key: string; fields: Record<string, Value>; status?: string; completeness: string; importable?: boolean; duplicate?: boolean; retifier?: boolean; ocr_used?: boolean; ocr_confidence?: number | null; issues?: string[]; missing?: Relation[]; relations: Relation[]; debts: Record<string, Value>[]; components: Record<string, unknown>[]; files: number[] | Source[]; reviews?: { reviewer: number; date: string; reason: string }[]; operational?: OperationalPlan; version?: VersionInfo; version_status?: string; superseded_by?: string | null; operational_id?: string | null };
 type PreviewClient = { id: string; cnpj: string; razao_social: string; nome_fantasia?: string | null };
 type Preview = { token: string; client_id: string; client?: PreviewClient; files: Source[]; groups: Document[]; counts: { files: number; documents: number; importable: number; rejected: number } };
+type BatchFileSummary = { index: number; name: string; sha256: string; pages: number; status?: string; issues?: string[] };
+type ClientPreviewOption = { cnpj: string; registered: boolean; client: PreviewClient | null; file_count: number; document_count: number; importable: number; rejected: number; preview?: Preview };
+type MultiClientPreview = { selection_required: true; clients: ClientPreviewOption[]; unassigned_files: BatchFileSummary[]; counts: { files: number; clients: number; unassigned: number }; notice: string };
+type AutomaticPreview = Preview | MultiClientPreview;
 type ReprocessDocument = { key: string; document_id: string; fields: Record<string, Value>; retifier: boolean; version: VersionInfo; operational: OperationalPlan; files: { id: string; name: string; kind: string; sha256: string; pages: number }[] };
 type ReprocessPreview = { token: string; documents: ReprocessDocument[]; counts: { pending: number; financial_confirmation: number }; notice: string };
 type Change = { sha256: string; field: string; value: Value; reason: string };
@@ -72,6 +76,7 @@ function missingClientCnpj(error: unknown): string | null {
     : null;
 }
 const formatCnpj = (value: string) => value.replace(/\D/g, "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+const isMultiClientPreview = (value: AutomaticPreview): value is MultiClientPreview => "selection_required" in value && value.selection_required === true;
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a"); link.href = url; link.download = name; link.click();
@@ -107,11 +112,13 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const [reprocessReason, setReprocessReason] = useState("");
   const [detectedClientId, setDetectedClientId] = useState<string | null>(clientId || null);
   const [unregisteredCnpj, setUnregisteredCnpj] = useState<string | null>(null);
+  const [clientOptions, setClientOptions] = useState<ClientPreviewOption[]>([]);
+  const [unassignedBatchFiles, setUnassignedBatchFiles] = useState<BatchFileSummary[]>([]);
   const autoAnalyzeStarted = useRef(false);
   const clientRef = useRef(clientId);
   const effectiveClientId = clientId || detectedClientId;
   const base = effectiveClientId ? `/clients/${effectiveClientId}/perdcomp-imports/` : "";
-  useEffect(() => { clientRef.current = clientId; setDetectedClientId(clientId || null); setPreview(null); setFiles(initialFiles ? [...initialFiles] : []); setChanges([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setResult(null); setUnregisteredCnpj(null); autoAnalyzeStarted.current = false; setOpen(startOpen); setReprocessOpen(false); setReprocessPreview(null); setOffset(0); }, [clientId, initialFiles, startOpen]);
+  useEffect(() => { clientRef.current = clientId; setDetectedClientId(clientId || null); setPreview(null); setFiles(initialFiles ? [...initialFiles] : []); setChanges([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setResult(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false; setOpen(startOpen); setReprocessOpen(false); setReprocessPreview(null); setOffset(0); }, [clientId, initialFiles, startOpen]);
   useEffect(() => { let active = true;
     if (!base || panelHidden) { setDocuments([]); setManualIssues([]); setNext(null); setLoadError(""); return () => { active = false; }; }
     api.get(base + `documents/?offset=${offset}`).then(({ data }) => { if (active) { setDocuments(data.results); setManualIssues(data.manual_issues || []); setNext(data.next_offset); setLoadError(""); } }).catch(error => { if (active) setLoadError(message(error)); });
@@ -120,14 +127,33 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   function form(currentChanges = changes) {
     const data = new FormData(); files.forEach(file => data.append("files", file)); data.append("changes", JSON.stringify(currentChanges)); return data;
   }
+  function selectClientOption(option: ClientPreviewOption) {
+    setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setReason("");
+    if (!option.registered || !option.client || !option.preview) {
+      setDetectedClientId(null); setPreview(null); setUnregisteredCnpj(option.cnpj); return;
+    }
+    setUnregisteredCnpj(null); setDetectedClientId(option.client.id); setPreview(option.preview);
+    setSelected(option.preview.groups.filter(group => group.importable).map(group => group.key));
+  }
   async function analyze(currentChanges = changes) {
+    const previousClientId = detectedClientId;
     setBusy(true); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setReason(""); setUnregisteredCnpj(null);
     try {
       const previewUrl = clientId ? base + "preview/" : "/perdcomps/import/preview/";
-      const { data } = await api.post<Preview>(previewUrl, form(currentChanges), { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 });
+      const { data } = await api.post<AutomaticPreview>(previewUrl, form(currentChanges), { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 });
       if (clientRef.current !== clientId) return;
-      if (!clientId) setDetectedClientId(data.client_id);
-      setPreview(data); setChanges(currentChanges); setEditing(null);
+      setChanges(currentChanges); setEditing(null);
+      if (!clientId && isMultiClientPreview(data)) {
+        setClientOptions(data.clients); setUnassignedBatchFiles(data.unassigned_files);
+        const previous = data.clients.find(option => option.client?.id === previousClientId);
+        if (previous) selectClientOption(previous);
+        else setDetectedClientId(null);
+      } else {
+        const single = data as Preview;
+        setClientOptions([]); setUnassignedBatchFiles([]);
+        if (!clientId) setDetectedClientId(single.client_id);
+        setPreview(single);
+      }
     } catch (error) {
       const cnpj = !clientId ? missingClientCnpj(error) : null;
       if (cnpj && onClientNotFound) setUnregisteredCnpj(cnpj);
@@ -151,10 +177,16 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       data.append("ocr_confirmed", JSON.stringify(ocrConfirmed));
       const response = await api.post(`/clients/${effectiveClientId}/perdcomp-imports/confirm/`, data, { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 });
       if (clientRef.current !== clientId) return;
-      setResult(response.data); setPreview(null); setFiles([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setOffset(0);
+      const remainingClients = clientOptions.filter(option => option.client?.id !== effectiveClientId);
+      setResult(response.data); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setDetectedClientId(clientId || null); setUnregisteredCnpj(null); setOffset(0);
+      if (clientOptions.length > 0 && remainingClients.length > 0) {
+        setClientOptions(remainingClients);
+      } else {
+        setFiles([]); setChanges([]); setClientOptions([]); setUnassignedBatchFiles([]);
+      }
       await onOperationalChanged();
       setStorageMessage(response.data.storage?.message || "");
-      toast.success("Importação concluída com os valores conferidos.");
+      toast.success(remainingClients.length > 0 ? "Cliente registrado. Selecione o próximo cliente do lote." : "Importação concluída com os valores conferidos.");
     } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
   }
   async function reviewImported() {
@@ -259,7 +291,9 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
     <Dialog open={open} onOpenChange={v => { if (!busy) { setOpen(v); onImportOpenChange?.(v); } }}><DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Importar PER/DCOMPs</DialogTitle><DialogDescription>Envie um PDF, vários PDFs ou um ZIP. PDFs com texto ou em imagem passam pela mesma conferência. OCR e valores financeiros exigem sua autorização antes do registro.</DialogDescription></DialogHeader>
       <div className="space-y-3">
         <Label htmlFor="perdcomp-batch-files">PDFs, ZIP ou pacote .miele.zip · até 100 arquivos / 50 MB · OCR direto: 20 páginas · pacote OCR local: 500 páginas</Label>
-        <Input id="perdcomp-batch-files" type="file" accept=".pdf,.zip" multiple disabled={busy} onChange={e => { setFiles(Array.from(e.target.files || [])); if (!clientId) setDetectedClientId(null); setUnregisteredCnpj(null); autoAnalyzeStarted.current = false; setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setResult(null); }} />
+        <Input id="perdcomp-batch-files" type="file" accept=".pdf,.zip" multiple disabled={busy} onChange={e => { setFiles(Array.from(e.target.files || [])); if (!clientId) setDetectedClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false; setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setResult(null); }} />
+        {clientOptions.length > 0 && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-3"><div><p className="font-medium text-sm">{clientOptions.length} cliente(s) disponível(is) neste lote</p><p className="text-xs text-muted-foreground">Escolha um cliente por vez. O sistema exibirá e registrará somente os PDFs associados ao CNPJ selecionado.</p></div><div className="grid gap-2 sm:grid-cols-2">{clientOptions.map(option => { const active = option.client?.id === detectedClientId || (!option.registered && option.cnpj === unregisteredCnpj); return <div key={option.cnpj} className={`rounded-md border bg-background p-3 ${active ? "border-primary ring-1 ring-primary" : ""}`}><p className="text-sm font-medium">{option.client?.razao_social || "Cliente ainda não cadastrado"}</p><p className="text-xs text-muted-foreground">CNPJ {formatCnpj(option.cnpj)}</p><div className="my-2 flex flex-wrap gap-1"><Badge variant="secondary">{option.file_count} PDF(s)</Badge><Badge variant="outline">{option.document_count} documento(s)</Badge>{option.registered && <Badge variant="outline">{option.importable} publicável(is)</Badge>}</div><Button size="sm" variant={active ? "secondary" : "outline"} disabled={busy} onClick={() => selectClientOption(option)}>{active ? "Cliente selecionado" : option.registered ? "Selecionar cliente" : "Cadastrar este cliente"}</Button></div>; })}</div></div>}
+        {unassignedBatchFiles.length > 0 && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"><p className="font-medium">{unassignedBatchFiles.length} arquivo(s) sem titularização segura</p><p>Esses arquivos não serão atribuídos automaticamente a nenhum cliente. Separe-os e importe dentro do cadastro correto para conferência.</p><p className="mt-1 break-words">{unassignedBatchFiles.map(file => file.name).join(" · ")}</p></div>}
         <div className="flex items-center gap-3"><Button disabled={!files.length || busy} onClick={() => analyze()}>{busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}Gerar prévia</Button><span className="text-xs text-muted-foreground">{files.length} arquivo(s) selecionado(s). Nada é salvo antes da confirmação.</span></div>
         {unregisteredCnpj && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-medium">Cliente não cadastrado</p><p className="mt-1">O CNPJ {formatCnpj(unregisteredCnpj)} foi identificado nos arquivos. Deseja cadastrar esse cliente agora?</p><p className="mt-1 text-xs">Os arquivos selecionados serão preservados e a prévia continuará automaticamente após o cadastro.</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setUnregisteredCnpj(null)}>Agora não</Button><Button size="sm" onClick={() => onClientNotFound?.(unregisteredCnpj, [...files])}>Cadastrar cliente</Button></div></div>}
         {result && <div role="status" className="rounded-md bg-muted p-3 text-sm">Concluído: {String(result.created)} documento(s) documental(is), {String(result.attached)} PDF(s). Operacional: {String((result.operational as Record<string, unknown>)?.created || 0)} criado(s), {String((result.operational as Record<string, unknown>)?.updated || 0)} atualizado(s), {String((result.operational as Record<string, unknown>)?.linked || 0)} apenas vinculado(s). Pendências manuais criadas: {String(result.manual_pending_created || 0)}. <p className="mt-1 text-xs">{storageMessage}</p><Button variant="link" size="sm" onClick={() => download(new Blob([JSON.stringify(result, null, 2)], { type: "application/json" }), "resultado-importacao.json")}>Baixar resultado</Button></div>}
