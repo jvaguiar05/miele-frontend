@@ -163,7 +163,7 @@ export default function PerdCompDetail({
   };
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-3 sm:space-y-6 overflow-x-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <Button
@@ -209,30 +209,30 @@ export default function PerdCompDetail({
       </div>
 
       {/* Desktop Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="hidden sm:grid w-full grid-cols-5">
-          <TabsTrigger value="deadlines">Vencimentos</TabsTrigger>
-          <TabsTrigger value="info" className="text-sm px-3">
-            <FileText className="w-4 h-4 mr-2" />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0 max-w-full">
+        <TabsList className="hidden sm:grid h-auto w-full min-w-0 grid-cols-5 gap-1">
+          <TabsTrigger value="deadlines" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">Vencimentos</TabsTrigger>
+          <TabsTrigger value="info" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
+            <FileText className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
             Geral
           </TabsTrigger>
-          <TabsTrigger value="values" className="text-sm px-3">
-            <DollarSign className="w-4 h-4 mr-2" />
+          <TabsTrigger value="values" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
+            <DollarSign className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
             Valores
           </TabsTrigger>
-          <TabsTrigger value="notes" className="text-sm px-3">
-            <StickyNote className="w-4 h-4 mr-2" />
+          <TabsTrigger value="notes" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
+            <StickyNote className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
             Anotações
           </TabsTrigger>
-          <TabsTrigger value="files" className="text-sm px-3">
-            <Folder className="w-4 h-4 mr-2" />
+          <TabsTrigger value="files" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
+            <Folder className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
             Arquivos
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="deadlines"><DeadlineHistory key={perdcompId} id={perdcompId} /></TabsContent>
         <TabsContent value="info" className="space-y-3 sm:space-y-4">
-          <Card>
+          <Card className="min-w-0 max-w-full">
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="text-base sm:text-lg">
                 Detalhes do PER/DCOMP
@@ -359,62 +359,62 @@ export default function PerdCompDetail({
           </Card>
         </TabsContent>
 
-        <TabsContent value="values" className="space-y-3 sm:space-y-4">
-          <Card>
+        <TabsContent value="values" className="min-w-0 max-w-full space-y-3 sm:space-y-4">
+          <Card className="min-w-0 max-w-full overflow-hidden">
             <CardHeader className="pb-3 sm:pb-6">
               <CardTitle className="text-base sm:text-lg">
                 Valores Financeiros
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 sm:space-y-4 px-6 sm:px-8">
+            <CardContent className="min-w-0 max-w-full space-y-3 px-4 sm:space-y-4 sm:px-8">
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                   <span className="text-sm text-muted-foreground">
                     Valor do Pedido
                   </span>
-                  <span className="text-lg sm:text-xl font-semibold">
+                  <span className="min-w-0 max-w-full text-left text-lg font-semibold tabular-nums [overflow-wrap:anywhere] sm:text-right sm:text-xl">
                     {formatCurrency(
                       parseFloat(selectedPerdComp.valor_pedido || "0")
                     )}
                   </span>
                 </div>
                 <Separator />
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                   <span className="text-sm text-muted-foreground">
                     Valor Compensado
                   </span>
-                  <span className="text-lg sm:text-xl font-semibold text-blue-600">
+                  <span className="min-w-0 max-w-full text-left text-lg font-semibold text-blue-600 tabular-nums [overflow-wrap:anywhere] sm:text-right sm:text-xl">
                     {formatCurrency(
                       parseFloat(selectedPerdComp.valor_compensado || "0")
                     )}
                   </span>
                 </div>
                 <Separator />
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                   <span className="text-sm text-muted-foreground">
                     Valor Recebido
                   </span>
-                  <span className="text-lg sm:text-xl font-semibold text-success">
+                  <span className="min-w-0 max-w-full text-left text-lg font-semibold text-success tabular-nums [overflow-wrap:anywhere] sm:text-right sm:text-xl">
                     {formatCurrency(
                       parseFloat(selectedPerdComp.valor_recebido || "0")
                     )}
                   </span>
                 </div>
                 <Separator />
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                   <span className="text-sm text-muted-foreground">
                     Valor SELIC
                   </span>
-                  <span className="text-lg sm:text-xl font-semibold text-purple-600">
+                  <span className="min-w-0 max-w-full text-left text-lg font-semibold text-purple-600 tabular-nums [overflow-wrap:anywhere] sm:text-right sm:text-xl">
                     {formatCurrency(
                       parseFloat(selectedPerdComp.valor_selic || "0")
                     )}
                   </span>
                 </div>
                 <Separator />
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1">
+                <div className="grid min-w-0 grid-cols-1 items-center gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                   <span className="text-sm text-muted-foreground">Saldo</span>
-                  <span className="text-lg sm:text-xl font-semibold text-orange-600">
+                  <span className="min-w-0 max-w-full text-left text-lg font-semibold text-orange-600 tabular-nums [overflow-wrap:anywhere] sm:text-right sm:text-xl">
                     {formatCurrency(
                       parseFloat(selectedPerdComp.valor_saldo || "0")
                     )}

@@ -28,3 +28,6 @@ dist-ssr
 .env.local
 .env.production
 .env.development
+
+# Private customer documents used only for local import validation.
+/PerDComp/

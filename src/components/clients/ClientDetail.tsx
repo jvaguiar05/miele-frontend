@@ -35,6 +35,7 @@ import PerdCompDetailModal from "@/components/perdcomps/PerdCompDetailModal";
 import FileManager from "./FileManager";
 import AddAnnotationForm from "./AddAnnotationForm";
 import ClientContracts from "./ClientContracts";
+import ClientPerdcompImports from "./ClientPerdcompImports";
 
 interface ClientDetailProps {
   clientId: string;
@@ -737,6 +738,7 @@ export default function ClientDetail({
         </TabsContent>
 
         <TabsContent value="perdcomps" className="space-y-3 sm:space-y-4">
+          <ClientPerdcompImports key={clientId} clientId={clientId} onAddPerdComp={onAddPerdComp} onOperationalChanged={() => fetchClientPerdComps(displayClient.cnpj)} operationalPerdcomps={clientPerdComps} />
           {clientPerdComps.length > 0 && (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
               <h3 className="text-lg font-semibold">PER/DCOMPs do Cliente</h3>
@@ -792,6 +794,15 @@ export default function ClientDetail({
                         >
                           {perdcomp.status}
                         </Badge>
+                        {perdcomp.version_status && perdcomp.version_status !== "VIGENTE" && (
+                          <Badge variant="outline" className="text-xs">
+                            {perdcomp.version_status === "SUBSTITUIDA"
+                              ? "Substituída"
+                              : perdcomp.version_status === "CANCELADA"
+                              ? "Cancelada"
+                              : "Versão anterior"}
+                          </Badge>
+                        )}
                       </div>
 
                       <Button

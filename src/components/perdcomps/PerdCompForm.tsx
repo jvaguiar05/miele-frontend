@@ -354,6 +354,17 @@ export default function PerdCompForm({
         },
   });
 
+  const requestedValue = watch("valor_pedido");
+  const compensatedValue = watch("valor_compensado");
+  const receivedValue = watch("valor_recebido");
+  useEffect(() => {
+    const requested = Number(requestedValue || 0);
+    const compensated = Number(compensatedValue || 0);
+    const received = Number(receivedValue || 0);
+    const balance = requested - compensated - received;
+    setValue("valor_saldo", Number.isFinite(balance) ? balance.toFixed(2) : "", { shouldValidate: true });
+  }, [requestedValue, compensatedValue, receivedValue, setValue]);
+
   // Reset form when perdcomp changes
   useEffect(() => {
     if (perdcomp) {
@@ -961,20 +972,15 @@ export default function PerdCompForm({
                       placeholder="0,00"
                       className="pl-10"
                       value={formatCurrencyDisplay(field.value || "")}
-                      onChange={(e) => {
-                        const unformatted = unformatCurrency(e.target.value);
-                        field.onChange(unformatted);
-                        setValue("valor_saldo", unformatted, {
-                          shouldValidate: true,
-                        });
-                      }}
+                      readOnly
+                      aria-describedby="valor-saldo-help"
                       onBlur={field.onBlur}
                     />
                   )}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Saldo remanescente
+              <p id="valor-saldo-help" className="text-xs text-muted-foreground">
+                Calculado automaticamente: Pedido − (Compensado + Recebido)
               </p>
             </div>
           </div>

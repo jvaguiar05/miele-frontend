@@ -53,12 +53,14 @@ import { Badge } from "@/components/ui/badge";
 import PerdCompTable from "@/components/perdcomps/PerdCompTable";
 import PerdCompForm from "@/components/perdcomps/PerdCompForm";
 import PerdCompDetail from "@/components/perdcomps/PerdCompDetail";
+import ClientPerdcompImports from "@/components/clients/ClientPerdcompImports";
+import ClientForm from "@/components/clients/ClientForm";
 import {
   usePerdCompStore,
   type PerdComp,
   type PerDcompStatus,
 } from "@/stores/perdcompStore";
-import { useClientStore } from "@/stores/clientStore";
+import { useClientStore, type Client } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -69,8 +71,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { extractPdfText } from "@/lib/pdf/extractPdfText";
-import { parsePerdcompReceiptText } from "@/lib/pdf/parsePerdcompReceipt";
 
 export default function PerdCompsPage() {
   const { id } = useParams();
@@ -90,6 +90,11 @@ export default function PerdCompsPage() {
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [searchedClients, setSearchedClients] = useState<any[]>([]);
   const [isSearchingClients, setIsSearchingClients] = useState(false);
+  const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
+  const [batchImportSession, setBatchImportSession] = useState(0);
+  const [batchImportContext, setBatchImportContext] = useState<{ clientId?: string; files?: File[]; autoAnalyze?: boolean }>({});
+  const [pendingClientImport, setPendingClientImport] = useState<{ cnpj: string; files: File[] } | null>(null);
+  const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
 
   const {
     perdcomps,
@@ -314,70 +319,30 @@ export default function PerdCompsPage() {
     }
   };
 
-  const handleImportExcel = async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/pdf";
-    input.click();
+  const handleBatchImport = () => {
+    setBatchImportContext({});
+    setBatchImportSession(current => current + 1);
+    setIsBatchImportOpen(true);
+  };
 
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
+  const continueImportAfterClientCreation = async (savedClient: Client) => {
+    const identifier = savedClient.public_id || savedClient.id;
+    const preservedFiles = pendingClientImport?.files || [];
+    setIsClientCreateOpen(false);
+    setPendingClientImport(null);
+    await fetchClients();
+    setBatchImportContext({ clientId: String(identifier), files: preservedFiles, autoAnalyze: true });
+    setBatchImportSession(current => current + 1);
+    setIsBatchImportOpen(true);
+  };
 
-      if (file.type !== "application/pdf") {
-        toast({
-          title: "Arquivo inválido",
-          description: "Selecione um PDF.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      try {
-        const text = await extractPdfText(file);
-
-        if (!text || text.trim().length < 30) {
-          toast({
-            title: "Não foi possível ler o PDF",
-            description:
-              "Esse PDF parece ser um scan (imagem) ou está protegido. Sem OCR não dá para extrair os dados.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const parsed = parsePerdcompReceiptText(text);
-
-        // validação mínima: se faltar isso, nem abre o form
-        if (!parsed.cnpj || !parsed.numero_perdcomp) {
-          toast({
-            title: "PDF fora do padrão",
-            description:
-              "CNPJ e/ou Número do Documento não foi encontrado no texto do PDF.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // abre o form preenchido
-        setEditingPerdComp(parsed as PerdComp);
-        setPreSelectedClientId(null);
-        setIsFormOpen(true);
-
-        toast({
-          title: "Dados importados",
-          description:
-            "Formulário preenchido. Confira e complete o que faltar.",
-        });
-      } catch (err) {
-        console.error(err);
-        toast({
-          title: "Erro ao importar PDF",
-          description: "Falha ao processar o arquivo.",
-          variant: "destructive",
-        });
-      }
-    };
+  const returnToImportAfterClientCancel = () => {
+    const preservedFiles = pendingClientImport?.files || [];
+    setIsClientCreateOpen(false);
+    setPendingClientImport(null);
+    setBatchImportContext({ files: preservedFiles });
+    setBatchImportSession(current => current + 1);
+    setIsBatchImportOpen(true);
   };
 
   const handleStatusFilterChange = (status: string) => {
@@ -414,12 +379,12 @@ export default function PerdCompsPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button
-                onClick={handleImportExcel}
+                onClick={handleBatchImport}
                 variant="outline"
                 className="gap-2 text-xs sm:text-sm"
                 size="sm"
               >
-                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Importar</span>
                 <span className="sm:hidden">Import</span>
               </Button>
@@ -429,7 +394,7 @@ export default function PerdCompsPage() {
                 className="gap-2 text-xs sm:text-sm"
                 size="sm"
               >
-                <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Exportar</span>
                 <span className="sm:hidden">Export</span>
               </Button>
@@ -720,6 +685,59 @@ export default function PerdCompsPage() {
         )}
       </div>
 
+      {isBatchImportOpen && (
+        <ClientPerdcompImports
+          key={`automatic-${batchImportSession}`}
+          clientId={batchImportContext.clientId}
+          initialFiles={batchImportContext.files}
+          autoAnalyze={batchImportContext.autoAnalyze}
+          startOpen
+          panelHidden
+          operationalPerdcomps={[]}
+          onClientNotFound={(cnpj, files) => {
+            setPendingClientImport({ cnpj, files });
+            setIsBatchImportOpen(false);
+            setIsClientCreateOpen(true);
+          }}
+          onAddPerdComp={() => {
+            setIsBatchImportOpen(false);
+            setBatchImportContext({});
+            handleAdd();
+          }}
+          onOperationalChanged={async () => { await fetchPerdComps(); }}
+          onImportOpenChange={(open) => {
+            setIsBatchImportOpen(open);
+            if (!open) setBatchImportContext({});
+          }}
+        />
+      )}
+
+      <Dialog
+        open={isClientCreateOpen}
+        onOpenChange={(open) => {
+          if (!open && pendingClientImport) {
+            returnToImportAfterClientCancel();
+            return;
+          }
+          setIsClientCreateOpen(open);
+        }}
+      >
+        <DialogContent className="w-[95vw] sm:max-w-3xl h-[90vh] sm:max-h-[85vh] p-0 gap-0">
+          <DialogHeader className="p-4 sm:p-6 pb-0">
+            <DialogTitle className="text-base sm:text-lg">Cadastrar cliente identificado no PDF</DialogTitle>
+            <p className="text-sm text-muted-foreground">Confira os dados encontrados pelo CNPJ e complete somente o que for necessário. Após salvar, a importação continuará com os mesmos arquivos.</p>
+          </DialogHeader>
+          <div className="overflow-y-auto h-full p-4 sm:p-6 pt-4">
+            {pendingClientImport && <ClientForm
+              initialCnpj={pendingClientImport.cnpj}
+              autoLookupCnpj
+              onSuccess={continueImportAfterClientCreation}
+              onCancel={returnToImportAfterClientCancel}
+            />}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Form Dialog */}
       <Dialog
         open={isFormOpen}
@@ -768,7 +786,7 @@ export default function PerdCompsPage() {
           }
         }}
       >
-        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <DialogContent className="w-[calc(100vw_-_2rem)] max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="sr-only">Detalhes do PER/DCOMP</DialogTitle>
           </DialogHeader>

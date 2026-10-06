@@ -1,7 +1,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,7 +108,9 @@ type ClientFormData = z.infer<typeof clientSchema>;
 
 interface ClientFormProps {
   client?: Client;
-  onSuccess: () => void;
+  initialCnpj?: string;
+  autoLookupCnpj?: boolean;
+  onSuccess: (savedClient: Client) => void;
   onCancel: () => void;
 }
 
@@ -423,6 +425,8 @@ const convertFormToClient = (formData: ClientFormData): Partial<Client> => {
 
 export default function ClientForm({
   client,
+  initialCnpj,
+  autoLookupCnpj = false,
   onSuccess,
   onCancel,
 }: ClientFormProps) {
@@ -431,6 +435,7 @@ export default function ClientForm({
   const [tipoEmpresa, setTipoEmpresa] = useState<string>("");
   const [isSearchingCNPJ, setIsSearchingCNPJ] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
+  const searchedInitialCnpj = useRef<string | null>(null);
   const isEditing = Boolean(client);
 
   const {
@@ -453,8 +458,8 @@ export default function ClientForm({
   });
 
   // Function to search CNPJ data
-  const searchCNPJData = async () => {
-    const cnpjValue = getValues("cnpj");
+  const searchCNPJData = useCallback(async (cnpjOverride?: string) => {
+    const cnpjValue = cnpjOverride || getValues("cnpj");
     if (!cnpjValue) {
       toast({
         title: "CNPJ obrigatório",
@@ -568,7 +573,7 @@ export default function ClientForm({
     } finally {
       setIsSearchingCNPJ(false);
     }
-  };
+  }, [getValues, setValue, toast]);
 
   // Populate form when client data is provided for editing
   useEffect(() => {
@@ -579,6 +584,7 @@ export default function ClientForm({
     } else {
       // Reset to default values for new client
       reset({
+        cnpj: initialCnpj ? formatCNPJ(initialCnpj) : "",
         recuperacao_judicial: false,
         autorizado_para_envio: false,
         is_active: true,
@@ -586,31 +592,40 @@ export default function ClientForm({
       });
       setTipoEmpresa("");
     }
-  }, [client, reset]);
+  }, [client, initialCnpj, reset]);
+
+  useEffect(() => {
+    if (client || !initialCnpj || !autoLookupCnpj) return;
+    const normalized = initialCnpj.replace(/\D/g, "");
+    if (normalized.length !== 14 || searchedInitialCnpj.current === normalized) return;
+    searchedInitialCnpj.current = normalized;
+    void searchCNPJData(formatCNPJ(normalized));
+  }, [autoLookupCnpj, client, initialCnpj, searchCNPJData]);
 
   const onSubmit = async (data: ClientFormData) => {
     console.log("Form submitted with data:", data);
 
     try {
       const clientData = convertFormToClient(data);
+      let savedClient: Client;
 
       if (client?.id) {
         // Update existing client
-        await updateClient(client.id, clientData);
+        savedClient = await updateClient(client.id, clientData);
         toast({
           title: "Cliente atualizado",
           description: "O cliente foi atualizado com sucesso.",
         });
       } else {
         // Create new client
-        await createClient(clientData);
+        savedClient = await createClient(clientData);
         toast({
           title: "Cliente criado",
           description: "O cliente foi cadastrado com sucesso.",
         });
       }
 
-      onSuccess();
+      onSuccess(savedClient);
     } catch (error: any) {
       console.error("Error saving client:", error);
       toast({
@@ -735,7 +750,7 @@ export default function ClientForm({
                     type="button"
                     variant="outline"
                     size="icon"
-                    onClick={searchCNPJData}
+                    onClick={() => void searchCNPJData()}
                     disabled={isSearchingCNPJ}
                     className="shrink-0"
                   >

@@ -172,9 +172,17 @@ export interface PerDcomp {
   valor_recebido?: number | string;
   valor_saldo?: string | number;
   valor_selic?: string | number;
+  valor_compensado_declarado?: string | number | null;
+  valor_compensado_homologado?: string | number | null;
+  credito_original_utilizado?: string | number | null;
+  saldo_credito_original?: string | number | null;
+  valor_recebido_banco?: string | number | null;
 
   // Status do processo
   status: string;
+  version_status?: "VIGENTE" | "SUBSTITUIDA" | "VERSAO_ANTERIOR" | "CANCELADA";
+  status_compensacao?: string;
+  status_ressarcimento?: string;
 
   // Controles de sistema
   is_active?: boolean;

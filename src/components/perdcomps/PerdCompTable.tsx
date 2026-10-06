@@ -179,9 +179,9 @@ export default function PerdCompTable({
                   </p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Valor Recebido:</span>
+                  <span className="text-muted-foreground">Saldo:</span>
                   <p className="font-medium mt-1">
-                    {formatCurrency(parseFloat(perdcomp.valor_recebido || "0"))}
+                    {formatCurrency(parseFloat(perdcomp.valor_saldo || "0"))}
                   </p>
                 </div>
               </div>
@@ -209,7 +209,7 @@ export default function PerdCompTable({
               <TableHead>Tributo</TableHead>
               <TableHead>Competência</TableHead>
               <TableHead>Valor Pedido</TableHead>
-              <TableHead>Valor Recebido</TableHead>
+              <TableHead>Saldo</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Transmissão</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -236,7 +236,7 @@ export default function PerdCompTable({
                   {formatCurrency(parseFloat(perdcomp.valor_pedido || "0"))}
                 </TableCell>
                 <TableCell>
-                  {formatCurrency(parseFloat(perdcomp.valor_recebido || "0"))}
+                  {formatCurrency(parseFloat(perdcomp.valor_saldo || "0"))}
                 </TableCell>
                 <TableCell>
                   <Badge variant={getStatusColor(perdcomp.status)}>

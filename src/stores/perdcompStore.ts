@@ -104,6 +104,15 @@ export interface PerdComp {
   valor_recebido: string;
   valor_saldo: string;
   valor_selic: string;
+  valor_solicitado?: string | null;
+  valor_compensado_declarado?: string | null;
+  valor_compensado_homologado?: string | null;
+  credito_original_utilizado?: string | null;
+  saldo_credito_original?: string | null;
+  valor_recebido_banco?: string | null;
+  version_status?: "VIGENTE" | "SUBSTITUIDA" | "VERSAO_ANTERIOR" | "CANCELADA";
+  status_compensacao?: string;
+  status_ressarcimento?: string;
   status: PerDcompStatus;
   is_active: boolean;
   created_at: string;
