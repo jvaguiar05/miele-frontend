@@ -53,6 +53,7 @@ import { Badge } from "@/components/ui/badge";
 import PerdCompTable from "@/components/perdcomps/PerdCompTable";
 import PerdCompForm from "@/components/perdcomps/PerdCompForm";
 import PerdCompDetail from "@/components/perdcomps/PerdCompDetail";
+import PerdcompStorageQueue from "@/components/perdcomps/PerdcompStorageQueue";
 import ClientPerdcompImports from "@/components/clients/ClientPerdcompImports";
 import ClientForm from "@/components/clients/ClientForm";
 import {
@@ -92,6 +93,7 @@ export default function PerdCompsPage() {
   const [isSearchingClients, setIsSearchingClients] = useState(false);
   const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
   const [batchImportSession, setBatchImportSession] = useState(0);
+  const [storageQueueRefresh, setStorageQueueRefresh] = useState(0);
   const [batchImportContext, setBatchImportContext] = useState<{ clientId?: string; files?: File[]; autoAnalyze?: boolean }>({});
   const [pendingClientImport, setPendingClientImport] = useState<{ cnpj: string; files: File[] } | null>(null);
   const [isClientCreateOpen, setIsClientCreateOpen] = useState(false);
@@ -411,6 +413,8 @@ export default function PerdCompsPage() {
           </div>
         </div>
 
+        <PerdcompStorageQueue refreshKey={storageQueueRefresh} />
+
         {/* Stats Cards */}
         <div className="mb-4 sm:mb-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -705,6 +709,7 @@ export default function PerdCompsPage() {
             handleAdd();
           }}
           onOperationalChanged={async () => { await fetchPerdComps(); }}
+          onStorageChanged={() => setStorageQueueRefresh(current => current + 1)}
           onImportOpenChange={(open) => {
             setIsBatchImportOpen(open);
             if (!open) setBatchImportContext({});
