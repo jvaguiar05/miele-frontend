@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import api from "@/lib/api";
+import api, { ensureBackendReady } from "@/lib/api";
 import Cookies from "js-cookie";
 
 interface User {
@@ -31,11 +31,18 @@ interface Profile {
   updated_at?: string;
 }
 
+export type LoginStage =
+  | "idle"
+  | "connecting"
+  | "authenticating"
+  | "loading-profile";
+
 interface AuthState {
   user: User | null;
   profile: Profile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  loginStage: LoginStage;
   isAdmin: boolean;
   signUp: (
     email: string,
@@ -66,6 +73,7 @@ export const useAuthStore = create<AuthState>()(
       profile: null,
       isAuthenticated: false,
       isLoading: false,
+      loginStage: "idle",
       isAdmin: false,
 
       signUp: async (
@@ -117,12 +125,25 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signIn: async (username: string, password: string) => {
-        set({ isLoading: true });
+        set({
+          isLoading: true,
+          loginStage: "connecting",
+          isAuthenticated: false,
+        });
         try {
-          const response = await api.post("/auth/login/", {
-            username,
-            password,
-          });
+          // Wake the free Render service without sending credentials. Never
+          // retry the login POST automatically because failed attempts are
+          // intentionally throttled by the backend.
+          await ensureBackendReady();
+          set({ loginStage: "authenticating" });
+
+          Cookies.remove("access_token");
+          Cookies.remove("refresh_token");
+          const response = await api.post(
+            "/auth/login/",
+            { username, password },
+            { timeout: 45000 }
+          );
 
           const { access, refresh } = response.data;
 
@@ -131,11 +152,17 @@ export const useAuthStore = create<AuthState>()(
           Cookies.set("refresh_token", refresh, { expires: 14 }); // 14 days
 
           // Fetch user data and RBAC information
+          set({ loginStage: "loading-profile" });
           await get().getCurrentUser();
+          if (!get().isAuthenticated) {
+            throw new Error(
+              "O acesso foi validado, mas não foi possível carregar seu perfil. Tente novamente."
+            );
+          }
 
-          set({ isLoading: false });
+          set({ isLoading: false, loginStage: "idle" });
         } catch (error: any) {
-          set({ isLoading: false });
+          set({ isLoading: false, loginStage: "idle" });
           const errorData = error.response?.data;
           if (errorData?.detail) {
             throw new Error(errorData.detail);

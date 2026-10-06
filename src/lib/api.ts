@@ -2,8 +2,79 @@ import axios from "axios";
 import Cookies from "js-cookie";
 
 // Base API configuration following Django REST Framework patterns
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
+
+const BACKEND_READY_TIMEOUT_MS = 100000;
+const BACKEND_READY_CACHE_MS = 60000;
+let backendReadyAt = 0;
+let backendReadinessRequest: Promise<void> | null = null;
+
+const backendReadyUrl = () => {
+  const normalized = API_BASE_URL.replace(/\/+$/, "");
+  if (/^https?:\/\//i.test(normalized)) {
+    return new URL("/health/ready", normalized).toString();
+  }
+  return `${window.location.origin}/health/ready`;
+};
+
+export class BackendUnavailableError extends Error {
+  constructor() {
+    super(
+      "O servidor demorou para iniciar. Aguarde alguns segundos e tente novamente."
+    );
+    this.name = "BackendUnavailableError";
+  }
+}
+
+const wait = (milliseconds: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+
+const waitForBackendReady = async () => {
+  const deadline = Date.now() + BACKEND_READY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now();
+    try {
+      const response = await axios.get(backendReadyUrl(), {
+        timeout: Math.min(20000, Math.max(1000, remaining)),
+        headers: { Accept: "application/json" },
+        validateStatus: () => true,
+      });
+      if (response.status === 200 && response.data?.status === "ready") {
+        backendReadyAt = Date.now();
+        return;
+      }
+    } catch {
+      // A sleeping Render service can reset the connection while waking up.
+    }
+
+    const pause = Math.min(3000, deadline - Date.now());
+    if (pause > 0) await wait(pause);
+  }
+
+  throw new BackendUnavailableError();
+};
+
+/**
+ * Wake the Render service before credentials are submitted. The shared promise
+ * prevents the login-page warm-up and the submit action from duplicating work.
+ */
+export const ensureBackendReady = async () => {
+  if (Date.now() - backendReadyAt < BACKEND_READY_CACHE_MS) return;
+  if (backendReadinessRequest) return backendReadinessRequest;
+
+  backendReadinessRequest = waitForBackendReady()
+    .catch((error) => {
+      if (error instanceof BackendUnavailableError) throw error;
+      throw new BackendUnavailableError();
+    })
+    .finally(() => {
+      backendReadinessRequest = null;
+    });
+
+  return backendReadinessRequest;
+};
 
 // Create axios instance with Django REST API configuration
 export const api = axios.create({
@@ -40,15 +111,25 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // Handle 401 Unauthorized - token expired
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isLoginRequest = String(originalRequest?.url || "").includes(
+      "/auth/login/"
+    );
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isLoginRequest
+    ) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = Cookies.get("refresh_token");
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
-            refresh: refreshToken,
-          });
+          const response = await axios.post(
+            `${API_BASE_URL}/auth/refresh/`,
+            { refresh: refreshToken },
+            { timeout: 45000 }
+          );
 
           const { access, refresh: newRefresh } = response.data;
 

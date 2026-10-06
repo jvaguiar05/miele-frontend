@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/authStore";
+import { ensureBackendReady } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
@@ -34,9 +35,12 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, isLoading } = useAuthStore();
+  const { signIn, isLoading, loginStage } = useAuthStore();
   const [rememberMe, setRememberMe] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [backendState, setBackendState] = useState<
+    "checking" | "waking" | "ready" | "unavailable"
+  >("checking");
 
   const carouselItems = [
     {
@@ -90,6 +94,27 @@ export default function Login() {
     return () => clearInterval(timer);
   }, [carouselItems.length]);
 
+  useEffect(() => {
+    let active = true;
+    const slowNotice = window.setTimeout(() => {
+      if (active) setBackendState("waking");
+    }, 1500);
+
+    void ensureBackendReady()
+      .then(() => {
+        if (active) setBackendState("ready");
+      })
+      .catch(() => {
+        if (active) setBackendState("unavailable");
+      })
+      .finally(() => window.clearTimeout(slowNotice));
+
+    return () => {
+      active = false;
+      window.clearTimeout(slowNotice);
+    };
+  }, []);
+
   const handlePrevSlide = () => {
     setCurrentSlide(
       (prev) => (prev - 1 + carouselItems.length) % carouselItems.length
@@ -117,6 +142,9 @@ export default function Login() {
       });
       navigate("/home");
     } catch (error: any) {
+      if (error?.name === "BackendUnavailableError") {
+        setBackendState("unavailable");
+      }
       toast({
         title: "Erro no login",
         description: error.message || "Credenciais inválidas. Tente novamente.",
@@ -149,6 +177,25 @@ export default function Login() {
               Entre com suas credenciais para acessar o sistema
             </p>
           </div>
+
+          {backendState === "waking" && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
+            >
+              O servidor está iniciando. Isso pode levar até um minuto; você
+              pode preencher seus dados enquanto aguarda.
+            </div>
+          )}
+          {backendState === "unavailable" && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              O servidor demorou para responder. Ao clicar em Entrar, faremos
+              uma nova verificação antes de enviar sua senha.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
@@ -217,7 +264,11 @@ export default function Login() {
               {isLoading || isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  Entrando...
+                  {loginStage === "connecting"
+                    ? "Preparando servidor..."
+                    : loginStage === "loading-profile"
+                    ? "Carregando perfil..."
+                    : "Verificando acesso..."}
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
