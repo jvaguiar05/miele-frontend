@@ -65,6 +65,12 @@ function message(error: unknown) {
       if (typeof detail === "string" && detail.trim()) return detail;
     }
   }
+  if (typeof error === "object" && error !== null) {
+    const timeout = error as { code?: unknown; message?: unknown };
+    if (timeout.code === "ECONNABORTED" || (typeof timeout.message === "string" && timeout.message.toLowerCase().includes("timeout"))) {
+      return "Este PDF em imagem demorou além do limite seguro. Prepare-o com o Miele OCR Local e envie o pacote .miele.zip pelo mesmo botão Importar.";
+    }
+  }
   return error instanceof Error ? error.message : "Não foi possível concluir a operação.";
 }
 function missingClientCnpj(error: unknown): string | null {
