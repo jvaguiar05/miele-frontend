@@ -839,7 +839,11 @@ export default function ClientDetail({
                         </div>
                         <p className="text-sm font-bold text-primary">
                           {(() => {
-                            if (!perdcomp.valor_pedido) return "R$ 0,00";
+                            if (
+                              perdcomp.valor_pedido === null ||
+                              perdcomp.valor_pedido === undefined ||
+                              perdcomp.valor_pedido === ""
+                            ) return "Não informado";
 
                             // Convert to string and try to parse as number
                             const valueStr = String(perdcomp.valor_pedido);
@@ -853,10 +857,9 @@ export default function ClientDetail({
                               numericValue = parseFloat(cleanValue);
                             }
 
-                            const finalValue = isNaN(numericValue)
-                              ? 0
-                              : numericValue;
-                            return formatCurrency(finalValue);
+                            return isNaN(numericValue)
+                              ? "Não informado"
+                              : formatCurrency(numericValue);
                           })()}
                         </p>
                       </div>

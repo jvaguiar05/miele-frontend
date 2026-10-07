@@ -61,7 +61,7 @@ import {
   type PerdComp,
   type PerDcompStatus,
 } from "@/stores/perdcompStore";
-import { useClientStore, type Client } from "@/stores/clientStore";
+import { useClientStore } from "@/stores/clientStore";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -327,15 +327,21 @@ export default function PerdCompsPage() {
     setIsBatchImportOpen(true);
   };
 
-  const continueImportAfterClientCreation = async (savedClient: Client) => {
-    const identifier = savedClient.public_id || savedClient.id;
+  const continueImportAfterClientCreation = async () => {
     const preservedFiles = pendingClientImport?.files || [];
     setIsClientCreateOpen(false);
     setPendingClientImport(null);
-    await fetchClients();
-    setBatchImportContext({ clientId: String(identifier), files: preservedFiles, autoAnalyze: true });
+    setBatchImportContext({ files: preservedFiles, autoAnalyze: true });
     setBatchImportSession(current => current + 1);
     setIsBatchImportOpen(true);
+    try {
+      await fetchClients();
+    } catch {
+      toast({
+        title: "Cliente cadastrado",
+        description: "A importação foi retomada, mas a lista de clientes não pôde ser atualizada agora.",
+      });
+    }
   };
 
   const returnToImportAfterClientCancel = () => {

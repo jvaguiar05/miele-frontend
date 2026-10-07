@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, Download, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileText, Loader2, RefreshCw, Upload } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 type Value = string | number | boolean | null;
@@ -33,6 +35,11 @@ type ManualIssue = { id: string; name: string; sha256: string; pages: number; is
 type StorageSummary = { status: string; total: number; archived: number; pending: number; pending_drive: number; pending_release: number; database_copies: number; unavailable: number; processed?: number; released?: number; failed?: number; message?: string };
 type OperationalOption = { id: string; numero_perdcomp?: string; numero?: string };
 type ClientPerdcompImportsProps = { clientId?: string; initialFiles?: File[]; autoAnalyze?: boolean; onClientNotFound?: (cnpj: string, files: File[]) => void; onAddPerdComp: () => void; onOperationalChanged: () => Promise<void>; onStorageChanged?: () => void; operationalPerdcomps: OperationalOption[]; startOpen?: boolean; panelHidden?: boolean; onImportOpenChange?: (open: boolean) => void };
+type ActiveTask = "analyzing" | "confirming" | null;
+type FlowError = { title: string; impact: string; solution: string; detail?: string; retry?: "preview" };
+const MAX_BATCH_FILES = 100;
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+const MAX_BATCH_BYTES = 50 * 1024 * 1024;
 const statuses: Record<string, string> = { ready: "Pronto", review: "Revisão necessária", duplicate: "Duplicado", no_text: "PDF sem texto", wrong_client: "CNPJ divergente", missing_reference: "Referência ausente", retifier: "Retificação", conflict: "Conflito", rejected: "Não suportado" };
 const completeness: Record<string, string> = { complete: "Demonstrativo + recibo", receipt_only: "Somente recibo", demonstrative_only: "Somente demonstrativo", conflict: "Evidências conflitantes" };
 const operationalActions: Record<string, string> = { create: "Criar no operacional", update: "Atualizar operacional", link_only: "Somente vincular", manual: "Tratamento manual", conflict: "Conflito operacional" };
@@ -54,7 +61,13 @@ const labels: Record<string, string> = {
 };
 const moneyKeys = new Set(["initial_credit", "delivery_credit", "updated_credit", "eligible_credit", "requested", "used", "declared_balance", "total_debts", "principal", "original_principal", "fine", "interest", "total", "assessed", "component_total", "deductions", "previous_use", "balance", "valor_pedido", "valor_compensado", "valor_recebido", "valor_saldo", "valor_solicitado", "valor_compensado_declarado", "valor_compensado_homologado", "credito_original_utilizado", "saldo_credito_original"]);
 const readOnlyFields = new Set(["protocol", "cnpj", "program", "version", "modality", "revision_kind", "credit_tax", "sequence", "transmitted_time", "code", "extension", "description", "original_principal"]);
-const display = (key: string, value: unknown): string => value === null || value === undefined ? "Não informado" : typeof value === "boolean" ? value ? "Sim" : "Não" : typeof value === "object" ? Object.entries(value).map(([k, v]) => `${labels[k] || k}: ${display(k, v)}`).join(" · ") : moneyKeys.has(key) ? Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : String(value);
+const display = (key: string, value: unknown): string => value === null || value === undefined || value === "" ? "Não informado" : typeof value === "boolean" ? value ? "Sim" : "Não" : typeof value === "object" ? Object.entries(value).map(([k, v]) => `${labels[k] || k}: ${display(k, v)}`).join(" · ") : moneyKeys.has(key) && Number.isFinite(Number(value)) ? Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : String(value);
+function isTimeoutError(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+  const timeout = error as { code?: unknown; message?: unknown };
+  return timeout.code === "ECONNABORTED"
+    || (typeof timeout.message === "string" && timeout.message.toLowerCase().includes("timeout"));
+}
 function message(error: unknown) {
   if (typeof error === "object" && error !== null && "response" in error) {
     const response = (error as { response?: { data?: unknown } }).response;
@@ -65,12 +78,7 @@ function message(error: unknown) {
       if (typeof detail === "string" && detail.trim()) return detail;
     }
   }
-  if (typeof error === "object" && error !== null) {
-    const timeout = error as { code?: unknown; message?: unknown };
-    if (timeout.code === "ECONNABORTED" || (typeof timeout.message === "string" && timeout.message.toLowerCase().includes("timeout"))) {
-      return "Este PDF em imagem demorou além do limite seguro. Prepare-o com o Miele OCR Local e envie o pacote .miele.zip pelo mesmo botão Importar.";
-    }
-  }
+  if (isTimeoutError(error)) return "A operação excedeu o tempo limite. Verifique a conexão e tente novamente.";
   return error instanceof Error ? error.message : "Não foi possível concluir a operação.";
 }
 function missingClientCnpj(error: unknown): string | null {
@@ -84,6 +92,41 @@ function missingClientCnpj(error: unknown): string | null {
 }
 const formatCnpj = (value: string) => value.replace(/\D/g, "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 const isMultiClientPreview = (value: AutomaticPreview): value is MultiClientPreview => "selection_required" in value && value.selection_required === true;
+const statusLabel = (status?: string) => status ? statuses[status] || "Revisão necessária" : "Situação não informada";
+const completenessLabel = (value?: string) => value ? completeness[value] || "Conferência necessária" : "Conteúdo não informado";
+const operationalActionLabel = (action?: string) => action ? operationalActions[action] || "Conferir ação proposta" : "Ação não informada";
+const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+function fileSelectionProblem(files: File[]): FlowError | null {
+  const unsupported = files.filter(file => !/\.(pdf|zip)$/i.test(file.name));
+  if (unsupported.length) return { title: "Formato de arquivo não aceito", impact: "A prévia não pode ser gerada com esta seleção.", solution: "Selecione somente PDFs, ZIPs ou pacotes .miele.zip.", detail: unsupported.map(file => file.name).join(" · ") };
+  const oversized = files.filter(file => /\.pdf$/i.test(file.name) && file.size > MAX_PDF_BYTES);
+  if (oversized.length) return { title: "Um PDF ultrapassa 10 MB", impact: "A prévia fica desabilitada porque esse arquivo individual excede o limite do sistema.", solution: "Reduza o PDF ou divida o conteúdo antes de tentar novamente.", detail: oversized.map(file => `${file.name} (${formatBytes(file.size)})`).join(" · ") };
+  if (files.length > MAX_BATCH_FILES) return { title: "O lote tem arquivos demais", impact: "A prévia fica desabilitada para evitar uma falha durante o envio.", solution: `Divida o lote em partes de até ${MAX_BATCH_FILES} arquivos.`, detail: `${files.length} arquivos selecionados.` };
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  if (total > MAX_BATCH_BYTES) return { title: "O lote ultrapassa 50 MB", impact: "A prévia fica desabilitada para evitar uma falha durante o envio.", solution: "Divida os arquivos em lotes menores e tente novamente.", detail: `${formatBytes(total)} selecionados.` };
+  return null;
+}
+function flowFailure(error: unknown, stage: "preview" | "confirm"): FlowError {
+  const detail = message(error);
+  const localOcr = detail.includes("Miele OCR Local") || detail.includes(".miele.zip");
+  if (stage === "preview") return {
+    title: "Não foi possível preparar a conferência",
+    impact: "Nenhuma PER/DCOMP foi registrada.",
+    solution: localOcr
+      ? detail
+      : isTimeoutError(error)
+        ? "Se o PDF for uma imagem, prepare-o com o Miele OCR Local e envie o pacote .miele.zip. Caso contrário, verifique a conexão e tente novamente."
+        : "Revise os arquivos e tente gerar a prévia novamente. Se o PDF for uma imagem e continuar lento, use o Miele OCR Local.",
+    detail: localOcr ? undefined : detail,
+    retry: "preview",
+  };
+  return {
+    title: "Não foi possível confirmar o registro",
+    impact: "O resultado desta tentativa não foi confirmado na tela.",
+    solution: "Antes de repetir, atualize a lista de PER/DCOMPs e verifique se o protocolo já foi registrado. Se não estiver na lista, reabra esta importação; se persistir, encaminhe a mensagem ao suporte.",
+    detail,
+  };
+}
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a"); link.href = url; link.download = name; link.click();
@@ -94,6 +137,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const isAdmin = useAuthStore(s => s.isAdmin);
   const [open, setOpen] = useState(startOpen);
   const [files, setFiles] = useState<File[]>(() => initialFiles ? [...initialFiles] : []);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [manualSelected, setManualSelected] = useState<string[]>([]);
@@ -102,6 +146,8 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const [changes, setChanges] = useState<Change[]>([]);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activeTask, setActiveTask] = useState<ActiveTask>(null);
+  const [flowError, setFlowError] = useState<FlowError | null>(null);
   const [filter, setFilter] = useState("all");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [manualIssues, setManualIssues] = useState<ManualIssue[]>([]);
@@ -112,6 +158,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [storageMessage, setStorageMessage] = useState("");
   const [storageSummary, setStorageSummary] = useState<StorageSummary | null>(null);
+  const [storageClientId, setStorageClientId] = useState<string | null>(null);
   const [syncingStorage, setSyncingStorage] = useState(false);
   const [editing, setEditing] = useState<{ source: Source; field: string; value: string; reason: string } | null>(null);
   const [reprocessOpen, setReprocessOpen] = useState(false);
@@ -128,7 +175,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const clientRef = useRef(clientId);
   const effectiveClientId = clientId || detectedClientId;
   const base = effectiveClientId ? `/clients/${effectiveClientId}/perdcomp-imports/` : "";
-  useEffect(() => { clientRef.current = clientId; setDetectedClientId(clientId || null); setPreview(null); setFiles(initialFiles ? [...initialFiles] : []); setChanges([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setResult(null); setStorageSummary(null); setStorageMessage(""); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false; setOpen(startOpen); setReprocessOpen(false); setReprocessPreview(null); setOffset(0); }, [clientId, initialFiles, startOpen]);
+  useEffect(() => { clientRef.current = clientId; setDetectedClientId(clientId || null); setPreview(null); setFiles(initialFiles ? [...initialFiles] : []); setFileInputKey(current => current + 1); setChanges([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setResult(null); setStorageSummary(null); setStorageMessage(""); setStorageClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); setFlowError(null); setActiveTask(null); autoAnalyzeStarted.current = false; setOpen(startOpen); setReprocessOpen(false); setReprocessPreview(null); setOffset(0); }, [clientId, initialFiles, startOpen]);
   useEffect(() => { let active = true;
     if (!base || panelHidden) { setDocuments([]); setManualIssues([]); setNext(null); setLoadError(""); return () => { active = false; }; }
     api.get(base + `documents/?offset=${offset}`).then(({ data }) => { if (active) { setDocuments(data.results); setManualIssues(data.manual_issues || []); setStorageSummary(data.storage || null); setNext(data.next_offset); setLoadError(""); } }).catch(error => { if (active) setLoadError(message(error)); });
@@ -137,8 +184,16 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   function form(currentChanges = changes) {
     const data = new FormData(); files.forEach(file => data.append("files", file)); data.append("changes", JSON.stringify(currentChanges)); return data;
   }
+  async function refreshOperationalAfterWrite() {
+    try {
+      await onOperationalChanged();
+    } catch (error) {
+      console.error("A operação foi concluída, mas a lista de PER/DCOMPs não foi atualizada:", error);
+      toast.warning("A operação foi concluída, mas a lista não pôde ser atualizada. Atualize a página antes de repetir.");
+    }
+  }
   function selectClientOption(option: ClientPreviewOption) {
-    setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setReason("");
+    setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setReason(""); setResult(null); setFlowError(null);
     if (!option.registered || !option.client || !option.preview) {
       setDetectedClientId(null); setPreview(null); setUnregisteredCnpj(option.cnpj); return;
     }
@@ -146,8 +201,10 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
     setSelected(option.preview.groups.filter(group => group.importable).map(group => group.key));
   }
   async function analyze(currentChanges = changes) {
+    const selectionProblem = fileSelectionProblem(files);
+    if (selectionProblem) { setFlowError(selectionProblem); return; }
     const previousClientId = detectedClientId;
-    setBusy(true); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setReason(""); setUnregisteredCnpj(null);
+    setFlowError(null); setActiveTask("analyzing"); setBusy(true); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setReason(""); setUnregisteredCnpj(null);
     try {
       const previewUrl = clientId ? base + "preview/" : "/perdcomps/import/preview/";
       const { data } = await api.post<AutomaticPreview>(previewUrl, form(currentChanges), { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 });
@@ -167,8 +224,8 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
     } catch (error) {
       const cnpj = !clientId ? missingClientCnpj(error) : null;
       if (cnpj && onClientNotFound) setUnregisteredCnpj(cnpj);
-      else toast.error(message(error));
-    } finally { setBusy(false); }
+      else { const failure = flowFailure(error, "preview"); setFlowError(failure); toast.error(failure.title); }
+    } finally { setBusy(false); setActiveTask(null); }
   }
   useEffect(() => {
     if (!autoAnalyze || autoAnalyzeStarted.current || !open || !files.length) return;
@@ -179,7 +236,8 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   }, [autoAnalyze, open]);
   async function confirm() {
     if (!preview || !effectiveClientId || (!selected.length && !manualSelected.length)) return;
-    setBusy(true);
+    const confirmedClientId = effectiveClientId;
+    setFlowError(null); setActiveTask("confirming"); setBusy(true);
     try {
       const data = form(); data.append("token", preview.token); data.append("selected", JSON.stringify(selected)); data.append("reason", reason);
       data.append("manual_selected", JSON.stringify(manualSelected));
@@ -194,12 +252,13 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       } else {
         setFiles([]); setChanges([]); setClientOptions([]); setUnassignedBatchFiles([]);
       }
-      await onOperationalChanged();
       setStorageSummary(response.data.storage || null);
       setStorageMessage(response.data.storage?.message || "");
+      setStorageClientId(confirmedClientId);
       onStorageChanged?.();
-      toast.success(remainingClients.length > 0 ? "Cliente registrado. Selecione o próximo cliente do lote." : "Importação concluída com os valores conferidos.");
-    } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
+      toast.success(remainingClients.length > 0 ? "Cliente registrado. Selecione o próximo cliente do lote." : "Importação concluída. Confira o resultado e o arquivamento dos originais.");
+      await refreshOperationalAfterWrite();
+    } catch (error) { const failure = flowFailure(error, "confirm"); setFlowError(failure); toast.error(failure.title); } finally { setBusy(false); setActiveTask(null); }
   }
   async function reviewImported() {
     setBusy(true);
@@ -215,8 +274,8 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       const { data } = await api.post(base + "reprocess/confirm/", { token: reprocessPreview.token,
         selected: reprocessSelected, financial_confirmed: reprocessFinancial, reason: reprocessReason });
       setResult(data); setReprocessOpen(false); setReprocessPreview(null); setOffset(0);
-      await onOperationalChanged();
       toast.success("Documentos já importados registrados no operacional.");
+      await refreshOperationalAfterWrite();
     } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
   }
   async function syncDrive() {
@@ -226,8 +285,14 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       return;
     }
     stopStorageSync.current = false;
+    const storageOwnerId = storageClientId || effectiveClientId;
+    if (!storageOwnerId) {
+      setStorageMessage("Não foi possível identificar o cliente desta importação. Reabra o resultado antes de arquivar.");
+      toast.error("Cliente da importação não identificado.");
+      return;
+    }
     setSyncingStorage(true);
-    const storageUrl = clientId ? base + "sync-drive/" : "/perdcomps/import/storage/";
+    const storageUrl = `/clients/${storageOwnerId}/perdcomp-imports/sync-drive/`;
     let completed = false;
     try {
       while (!stopStorageSync.current) {
@@ -254,9 +319,9 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
     setBusy(true);
     try {
       await api.post(base + `manual/${issue.id}/resolve/`, { action, operational_id: resolution.operational || null, note: resolution.note });
-      await onOperationalChanged();
       setManualIssues(current => current.filter(item => item.id !== issue.id));
       toast.success(action === "resolved" ? "Pendência vinculada ao cadastro operacional." : "Arquivo descartado da fila manual.");
+      await refreshOperationalAfterWrite();
     } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
   }
   async function original(source: Source) {
@@ -266,6 +331,9 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       download(response.data, source.name);
     } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
   }
+  function startNewImport() {
+    setFiles([]); setFileInputKey(current => current + 1); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setReason(""); setResult(null); setFlowError(null); setStorageClientId(null); setDetectedClientId(clientId || null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false;
+  }
   function details(document: Document, sources: Source[], reviewing = false) {
     return <details className="rounded-md border p-3 mt-2"><summary className="cursor-pointer text-sm font-medium">Conferir dados, débitos e evidências</summary>
       <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs mt-3">{Object.entries(document.fields).map(([key, value]) => <div key={key}><dt className="text-muted-foreground">{labels[key] || key}</dt><dd className="break-words">{display(key, value)}</dd></div>)}</dl>
@@ -274,7 +342,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       {sources.map(source => <details key={source.sha256 + source.index} className="border-t mt-3 pt-2"><summary className="text-sm cursor-pointer break-all">{source.name} · {source.kind === "receipt" ? "Recibo" : "Demonstrativo"} · {source.pages} pág. {source.storage && <Badge className="ml-2" variant="outline">{source.storage === "drive" ? "No Drive" : "Aguardando Drive"}</Badge>}</summary>
         <Button disabled={busy} size="sm" variant="outline" className="my-2" onClick={() => original(source)}><Download className="w-3 h-3 mr-2" />PDF original</Button>
         <p className="text-xs break-all text-muted-foreground">SHA-256: {source.sha256}</p>
-        <div className="max-h-80 overflow-auto mt-2"><table className="w-full text-xs"><thead><tr className="text-left"><th className="p-2">Campo / página</th><th className="p-2">Trecho original</th><th className="p-2">Valor interpretado</th></tr></thead><tbody>{Object.entries(source.extraction.evidence).map(([key, ev]) => <tr key={key} className="border-t"><td className="p-2 align-top">{labels[key.split(".").at(-1) || ""] || key}<br />{key.includes(".") && <span>{key}<br /></span>}Pág. {ev.page ?? "—"}</td><td className="p-2 max-w-sm break-words whitespace-pre-wrap">{ev.text}{ev.reason && <p className="text-amber-700">Correção: {ev.reason} · Original: {display(key, ev.original_value)}</p>}</td><td className="p-2">{display(key.split(".").at(-1) || key, ev.value)}{reviewing && !readOnlyFields.has(key.split(".").at(-1) || key) && !key.startsWith("relation.") && !key.includes("months.") && <Button disabled={busy} size="sm" variant="ghost" onClick={() => setEditing({ source, field: key, value: ev.value === null ? "" : String(ev.value), reason: "" })}>Revisar</Button>}</td></tr>)}</tbody></table></div>
+        <div className="max-h-80 overflow-y-auto mt-2 space-y-2">{Object.entries(source.extraction.evidence).map(([key, ev]) => { const field = key.split(".").at(-1) || key; return <dl key={key} className="grid min-w-0 gap-2 rounded-md border p-2 text-xs sm:grid-cols-[minmax(8rem,0.8fr)_minmax(0,1.5fr)_minmax(8rem,1fr)]"><div className="min-w-0"><dt className="font-medium">Campo / página</dt><dd className="break-words">{labels[field] || key}<br />{key.includes(".") && <span className="text-muted-foreground">{key}<br /></span>}Pág. {ev.page ?? "—"}</dd></div><div className="min-w-0"><dt className="font-medium">Trecho original</dt><dd className="break-words whitespace-pre-wrap">{ev.text || "Não informado"}{ev.reason && <p className="text-amber-700">Correção: {ev.reason} · Original: {display(key, ev.original_value)}</p>}</dd></div><div className="min-w-0"><dt className="font-medium">Valor interpretado</dt><dd className="break-words">{display(field, ev.value)}{reviewing && !readOnlyFields.has(field) && !key.startsWith("relation.") && !key.includes("months.") && <Button disabled={busy} size="sm" variant="ghost" className="mt-1" onClick={() => setEditing({ source, field: key, value: ev.value === null ? "" : String(ev.value), reason: "" })}>Revisar</Button>}</dd></div></dl>; })}</div>
       </details>)}
       {document.reviews?.map((r, i) => <p key={i} className="mt-2 text-xs text-muted-foreground">Conferido em {new Date(r.date).toLocaleString("pt-BR")} · Usuário {r.reviewer} · {r.reason}</p>)}
     </details>;
@@ -312,50 +380,62 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       ? Array.from(new Set([...current, ...reprocessFinancialRequired]))
       : current.filter(key => !reprocessFinancialRequired.includes(key)));
   }
+  const selectedFilesBytes = files.reduce((sum, file) => sum + file.size, 0);
+  const selectionProblem = fileSelectionProblem(files);
+  const flowStage = activeTask === "analyzing" ? 2 : activeTask === "confirming" ? 4 : preview ? 3 : result ? 5 : 1;
+  const flowSteps = ["Selecionar", "Processar", "Conferir", "Registrar", "Resultado e Drive"];
+  const activeTaskMessage = activeTask === "analyzing"
+    ? `Enviando e interpretando ${files.length} arquivo(s). PDFs em imagem podem levar alguns minutos; mantenha esta janela aberta.`
+    : activeTask === "confirming"
+      ? `Registrando ${selected.length} PER/DCOMP(s) e preservando a auditoria. Não feche esta janela.`
+      : "";
   return <Card className={panelHidden ? "hidden" : undefined}><CardHeader className="p-4"><div className="flex flex-wrap justify-between gap-2 items-center"><CardTitle className="text-base">Importação e registro de PER/DCOMPs</CardTitle><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy || syncingStorage} onClick={reviewImported}><RefreshCw className="h-4 w-4 mr-2" />Registrar arquivos já importados</Button><Button size="sm" disabled={syncingStorage} onClick={() => { setOpen(true); onImportOpenChange?.(true); }}><Upload className="h-4 w-4 mr-2" />Importar novos arquivos</Button></div></div><p className="text-xs text-muted-foreground">O sistema apresenta a origem e as diferenças antes de criar ou atualizar valores. Nada financeiro é substituído sem sua confirmação.</p></CardHeader>
     <CardContent className="px-4 pb-4 space-y-3">
-      {storageSummary && storageSummary.total > 0 && <div className="rounded-lg border bg-muted/30 p-3 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium">Originais no Google Drive</p><p role="status" className="text-xs text-muted-foreground">{storageMessage || (storageSummary.pending ? `${storageSummary.pending} PDF(s) aguardando arquivamento.` : "Todos os PDFs estão arquivados.")}</p></div><Badge variant={storageSummary.pending ? "outline" : "secondary"}>{storageSummary.archived}/{storageSummary.total} arquivados</Badge></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${storageSummary.total ? Math.round(storageSummary.archived * 100 / storageSummary.total) : 0}%` }} /></div>{isAdmin && storageSummary.pending > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={syncDrive}>{syncingStorage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Pausar após o atual</> : <><Upload className="h-4 w-4 mr-2" />Arquivar no Drive</>}</Button>}</div>}
-      {loadError ? <p role="alert" className="text-sm text-destructive">Não foi possível carregar as importações: {loadError}</p> : documents.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum documento importado para este cliente.</p> : documents.map(d => <div key={d.key} className="border rounded-lg p-3"><p className="text-sm font-medium">{String(d.fields.protocol)} <Badge variant="secondary">{completeness[d.completeness]}</Badge> <Badge variant="outline">{d.version_status === "current" ? "Versão vigente" : d.version_status === "cancelled" ? "Cancelada" : "Substituída"}</Badge></p><p className="text-xs text-muted-foreground">{String(d.fields.modality)} · {String(d.fields.nature)}</p>{d.superseded_by && <p className="text-xs text-amber-700">Versão anterior — nenhum dado alterado. Substituída por {d.superseded_by}.</p>}{!d.operational_id && <p className="text-xs text-amber-700">Aguardando registro operacional.</p>}{details(d, d.files as Source[])}</div>)}
+      {storageSummary && storageSummary.total > 0 && <div className="rounded-lg border bg-muted/30 p-3 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium">Originais no Google Drive</p><p role="status" aria-live="polite" className="text-xs text-muted-foreground">{storageMessage || (storageSummary.pending ? `${storageSummary.pending} PDF(s) aguardando arquivamento.` : "Todos os PDFs estão arquivados.")}</p></div><Badge variant={storageSummary.pending ? "outline" : "secondary"}>{storageSummary.archived}/{storageSummary.total} arquivados</Badge></div><Progress className="h-2" value={storageSummary.total ? Math.round(storageSummary.archived * 100 / storageSummary.total) : 0} aria-label={`${storageSummary.archived} de ${storageSummary.total} PDFs arquivados no Google Drive`} />{isAdmin && storageSummary.pending > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={syncDrive}>{syncingStorage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Pausar após o atual</> : <><Upload className="h-4 w-4 mr-2" />Arquivar no Drive</>}</Button>}</div>}
+      {loadError ? <p role="alert" className="text-sm text-destructive">Não foi possível carregar as importações: {loadError}</p> : documents.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum documento importado para este cliente.</p> : documents.map(d => <div key={d.key} className="border rounded-lg p-3"><p className="text-sm font-medium">{display("protocol", d.fields.protocol)} <Badge variant="secondary">{completenessLabel(d.completeness)}</Badge> <Badge variant="outline">{d.version_status === "current" ? "Versão vigente" : d.version_status === "cancelled" ? "Cancelada" : "Substituída"}</Badge></p><p className="text-xs text-muted-foreground">{display("modality", d.fields.modality)} · {display("nature", d.fields.nature)}</p>{d.superseded_by && <p className="text-xs text-amber-700">Versão anterior — nenhum dado alterado. Substituída por {d.superseded_by}.</p>}{!d.operational_id && <p className="text-xs text-amber-700">Aguardando registro operacional.</p>}{details(d, d.files as Source[])}</div>)}
       {manualIssues.length > 0 && <div className="rounded-lg border border-amber-300 p-3 space-y-3"><div><p className="font-medium text-sm">Pendências para tratamento manual ({manualIssues.length})</p><p className="text-xs text-muted-foreground">Abra o original, cadastre manualmente e vincule o resultado; ou descarte com justificativa.</p></div>{manualIssues.map(issue => { const resolution = manualResolution[issue.id] || { operational: "", note: "" }; return <div key={issue.id} className="rounded border p-3 space-y-2"><p className="text-sm break-all">{issue.name} {issue.storage && <Badge className="ml-2" variant="outline">{issue.storage === "drive" ? "No Drive" : "Aguardando Drive"}</Badge>}</p>{issue.issues.map((text, i) => <p key={i} className="text-xs text-amber-800">{text}</p>)}<div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => downloadManual(issue)}><Download className="h-3 w-3 mr-2" />Original</Button><Button size="sm" variant="outline" onClick={onAddPerdComp}>Cadastrar manualmente</Button></div>{isAdmin && <><select className="w-full rounded border p-2 text-sm bg-background" value={resolution.operational} onChange={e => setManualResolution(current => ({ ...current, [issue.id]: { ...resolution, operational: e.target.value } }))}><option value="">Selecione o cadastro operacional criado</option>{operationalPerdcomps.map(item => <option key={item.id} value={item.id}>{item.numero_perdcomp || item.numero || item.id}</option>)}</select><Textarea placeholder="Justificativa do tratamento ou descarte" maxLength={2000} value={resolution.note} onChange={e => setManualResolution(current => ({ ...current, [issue.id]: { ...resolution, note: e.target.value } }))} /><div className="flex gap-2"><Button size="sm" disabled={busy || !resolution.operational || resolution.note.trim().length < 10} onClick={() => resolveManual(issue, "resolved")}>Vincular e concluir</Button><Button size="sm" variant="outline" disabled={busy || resolution.note.trim().length < 10} onClick={() => resolveManual(issue, "dismissed")}>Descartar da fila</Button></div></>}</div>; })}</div>}
       {(offset > 0 || next !== null) && <div className="flex gap-2"><Button size="sm" variant="outline" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Anterior</Button><Button size="sm" variant="outline" disabled={next === null} onClick={() => setOffset(next!)}>Próxima</Button></div>}
     </CardContent>
     <Dialog open={open} onOpenChange={v => { if (!busy) { setOpen(v); onImportOpenChange?.(v); } }}><DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Importar PER/DCOMPs</DialogTitle><DialogDescription>Envie um PDF, vários PDFs ou um ZIP. PDFs com texto ou em imagem passam pela mesma conferência. OCR e valores financeiros exigem sua autorização antes do registro.</DialogDescription></DialogHeader>
       <div className="space-y-3">
-        <Label htmlFor="perdcomp-batch-files">PDFs, ZIP ou pacote .miele.zip · até 100 arquivos / 50 MB · OCR direto: 20 páginas · pacote OCR local: 500 páginas</Label>
-        <Input id="perdcomp-batch-files" type="file" accept=".pdf,.zip" multiple disabled={busy || syncingStorage} onChange={e => { setFiles(Array.from(e.target.files || [])); if (!clientId) setDetectedClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false; setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setResult(null); }} />
-        {clientOptions.length > 0 && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-3"><div><p className="font-medium text-sm">{clientOptions.length} cliente(s) disponível(is) neste lote</p><p className="text-xs text-muted-foreground">Escolha um cliente por vez. O sistema exibirá e registrará somente os PDFs associados ao CNPJ selecionado.</p></div><div className="grid gap-2 sm:grid-cols-2">{clientOptions.map(option => { const active = option.client?.id === detectedClientId || (!option.registered && option.cnpj === unregisteredCnpj); return <div key={option.cnpj} className={`rounded-md border bg-background p-3 ${active ? "border-primary ring-1 ring-primary" : ""}`}><p className="text-sm font-medium">{option.client?.razao_social || "Cliente ainda não cadastrado"}</p><p className="text-xs text-muted-foreground">CNPJ {formatCnpj(option.cnpj)}</p><div className="my-2 flex flex-wrap gap-1"><Badge variant="secondary">{option.file_count} PDF(s)</Badge><Badge variant="outline">{option.document_count} documento(s)</Badge>{option.registered && <Badge variant="outline">{option.importable} publicável(is)</Badge>}</div><Button size="sm" variant={active ? "secondary" : "outline"} disabled={busy} onClick={() => selectClientOption(option)}>{active ? "Cliente selecionado" : option.registered ? "Selecionar cliente" : "Cadastrar este cliente"}</Button></div>; })}</div></div>}
+        <ol aria-label="Etapas da importação" className="grid grid-cols-5 gap-1 rounded-lg border bg-muted/30 p-2">{flowSteps.map((step, index) => { const number = index + 1; const current = number === flowStage; const complete = number < flowStage; return <li key={step} aria-current={current ? "step" : undefined} className={`flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-center text-[11px] sm:text-xs ${current ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}><span className={`flex h-6 w-6 items-center justify-center rounded-full border ${complete ? "border-primary bg-primary text-primary-foreground" : current ? "border-primary text-primary" : "border-muted-foreground/30"}`}>{complete ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : number}</span><span className="break-words">{step}</span></li>; })}</ol>
+        <Label htmlFor="perdcomp-batch-files">PDFs, ZIP ou pacote .miele.zip · até 100 arquivos / 50 MB no lote · 10 MB por PDF · OCR direto: 20 páginas · pacote OCR local: 500 páginas</Label>
+        <Input key={fileInputKey} id="perdcomp-batch-files" type="file" accept=".pdf,.zip" multiple disabled={busy || syncingStorage} onChange={e => { setFiles(Array.from(e.target.files || [])); if (!clientId) setDetectedClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); setFlowError(null); autoAnalyzeStarted.current = false; setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setResult(null); }} />
+        {files.length > 0 && <div className="rounded-md border bg-muted/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">Arquivos selecionados</p><span className="text-xs text-muted-foreground">{files.length} arquivo(s) · {formatBytes(selectedFilesBytes)}</span></div><ul className="mt-2 max-h-28 space-y-1 overflow-y-auto pr-1 text-xs">{files.map((file, index) => <li key={`${file.name}-${file.size}-${index}`} className="flex min-w-0 items-center gap-2 rounded bg-background px-2 py-1"><FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{file.name}</span><span className="shrink-0 text-muted-foreground">{formatBytes(file.size)}</span></li>)}</ul></div>}
+        {selectionProblem && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><AlertTitle>{selectionProblem.title}</AlertTitle><AlertDescription><p><strong>Impacto:</strong> {selectionProblem.impact}</p><p><strong>Como resolver:</strong> {selectionProblem.solution}</p>{selectionProblem.detail && <p className="mt-1 break-words text-xs">{selectionProblem.detail}</p>}</AlertDescription></Alert>}
+        {clientOptions.length > 0 && <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-3"><div role="status" aria-live="polite"><p className="font-medium text-sm">{clientOptions.length} cliente(s) disponível(is) neste lote</p><p className="text-xs text-muted-foreground">Escolha um cliente por vez. O sistema exibirá e registrará somente os PDFs associados ao CNPJ selecionado.</p></div><div className="grid gap-2 sm:grid-cols-2">{clientOptions.map(option => { const active = option.client?.id === detectedClientId || (!option.registered && option.cnpj === unregisteredCnpj); return <div key={option.cnpj} className={`rounded-md border bg-background p-3 ${active ? "border-primary ring-1 ring-primary" : ""}`}><p className="text-sm font-medium">{option.client?.razao_social || "Cliente ainda não cadastrado"}</p><p className="text-xs text-muted-foreground">CNPJ {formatCnpj(option.cnpj)}</p><div className="my-2 flex flex-wrap gap-1"><Badge variant="secondary">{option.file_count} PDF(s)</Badge><Badge variant="outline">{option.document_count} documento(s)</Badge>{option.registered && <Badge variant="outline">{option.importable} publicável(is)</Badge>}</div><Button size="sm" variant={active ? "secondary" : "outline"} disabled={busy} onClick={() => selectClientOption(option)}>{active ? "Cliente selecionado" : option.registered ? "Selecionar cliente" : "Cadastrar este cliente"}</Button></div>; })}</div></div>}
         {unassignedBatchFiles.length > 0 && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"><p className="font-medium">{unassignedBatchFiles.length} arquivo(s) sem titularização segura</p><p>Esses arquivos não serão atribuídos automaticamente a nenhum cliente. Separe-os e importe dentro do cadastro correto para conferência.</p><p className="mt-1 break-words">{unassignedBatchFiles.map(file => file.name).join(" · ")}</p></div>}
-        <div className="flex items-center gap-3"><Button disabled={!files.length || busy || syncingStorage} onClick={() => analyze()}>{busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}Gerar prévia</Button><span className="text-xs text-muted-foreground">{files.length} arquivo(s) selecionado(s). Nada é salvo antes da confirmação.</span></div>
-        {unregisteredCnpj && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-medium">Cliente não cadastrado</p><p className="mt-1">O CNPJ {formatCnpj(unregisteredCnpj)} foi identificado nos arquivos. Deseja cadastrar esse cliente agora?</p><p className="mt-1 text-xs">Os arquivos selecionados serão preservados e a prévia continuará automaticamente após o cadastro.</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setUnregisteredCnpj(null)}>Agora não</Button><Button size="sm" onClick={() => onClientNotFound?.(unregisteredCnpj, [...files])}>Cadastrar cliente</Button></div></div>}
-        {result && <div role="status" className="rounded-md bg-muted p-3 text-sm space-y-2"><p>Concluído: {String(result.created)} documento(s) documental(is), {String(result.attached)} PDF(s). Operacional: {String((result.operational as Record<string, unknown>)?.created || 0)} criado(s), {String((result.operational as Record<string, unknown>)?.updated || 0)} atualizado(s), {String((result.operational as Record<string, unknown>)?.linked || 0)} apenas vinculado(s). Pendências manuais criadas: {String(result.manual_pending_created || 0)}.</p>{storageSummary && storageSummary.total > 0 && <div className="rounded border bg-background p-3 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">Guardar originais</p><p className="text-xs text-muted-foreground">{storageMessage}</p></div><Badge variant={storageSummary.pending ? "outline" : "secondary"}>{storageSummary.archived}/{storageSummary.total} no Drive</Badge></div>{isAdmin && storageSummary.pending > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={syncDrive}>{syncingStorage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Pausar após o atual</> : <><Upload className="h-4 w-4 mr-2" />Arquivar no Drive</>}</Button>}</div>}<Button variant="link" size="sm" onClick={() => download(new Blob([JSON.stringify(result, null, 2)], { type: "application/json" }), "resultado-importacao.json")}>Baixar resultado</Button></div>}
+        <div className="flex flex-wrap items-center gap-3"><Button disabled={!files.length || !!selectionProblem || busy || syncingStorage} onClick={() => analyze()}>{activeTask === "analyzing" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}{activeTask === "analyzing" ? "Processando arquivos" : "Gerar prévia"}</Button><span className="text-xs text-muted-foreground">Nada é salvo antes da confirmação.</span></div>
+        {activeTaskMessage && <div role="status" aria-live="polite" className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950"><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden="true" /><p>{activeTaskMessage}</p></div>}
+        {flowError && !selectionProblem && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><AlertTitle>{flowError.title}</AlertTitle><AlertDescription><p><strong>Impacto:</strong> {flowError.impact}</p><p><strong>Como resolver:</strong> {flowError.solution}</p>{flowError.detail && <p className="mt-1 break-words text-xs">Detalhe: {flowError.detail}</p>}{flowError.retry === "preview" && <Button className="mt-3" size="sm" variant="outline" disabled={busy} onClick={() => void analyze()}>Tentar gerar a prévia novamente</Button>}</AlertDescription></Alert>}
+        {unregisteredCnpj && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><div role="alert"><p className="font-medium">Cliente não cadastrado</p><p className="mt-1">O CNPJ {formatCnpj(unregisteredCnpj)} foi identificado nos arquivos. Deseja cadastrar esse cliente agora?</p><p className="mt-1 text-xs">Os arquivos selecionados serão preservados e a prévia continuará automaticamente após o cadastro.</p></div><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setUnregisteredCnpj(null)}>Agora não</Button><Button size="sm" onClick={() => onClientNotFound?.(unregisteredCnpj, [...files])}>Cadastrar cliente</Button></div></div>}
+        {result && <div className="space-y-3 rounded-lg border border-green-200 bg-green-50/50 p-4 text-sm"><div role="status" aria-live="polite" className="flex items-start gap-2 text-green-950"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /><div><p className="font-medium">Importação concluída</p><p className="text-xs">Confira abaixo o que foi registrado e o estado dos arquivos originais.</p></div></div><dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Documentos</dt><dd className="font-medium">{String(result.created ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">PDFs vinculados</dt><dd className="font-medium">{String(result.attached ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Criados</dt><dd className="font-medium">{String((result.operational as Record<string, unknown>)?.created ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Atualizados</dt><dd className="font-medium">{String((result.operational as Record<string, unknown>)?.updated ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Vinculados</dt><dd className="font-medium">{String((result.operational as Record<string, unknown>)?.linked ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Pendências</dt><dd className="font-medium">{String(result.manual_pending_created ?? 0)}</dd></div></dl>{storageSummary && storageSummary.total > 0 && <div className="rounded border bg-background p-3 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">Originais no Google Drive</p><p role="status" aria-live="polite" className="text-xs text-muted-foreground">{storageMessage || (storageSummary.pending ? `${storageSummary.pending} PDF(s) aguardando arquivamento.` : "Todos os originais estão arquivados.")}</p></div><Badge variant={storageSummary.pending ? "outline" : "secondary"}>{storageSummary.archived}/{storageSummary.total} no Drive</Badge></div><Progress className="h-2" value={storageSummary.total ? Math.round(storageSummary.archived * 100 / storageSummary.total) : 0} aria-label={`${storageSummary.archived} de ${storageSummary.total} PDFs arquivados no Google Drive`} />{isAdmin && storageSummary.pending > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={syncDrive}>{syncingStorage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Pausar após o atual</> : <><Upload className="h-4 w-4 mr-2" />Arquivar no Drive</>}</Button>}</div>}<div className="flex flex-wrap gap-2">{clientOptions.length === 0 && <Button size="sm" onClick={startNewImport}>Importar outros arquivos</Button>}<Button size="sm" variant="outline" onClick={() => { setOpen(false); onImportOpenChange?.(false); }}>Fechar</Button><Button variant="ghost" size="sm" onClick={() => download(new Blob([JSON.stringify(result, null, 2)], { type: "application/json" }), "resultado-importacao.json")}>Baixar resultado técnico</Button></div></div>}
         {preview && <>
           {preview.client && <div role="status" className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-950"><p className="font-medium">Cliente identificado automaticamente</p><p>{preview.client.razao_social}{preview.client.nome_fantasia ? ` · ${preview.client.nome_fantasia}` : ""} · CNPJ {preview.client.cnpj}</p></div>}
           <div className="flex flex-wrap gap-2 text-xs"><Badge variant="secondary">{preview.counts.files} arquivos</Badge><Badge variant="secondary">{preview.counts.documents} documentos agrupados</Badge><Badge variant="secondary">{preview.counts.importable} publicáveis</Badge><Badge variant="outline">{preview.counts.rejected} não aceitos</Badge></div>
           <div className="flex flex-wrap items-center gap-3"><Label htmlFor="perdcomp-import-filter">Filtrar</Label><select id="perdcomp-import-filter" className="rounded border p-2 text-sm bg-background" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">Todos</option>{Object.entries(statuses).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select><Button size="sm" variant="outline" disabled={busy} onClick={() => { setSelected(matching.filter(g => g.importable).map(g => g.key)); setFinancialConfirmed([]); setOcrConfirmed([]); }}>Selecionar todos os publicáveis deste filtro</Button><span className="text-xs">{selected.length} selecionado(s)</span></div>
           {missingReferenceDocuments > 0 && <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950"><p className="font-medium">A origem documental pendente não bloqueia o registro operacional.</p><p>{missingReferenceDocuments} documento(s) fazem referência a uma origem que não está neste lote. O PER/DCOMP será registrado normalmente; somente o vínculo documental do crédito ficará pendente e será resolvido automaticamente quando o PDF da origem for importado.</p></div>}
-          {(selected.length > 0 || manualSelected.length > 0) && <div className="rounded-lg border bg-background p-3 space-y-3 shadow-sm"><p className="text-sm font-medium">Concluir registro</p>
-            {financialRequired.length > 0 && <label className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950"><input type="checkbox" className="mt-0.5" checked={missingFinancialAuthorization.length === 0} disabled={busy} onChange={event => authorizeSelectedFinancial(event.target.checked)} /><span>Conferi os valores atuais e propostos dos {financialRequired.length} documento(s) selecionado(s) e autorizo a atualização financeira. O histórico será preservado e o saldo será calculado como Pedido − (Compensado + Recebido).</span></label>}
+          {matching.map(g => <div key={g.key} className="border rounded-lg p-3"><div className="flex items-start gap-3"><input type="checkbox" aria-label={`Selecionar PER/DCOMP ${display("protocol", g.fields.protocol)} para registro`} className="mt-1" disabled={!g.importable || busy} checked={selected.includes(g.key)} onChange={e => { setSelected(s => e.target.checked ? [...s, g.key] : s.filter(k => k !== g.key)); if (!e.target.checked) { setFinancialConfirmed(s => s.filter(k => k !== g.key)); setOcrConfirmed(s => s.filter(k => k !== g.key)); } }} /><div className="min-w-0 flex-1 space-y-2"><div className="flex flex-wrap gap-2 items-center"><span className="font-medium text-sm">{display("protocol", g.fields.protocol)}</span><Badge variant={g.importable ? "secondary" : "destructive"}>{statusLabel(g.status)}</Badge>{g.ocr_used && <Badge className="border-blue-300 bg-blue-50 text-blue-800" variant="outline">OCR {g.ocr_confidence !== null && g.ocr_confidence !== undefined ? `${Math.round(g.ocr_confidence * 100)}%` : "—"}</Badge>}<Badge variant="outline">{completenessLabel(g.completeness)}</Badge><Badge variant="outline">{g.version?.status === "current" ? "Versão vigente" : g.version?.status === "cancelled" ? "Cancelada" : "Versão anterior"}</Badge></div><dl className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4"><div><dt className="text-muted-foreground">Cliente / CNPJ</dt><dd className="break-words">{preview.client?.razao_social || "Cliente identificado"} · {display("cnpj", g.fields.cnpj)}</dd></div><div><dt className="text-muted-foreground">Tipo e período</dt><dd className="break-words">{display("modality", g.fields.modality)} · {display("quarter", g.fields.quarter)} · {display("year", g.fields.year)}</dd></div><div><dt className="text-muted-foreground">Transmissão</dt><dd>{display("transmitted_on", g.fields.transmitted_on)}</dd></div><div><dt className="text-muted-foreground">Débitos</dt><dd>{g.debts.length}</dd></div><div><dt className="text-muted-foreground">Valor solicitado</dt><dd className="font-medium">{display("requested", g.fields.requested)}</dd></div><div><dt className="text-muted-foreground">Utilizado</dt><dd className="font-medium">{display("used", g.fields.used)}</dd></div><div><dt className="text-muted-foreground">Saldo documental</dt><dd className="font-medium">{display("declared_balance", g.fields.declared_balance)}</dd></div><div><dt className="text-muted-foreground">Natureza</dt><dd className="break-words">{display("nature", g.fields.nature)}</dd></div></dl></div></div>
+            {!g.importable && <Alert variant="destructive" className="mt-2"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><AlertTitle>Este documento precisa de revisão</AlertTitle><AlertDescription><p><strong>Impacto:</strong> ele não será registrado automaticamente nesta confirmação.</p><p><strong>Como resolver:</strong> consulte o PDF e as evidências abaixo. Se o problema não puder ser corrigido na prévia, guarde os originais na fila manual.</p>{g.issues?.map((issue, i) => <p key={i} className="mt-1 text-xs">Detalhe: {issue}</p>)}</AlertDescription></Alert>}
+            {g.missing?.map((ref, i) => <p key={i} className="text-xs text-blue-800 mt-1">{labels[ref.kind]} documental ainda não importada: {ref.protocol}. Isso não impede o registro operacional; o vínculo será completado quando a origem for importada.</p>)}
+            {g.version && <p className={g.version.status === "current" ? "text-xs text-green-700 mt-1" : "text-xs text-amber-700 mt-1"}>{g.version.message}{g.version.successor_protocol ? ` Documento sucessor: ${g.version.successor_protocol}.` : ""}</p>}
+            {g.retifier && <p className="text-xs text-amber-700 mt-1">Retificadora: será mantida como novo registro e, quando válida, será marcada como vigente; a original ficará substituída.</p>}
+            {g.operational && <div className="mt-2 rounded bg-muted p-2 text-xs"><p className="font-medium">Ação proposta: {operationalActionLabel(g.operational.action)}</p><p>{g.operational.reason}</p>{g.operational.changes.length > 0 && <details className="mt-1"><summary className="cursor-pointer">Ver {g.operational.changes.length} alteração(ões)</summary>{g.operational.changes.map(change => <p key={change.field}>{labels[change.field] || change.field}: {display(change.field, change.old)} → {display(change.field, change.new)}</p>)}</details>}</div>}
+            {g.operational?.financial_review_required && <p className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">Revisão financeira futura: {g.operational.financial_review_reason}</p>}
+            {!g.importable && <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" disabled={busy} checked={(g.files as number[]).every(index => manualSelected.includes(preview.files.find(file => file.index === index)!.sha256))} onChange={e => { const hashes = preview.files.filter(file => (g.files as number[]).includes(file.index!)).map(file => file.sha256); setManualSelected(current => e.target.checked ? Array.from(new Set([...current, ...hashes])) : current.filter(hash => !hashes.includes(hash))); }} />Guardar os PDFs deste documento na fila manual</label>}
+            {details(g, preview.files.filter(f => (g.files as number[]).includes(f.index!)), true)}
+          </div>)}
+          {ungrouped.map(f => <div key={f.index} className="border rounded-lg p-3 text-sm"><div className="flex flex-wrap gap-2"><span className="break-all">{f.name}</span><Badge variant="outline">{statusLabel(f.status)}</Badge></div>{f.fields?.cnpj && <p>CNPJ encontrado: {String(f.fields.cnpj)}</p>}<div role="alert" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950"><p className="font-medium">Este arquivo não entrou em um documento pronto para registro.</p><p><strong>Como resolver:</strong> consulte o original e revise os detalhes. Quando disponível, guarde-o na fila manual para tratamento sem bloquear os demais.</p>{f.issues?.map((issue, i) => <p className="mt-1" key={i}>Detalhe: {issue}</p>)}</div>{f.pages > 0 && <Button size="sm" variant="ghost" disabled={busy} onClick={() => original(f)}>Consultar PDF original</Button>}{f.manual_eligible && <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={manualSelected.includes(f.sha256)} disabled={busy} onChange={e => setManualSelected(current => e.target.checked ? [...current, f.sha256] : current.filter(hash => hash !== f.sha256))} />Guardar na fila para tratamento manual</label>}</div>)}
+          {matching.length === 0 && ungrouped.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item neste filtro.</p>}
+          {(selected.length > 0 || manualSelected.length > 0) && <div className="rounded-lg border bg-background p-3 space-y-3 shadow-sm"><div><p className="text-sm font-medium">Confirmar registro</p><p className="text-xs text-muted-foreground">Revise os cartões acima e conclua somente quando as informações e os originais estiverem conferidos.</p></div>
+            {financialRequired.length > 0 && <label className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950"><input type="checkbox" className="mt-0.5" checked={missingFinancialAuthorization.length === 0} disabled={busy} onChange={event => authorizeSelectedFinancial(event.target.checked)} /><span>Conferi os valores atuais e propostos dos {financialRequired.length} documento(s) selecionado(s) e autorizo a atualização financeira, inclusive a substituição de valores digitados manualmente. O histórico será preservado e o saldo será calculado como Pedido − (Compensado + Recebido).</span></label>}
             {ocrRequired.length > 0 && <label className="flex items-start gap-2 rounded border border-blue-300 bg-blue-50 p-2 text-xs text-blue-950"><input type="checkbox" className="mt-0.5" checked={missingOcrAuthorization.length === 0} disabled={busy} onChange={event => authorizeSelectedOcr(event.target.checked)} /><span>Conferi no PDF original o protocolo, CNPJ, datas e valores dos {ocrRequired.length} documento(s) interpretado(s) por OCR e autorizo o registro. O arquivo original e a extração serão preservados.</span></label>}
             {reasonRequired && <div><Label htmlFor="perdcomp-import-reason">Justificativa da conferência</Label><Textarea id="perdcomp-import-reason" className="mt-1 min-h-16" maxLength={2000} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} placeholder="Ex.: Valores e documentos conferidos com os PDFs do lote." /></div>}
             {missingFinancialAuthorization.length > 0 && <p className="text-xs text-amber-800">Para continuar, autorize os valores dos {missingFinancialAuthorization.length} documento(s) acima.</p>}
             {missingOcrAuthorization.length > 0 && <p className="text-xs text-blue-800">Para continuar, confira e autorize o OCR dos {missingOcrAuthorization.length} documento(s) acima.</p>}
             {reasonMissing && <p className="text-xs text-amber-800">Informe uma justificativa com pelo menos 10 caracteres.</p>}
-            <div className="flex flex-wrap items-center gap-3"><Button disabled={confirmDisabled} onClick={confirm}>{busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Registrar {selected.length} PER/DCOMP(s){manualSelected.length > 0 ? ` e guardar ${manualSelected.length} pendência(s)` : ""}</Button><span className="text-xs text-muted-foreground">Nada é alterado enquanto este botão estiver desabilitado.</span></div>
+            <div className="flex flex-wrap items-center gap-3"><Button disabled={confirmDisabled} onClick={confirm}>{activeTask === "confirming" && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{activeTask === "confirming" ? "Registrando" : `Registrar ${selected.length} PER/DCOMP(s)`}{activeTask !== "confirming" && manualSelected.length > 0 ? ` e guardar ${manualSelected.length} pendência(s)` : ""}</Button><span className="text-xs text-muted-foreground">Nada é alterado enquanto este botão estiver desabilitado.</span></div>
           </div>}
-          {matching.map(g => <div key={g.key} className="border rounded-lg p-3"><div className="flex items-start gap-3"><input type="checkbox" aria-label={`Publicar ${g.fields.protocol}`} className="mt-1" disabled={!g.importable || busy} checked={selected.includes(g.key)} onChange={e => { setSelected(s => e.target.checked ? [...s, g.key] : s.filter(k => k !== g.key)); if (!e.target.checked) { setFinancialConfirmed(s => s.filter(k => k !== g.key)); setOcrConfirmed(s => s.filter(k => k !== g.key)); } }} /><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-2 items-center"><span className="font-medium text-sm">{String(g.fields.protocol)}</span><Badge variant={g.importable ? "secondary" : "destructive"}>{statuses[g.status!]}</Badge>{g.ocr_used && <Badge className="border-blue-300 bg-blue-50 text-blue-800" variant="outline">OCR {g.ocr_confidence !== null && g.ocr_confidence !== undefined ? `${Math.round(g.ocr_confidence * 100)}%` : ""}</Badge>}<Badge variant="outline">{completeness[g.completeness]}</Badge><Badge variant="outline">{g.version?.status === "current" ? "Versão vigente" : g.version?.status === "cancelled" ? "Cancelada" : "Versão anterior"}</Badge></div><p className="text-xs mt-1">CNPJ {String(g.fields.cnpj)} · {String(g.fields.modality)} · {String(g.fields.nature)}</p><p className="text-xs text-muted-foreground">{display("year", g.fields.year)} · {display("quarter", g.fields.quarter)} · Pedido: {display("requested", g.fields.requested)} · Utilizado: {display("used", g.fields.used)} · {g.debts.length} débito(s)</p></div></div>
-            {g.issues?.map((issue, i) => <p key={i} className="text-xs text-destructive mt-1">{issue}</p>)}
-            {g.missing?.map((ref, i) => <p key={i} className="text-xs text-blue-800 mt-1">{labels[ref.kind]} documental ainda não importada: {ref.protocol}. Isso não impede o registro operacional; o vínculo será completado quando a origem for importada.</p>)}
-            {g.version && <p className={g.version.status === "current" ? "text-xs text-green-700 mt-1" : "text-xs text-amber-700 mt-1"}>{g.version.message}{g.version.successor_protocol ? ` Documento sucessor: ${g.version.successor_protocol}.` : ""}</p>}
-            {g.retifier && <p className="text-xs text-amber-700 mt-1">Retificadora: será mantida como novo registro e, quando válida, será marcada como vigente; a original ficará substituída.</p>}
-            {g.operational && <div className="mt-2 rounded bg-muted p-2 text-xs"><p className="font-medium">Operacional: {operationalActions[g.operational.action]}</p><p>{g.operational.reason}</p>{g.operational.changes.length > 0 && <details className="mt-1"><summary className="cursor-pointer">Ver {g.operational.changes.length} alteração(ões)</summary>{g.operational.changes.map(change => <p key={change.field}>{labels[change.field] || change.field}: {display(change.field, change.old)} → {display(change.field, change.new)}</p>)}</details>}</div>}
-            {g.operational?.financial_review_required && <p className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">Revisão financeira futura: {g.operational.financial_review_reason}</p>}
-            {g.operational?.financial_confirmation_required && selected.includes(g.key) && <label className="mt-2 flex items-start gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950"><input type="checkbox" className="mt-0.5" checked={financialConfirmed.includes(g.key)} disabled={busy} onChange={e => setFinancialConfirmed(current => e.target.checked ? [...current, g.key] : current.filter(key => key !== g.key))} /><span>Conferi os valores atuais e propostos e autorizo a substituição, inclusive de valores digitados manualmente. O histórico será preservado.</span></label>}
-            {g.ocr_used && selected.includes(g.key) && <label className="mt-2 flex items-start gap-2 rounded border border-blue-300 bg-blue-50 p-2 text-xs text-blue-950"><input type="checkbox" className="mt-0.5" checked={ocrConfirmed.includes(g.key)} disabled={busy} onChange={e => setOcrConfirmed(current => e.target.checked ? [...current, g.key] : current.filter(key => key !== g.key))} /><span>Conferi protocolo, CNPJ, datas e valores diretamente no PDF original e autorizo esta interpretação por OCR.</span></label>}
-            {!g.importable && <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" disabled={busy} checked={(g.files as number[]).every(index => manualSelected.includes(preview.files.find(file => file.index === index)!.sha256))} onChange={e => { const hashes = preview.files.filter(file => (g.files as number[]).includes(file.index!)).map(file => file.sha256); setManualSelected(current => e.target.checked ? Array.from(new Set([...current, ...hashes])) : current.filter(hash => !hashes.includes(hash))); }} />Guardar os PDFs deste documento na fila manual</label>}
-            {details(g, preview.files.filter(f => (g.files as number[]).includes(f.index!)), true)}
-          </div>)}
-          {ungrouped.map(f => <div key={f.index} className="border rounded-lg p-3 text-sm"><div className="flex flex-wrap gap-2"><span className="break-all">{f.name}</span><Badge variant="outline">{statuses[f.status!]}</Badge></div>{f.fields?.cnpj && <p>CNPJ encontrado: {String(f.fields.cnpj)}</p>}{f.issues?.map((issue, i) => <p className="text-xs text-muted-foreground mt-1" key={i}>{issue}</p>)}{f.pages > 0 && <Button size="sm" variant="ghost" disabled={busy} onClick={() => original(f)}>Consultar PDF original</Button>}{f.manual_eligible && <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={manualSelected.includes(f.sha256)} disabled={busy} onChange={e => setManualSelected(current => e.target.checked ? [...current, f.sha256] : current.filter(hash => hash !== f.sha256))} />Guardar na fila para tratamento manual</label>}</div>)}
-          {matching.length === 0 && ungrouped.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item neste filtro.</p>}
         </>}
       </div>
     </DialogContent></Dialog>
@@ -370,7 +450,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
         </div>}
         {reprocessPreview.documents.length === 0 ? <p className="rounded bg-muted p-3 text-sm">Todos os documentos importados já estão registrados e atualizados.</p> : reprocessPreview.documents.map(item => <div key={item.key} className="rounded-lg border p-3 space-y-2"><div className="flex items-start gap-3"><input className="mt-1" type="checkbox" aria-label={`Registrar ${item.key}`} checked={reprocessSelected.includes(item.key)} disabled={busy || item.operational.action === "manual" || item.operational.action === "conflict"} onChange={event => { setReprocessSelected(current => event.target.checked ? [...current, item.key] : current.filter(key => key !== item.key)); if (!event.target.checked) setReprocessFinancial(current => current.filter(key => key !== item.key)); }} /><div className="min-w-0"><p className="font-medium text-sm">{item.key} <Badge variant="outline">{item.version.status === "current" ? "Versão vigente" : item.version.status === "cancelled" ? "Cancelada" : "Versão anterior"}</Badge></p><p className="text-xs text-muted-foreground">{String(item.fields.modality)} · transmissão {String(item.fields.transmitted_on || "não informada")}</p></div></div>
           <p className={item.version.status === "current" ? "text-xs text-green-700" : "text-xs text-amber-700"}>{item.version.message}{item.version.successor_protocol ? ` Documento sucessor: ${item.version.successor_protocol}.` : ""}</p>
-          <div className="rounded bg-muted p-2 text-xs"><p className="font-medium">{operationalActions[item.operational.action]}</p><p>{item.operational.reason}</p>{item.operational.changes.length > 0 && <div className="mt-2 space-y-1">{item.operational.changes.map(change => <p key={change.field} className={change.financial ? "font-medium text-amber-800" : ""}>{labels[change.field] || change.field}: {display(change.field, change.old)} → {display(change.field, change.new)}</p>)}</div>}</div>
+          <div className="rounded bg-muted p-2 text-xs"><p className="font-medium">{operationalActionLabel(item.operational.action)}</p><p>{item.operational.reason}</p>{item.operational.changes.length > 0 && <div className="mt-2 space-y-1">{item.operational.changes.map(change => <p key={change.field} className={change.financial ? "font-medium text-amber-800" : ""}>{labels[change.field] || change.field}: {display(change.field, change.old)} → {display(change.field, change.new)}</p>)}</div>}</div>
           {item.operational.financial_review_required && <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">Revisão financeira futura: {item.operational.financial_review_reason}</p>}
           <p className="text-xs text-muted-foreground">Arquivos: {item.files.map(file => file.name).join(" · ")}</p>
           {item.operational.financial_confirmation_required && reprocessSelected.includes(item.key) && <label className="flex items-start gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950"><input className="mt-0.5" type="checkbox" checked={reprocessFinancial.includes(item.key)} disabled={busy} onChange={event => setReprocessFinancial(current => event.target.checked ? [...current, item.key] : current.filter(key => key !== item.key))} /><span>Conferi os valores anteriores e propostos e autorizo a substituição. O saldo será recalculado como Pedido − (Compensado + Recebido).</span></label>}

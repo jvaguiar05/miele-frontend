@@ -19,6 +19,12 @@ import { usePerdCompStore, type PerdComp } from "@/stores/perdcompStore";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+const formatOptionalCurrency = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return "Não informado";
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? formatCurrency(numericValue) : "Não informado";
+};
+
 interface PerdCompTableProps {
   perdcomps: PerdComp[];
   onEdit: (perdcomp: PerdComp) => void;
@@ -175,13 +181,13 @@ export default function PerdCompTable({
                 <div>
                   <span className="text-muted-foreground">Valor Pedido:</span>
                   <p className="font-medium mt-1 text-green-600">
-                    {formatCurrency(parseFloat(perdcomp.valor_pedido || "0"))}
+                    {formatOptionalCurrency(perdcomp.valor_pedido)}
                   </p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Saldo:</span>
                   <p className="font-medium mt-1">
-                    {formatCurrency(parseFloat(perdcomp.valor_saldo || "0"))}
+                    {formatOptionalCurrency(perdcomp.valor_saldo)}
                   </p>
                 </div>
               </div>
@@ -233,10 +239,10 @@ export default function PerdCompTable({
                 </TableCell>
                 <TableCell>{perdcomp.competencia}</TableCell>
                 <TableCell className="font-medium">
-                  {formatCurrency(parseFloat(perdcomp.valor_pedido || "0"))}
+                  {formatOptionalCurrency(perdcomp.valor_pedido)}
                 </TableCell>
                 <TableCell>
-                  {formatCurrency(parseFloat(perdcomp.valor_saldo || "0"))}
+                  {formatOptionalCurrency(perdcomp.valor_saldo)}
                 </TableCell>
                 <TableCell>
                   <Badge variant={getStatusColor(perdcomp.status)}>
