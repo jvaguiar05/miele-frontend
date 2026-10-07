@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { LocalOcrHelp, type OcrQuota } from "@/components/perdcomps/LocalOcrHelp";
 import { toast } from "sonner";
 
 type Value = string | number | boolean | null;
@@ -23,10 +24,10 @@ type OperationalPlan = { action: "create" | "update" | "link_only" | "manual" | 
 type VersionInfo = { status: "current" | "superseded" | "previous" | "cancelled"; successor_protocol?: string | null; message: string };
 type Document = { id?: string; key: string; fields: Record<string, Value>; status?: string; completeness: string; importable?: boolean; duplicate?: boolean; retifier?: boolean; ocr_used?: boolean; ocr_confidence?: number | null; issues?: string[]; missing?: Relation[]; relations: Relation[]; debts: Record<string, Value>[]; components: Record<string, unknown>[]; files: number[] | Source[]; reviews?: { reviewer: number; date: string; reason: string }[]; operational?: OperationalPlan; version?: VersionInfo; version_status?: string; superseded_by?: string | null; operational_id?: string | null };
 type PreviewClient = { id: string; cnpj: string; razao_social: string; nome_fantasia?: string | null };
-type Preview = { token: string; client_id: string; client?: PreviewClient; files: Source[]; groups: Document[]; counts: { files: number; documents: number; importable: number; rejected: number } };
+type Preview = { token: string; client_id: string; client?: PreviewClient; files: Source[]; groups: Document[]; counts: { files: number; documents: number; importable: number; rejected: number }; ocr_quota?: OcrQuota };
 type BatchFileSummary = { index: number; name: string; sha256: string; pages: number; status?: string; issues?: string[] };
 type ClientPreviewOption = { cnpj: string; registered: boolean; client: PreviewClient | null; file_count: number; document_count: number; importable: number; rejected: number; preview?: Preview };
-type MultiClientPreview = { selection_required: true; clients: ClientPreviewOption[]; unassigned_files: BatchFileSummary[]; counts: { files: number; clients: number; unassigned: number }; notice: string };
+type MultiClientPreview = { selection_required: true; clients: ClientPreviewOption[]; unassigned_files: BatchFileSummary[]; counts: { files: number; clients: number; unassigned: number }; notice: string; ocr_quota?: OcrQuota };
 type AutomaticPreview = Preview | MultiClientPreview;
 type ReprocessDocument = { key: string; document_id: string; fields: Record<string, Value>; retifier: boolean; version: VersionInfo; operational: OperationalPlan; files: { id: string; name: string; kind: string; sha256: string; pages: number }[] };
 type ReprocessPreview = { token: string; documents: ReprocessDocument[]; counts: { pending: number; financial_confirmation: number }; notice: string };
@@ -36,7 +37,7 @@ type StorageSummary = { status: string; total: number; archived: number; pending
 type OperationalOption = { id: string; numero_perdcomp?: string; numero?: string };
 type ClientPerdcompImportsProps = { clientId?: string; initialFiles?: File[]; autoAnalyze?: boolean; onClientNotFound?: (cnpj: string, files: File[]) => void; onAddPerdComp: () => void; onOperationalChanged: () => Promise<void>; onStorageChanged?: () => void; operationalPerdcomps: OperationalOption[]; startOpen?: boolean; panelHidden?: boolean; onImportOpenChange?: (open: boolean) => void };
 type ActiveTask = "analyzing" | "confirming" | null;
-type FlowError = { title: string; impact: string; solution: string; detail?: string; retry?: "preview" };
+type FlowError = { title: string; impact: string; solution: string; detail?: string; retry?: "preview"; needsLocalOcr?: boolean };
 const MAX_BATCH_FILES = 100;
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_BATCH_BYTES = 50 * 1024 * 1024;
@@ -90,6 +91,13 @@ function missingClientCnpj(error: unknown): string | null {
     ? payload.cnpj
     : null;
 }
+function errorOcrQuota(error: unknown): OcrQuota | null {
+  if (typeof error !== "object" || error === null || !("response" in error)) return null;
+  const data = (error as { response?: { data?: unknown } }).response?.data;
+  if (typeof data !== "object" || data === null) return null;
+  const quota = (data as { ocr_quota?: unknown }).ocr_quota;
+  return typeof quota === "object" && quota !== null ? quota as OcrQuota : null;
+}
 const formatCnpj = (value: string) => value.replace(/\D/g, "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
 const isMultiClientPreview = (value: AutomaticPreview): value is MultiClientPreview => "selection_required" in value && value.selection_required === true;
 const statusLabel = (status?: string) => status ? statuses[status] || "Revisão necessária" : "Situação não informada";
@@ -109,6 +117,7 @@ function fileSelectionProblem(files: File[]): FlowError | null {
 function flowFailure(error: unknown, stage: "preview" | "confirm"): FlowError {
   const detail = message(error);
   const localOcr = detail.includes("Miele OCR Local") || detail.includes(".miele.zip");
+  const needsLocalOcr = localOcr || isTimeoutError(error) || /\bocr\b/i.test(detail);
   if (stage === "preview") return {
     title: "Não foi possível preparar a conferência",
     impact: "Nenhuma PER/DCOMP foi registrada.",
@@ -119,12 +128,14 @@ function flowFailure(error: unknown, stage: "preview" | "confirm"): FlowError {
         : "Revise os arquivos e tente gerar a prévia novamente. Se o PDF for uma imagem e continuar lento, use o Miele OCR Local.",
     detail: localOcr ? undefined : detail,
     retry: "preview",
+    needsLocalOcr,
   };
   return {
     title: "Não foi possível confirmar o registro",
     impact: "O resultado desta tentativa não foi confirmado na tela.",
     solution: "Antes de repetir, atualize a lista de PER/DCOMPs e verifique se o protocolo já foi registrado. Se não estiver na lista, reabra esta importação; se persistir, encaminhe a mensagem ao suporte.",
     detail,
+    needsLocalOcr,
   };
 }
 function download(blob: Blob, name: string) {
@@ -148,6 +159,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const [busy, setBusy] = useState(false);
   const [activeTask, setActiveTask] = useState<ActiveTask>(null);
   const [flowError, setFlowError] = useState<FlowError | null>(null);
+  const [ocrQuota, setOcrQuota] = useState<OcrQuota | null>(null);
   const [filter, setFilter] = useState("all");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [manualIssues, setManualIssues] = useState<ManualIssue[]>([]);
@@ -175,7 +187,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
   const clientRef = useRef(clientId);
   const effectiveClientId = clientId || detectedClientId;
   const base = effectiveClientId ? `/clients/${effectiveClientId}/perdcomp-imports/` : "";
-  useEffect(() => { clientRef.current = clientId; setDetectedClientId(clientId || null); setPreview(null); setFiles(initialFiles ? [...initialFiles] : []); setFileInputKey(current => current + 1); setChanges([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setResult(null); setStorageSummary(null); setStorageMessage(""); setStorageClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); setFlowError(null); setActiveTask(null); autoAnalyzeStarted.current = false; setOpen(startOpen); setReprocessOpen(false); setReprocessPreview(null); setOffset(0); }, [clientId, initialFiles, startOpen]);
+  useEffect(() => { clientRef.current = clientId; setDetectedClientId(clientId || null); setPreview(null); setFiles(initialFiles ? [...initialFiles] : []); setFileInputKey(current => current + 1); setChanges([]); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setResult(null); setStorageSummary(null); setStorageMessage(""); setStorageClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); setFlowError(null); setOcrQuota(null); setActiveTask(null); autoAnalyzeStarted.current = false; setOpen(startOpen); setReprocessOpen(false); setReprocessPreview(null); setOffset(0); }, [clientId, initialFiles, startOpen]);
   useEffect(() => { let active = true;
     if (!base || panelHidden) { setDocuments([]); setManualIssues([]); setNext(null); setLoadError(""); return () => { active = false; }; }
     api.get(base + `documents/?offset=${offset}`).then(({ data }) => { if (active) { setDocuments(data.results); setManualIssues(data.manual_issues || []); setStorageSummary(data.storage || null); setNext(data.next_offset); setLoadError(""); } }).catch(error => { if (active) setLoadError(message(error)); });
@@ -209,7 +221,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
       const previewUrl = clientId ? base + "preview/" : "/perdcomps/import/preview/";
       const { data } = await api.post<AutomaticPreview>(previewUrl, form(currentChanges), { headers: { "Content-Type": "multipart/form-data" }, timeout: 180000 });
       if (clientRef.current !== clientId) return;
-      setChanges(currentChanges); setEditing(null);
+      setChanges(currentChanges); setEditing(null); setOcrQuota(data.ocr_quota || null);
       if (!clientId && isMultiClientPreview(data)) {
         setClientOptions(data.clients); setUnassignedBatchFiles(data.unassigned_files);
         const previous = data.clients.find(option => option.client?.id === previousClientId);
@@ -222,6 +234,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
         setPreview(single);
       }
     } catch (error) {
+      const quota = errorOcrQuota(error); if (quota) setOcrQuota(quota);
       const cnpj = !clientId ? missingClientCnpj(error) : null;
       if (cnpj && onClientNotFound) setUnregisteredCnpj(cnpj);
       else { const failure = flowFailure(error, "preview"); setFlowError(failure); toast.error(failure.title); }
@@ -253,12 +266,14 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
         setFiles([]); setChanges([]); setClientOptions([]); setUnassignedBatchFiles([]);
       }
       setStorageSummary(response.data.storage || null);
+      const quota = (response.data as { ocr_quota?: OcrQuota }).ocr_quota;
+      if (quota) setOcrQuota(quota);
       setStorageMessage(response.data.storage?.message || "");
       setStorageClientId(confirmedClientId);
       onStorageChanged?.();
       toast.success(remainingClients.length > 0 ? "Cliente registrado. Selecione o próximo cliente do lote." : "Importação concluída. Confira o resultado e o arquivamento dos originais.");
       await refreshOperationalAfterWrite();
-    } catch (error) { const failure = flowFailure(error, "confirm"); setFlowError(failure); toast.error(failure.title); } finally { setBusy(false); setActiveTask(null); }
+    } catch (error) { const quota = errorOcrQuota(error); if (quota) setOcrQuota(quota); const failure = flowFailure(error, "confirm"); setFlowError(failure); toast.error(failure.title); } finally { setBusy(false); setActiveTask(null); }
   }
   async function reviewImported() {
     setBusy(true);
@@ -332,7 +347,7 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
     } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
   }
   function startNewImport() {
-    setFiles([]); setFileInputKey(current => current + 1); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setReason(""); setResult(null); setFlowError(null); setStorageClientId(null); setDetectedClientId(clientId || null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false;
+    setFiles([]); setFileInputKey(current => current + 1); setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setReason(""); setResult(null); setFlowError(null); setOcrQuota(null); setStorageClientId(null); setDetectedClientId(clientId || null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); autoAnalyzeStarted.current = false;
   }
   function details(document: Document, sources: Source[], reviewing = false) {
     return <details className="rounded-md border p-3 mt-2"><summary className="cursor-pointer text-sm font-medium">Conferir dados, débitos e evidências</summary>
@@ -399,15 +414,16 @@ export default function ClientPerdcompImports({ clientId, initialFiles, autoAnal
     <Dialog open={open} onOpenChange={v => { if (!busy) { setOpen(v); onImportOpenChange?.(v); } }}><DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Importar PER/DCOMPs</DialogTitle><DialogDescription>Envie um PDF, vários PDFs ou um ZIP. PDFs com texto ou em imagem passam pela mesma conferência. OCR e valores financeiros exigem sua autorização antes do registro.</DialogDescription></DialogHeader>
       <div className="space-y-3">
         <ol aria-label="Etapas da importação" className="grid grid-cols-5 gap-1 rounded-lg border bg-muted/30 p-2">{flowSteps.map((step, index) => { const number = index + 1; const current = number === flowStage; const complete = number < flowStage; return <li key={step} aria-current={current ? "step" : undefined} className={`flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-center text-[11px] sm:text-xs ${current ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}><span className={`flex h-6 w-6 items-center justify-center rounded-full border ${complete ? "border-primary bg-primary text-primary-foreground" : current ? "border-primary text-primary" : "border-muted-foreground/30"}`}>{complete ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : number}</span><span className="break-words">{step}</span></li>; })}</ol>
-        <Label htmlFor="perdcomp-batch-files">PDFs, ZIP ou pacote .miele.zip · até 100 arquivos / 50 MB no lote · 10 MB por PDF · OCR direto: 20 páginas · pacote OCR local: 500 páginas</Label>
+        <Label htmlFor="perdcomp-batch-files">PDFs, ZIP ou pacote .miele.zip · até 100 arquivos / 50 MB no lote · 10 MB por PDF · OCR online: 5 páginas por operação · pacote OCR local: 500 páginas</Label>
         <Input key={fileInputKey} id="perdcomp-batch-files" type="file" accept=".pdf,.zip" multiple disabled={busy || syncingStorage} onChange={e => { setFiles(Array.from(e.target.files || [])); if (!clientId) setDetectedClientId(null); setUnregisteredCnpj(null); setClientOptions([]); setUnassignedBatchFiles([]); setFlowError(null); autoAnalyzeStarted.current = false; setPreview(null); setSelected([]); setManualSelected([]); setFinancialConfirmed([]); setOcrConfirmed([]); setChanges([]); setResult(null); }} />
-        {files.length > 0 && <div className="rounded-md border bg-muted/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">Arquivos selecionados</p><span className="text-xs text-muted-foreground">{files.length} arquivo(s) · {formatBytes(selectedFilesBytes)}</span></div><ul className="mt-2 max-h-28 space-y-1 overflow-y-auto pr-1 text-xs">{files.map((file, index) => <li key={`${file.name}-${file.size}-${index}`} className="flex min-w-0 items-center gap-2 rounded bg-background px-2 py-1"><FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{file.name}</span><span className="shrink-0 text-muted-foreground">{formatBytes(file.size)}</span></li>)}</ul></div>}
+        <LocalOcrHelp quota={ocrQuota} />
+        {files.length > 0 && <div className="rounded-md border bg-muted/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">Arquivos selecionados</p><span className="text-xs text-muted-foreground">{files.length} arquivo(s) · {formatBytes(selectedFilesBytes)}</span></div><ul className="mt-2 max-h-28 space-y-1 overflow-y-auto pr-1 text-xs">{files.map((file, index) => { const localPackage = /\.miele\.zip$/i.test(file.name); return <li key={`${file.name}-${file.size}-${index}`} className="flex min-w-0 items-center gap-2 rounded bg-background px-2 py-1"><FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{file.name}</span>{localPackage && <Badge className="shrink-0 border-blue-300 bg-blue-50 text-blue-800" variant="outline">OCR local</Badge>}<span className="shrink-0 text-muted-foreground">{formatBytes(file.size)}</span></li>; })}</ul></div>}
         {selectionProblem && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><AlertTitle>{selectionProblem.title}</AlertTitle><AlertDescription><p><strong>Impacto:</strong> {selectionProblem.impact}</p><p><strong>Como resolver:</strong> {selectionProblem.solution}</p>{selectionProblem.detail && <p className="mt-1 break-words text-xs">{selectionProblem.detail}</p>}</AlertDescription></Alert>}
         {clientOptions.length > 0 && <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-3"><div role="status" aria-live="polite"><p className="font-medium text-sm">{clientOptions.length} cliente(s) disponível(is) neste lote</p><p className="text-xs text-muted-foreground">Escolha um cliente por vez. O sistema exibirá e registrará somente os PDFs associados ao CNPJ selecionado.</p></div><div className="grid gap-2 sm:grid-cols-2">{clientOptions.map(option => { const active = option.client?.id === detectedClientId || (!option.registered && option.cnpj === unregisteredCnpj); return <div key={option.cnpj} className={`rounded-md border bg-background p-3 ${active ? "border-primary ring-1 ring-primary" : ""}`}><p className="text-sm font-medium">{option.client?.razao_social || "Cliente ainda não cadastrado"}</p><p className="text-xs text-muted-foreground">CNPJ {formatCnpj(option.cnpj)}</p><div className="my-2 flex flex-wrap gap-1"><Badge variant="secondary">{option.file_count} PDF(s)</Badge><Badge variant="outline">{option.document_count} documento(s)</Badge>{option.registered && <Badge variant="outline">{option.importable} publicável(is)</Badge>}</div><Button size="sm" variant={active ? "secondary" : "outline"} disabled={busy} onClick={() => selectClientOption(option)}>{active ? "Cliente selecionado" : option.registered ? "Selecionar cliente" : "Cadastrar este cliente"}</Button></div>; })}</div></div>}
         {unassignedBatchFiles.length > 0 && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"><p className="font-medium">{unassignedBatchFiles.length} arquivo(s) sem titularização segura</p><p>Esses arquivos não serão atribuídos automaticamente a nenhum cliente. Separe-os e importe dentro do cadastro correto para conferência.</p><p className="mt-1 break-words">{unassignedBatchFiles.map(file => file.name).join(" · ")}</p></div>}
         <div className="flex flex-wrap items-center gap-3"><Button disabled={!files.length || !!selectionProblem || busy || syncingStorage} onClick={() => analyze()}>{activeTask === "analyzing" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}{activeTask === "analyzing" ? "Processando arquivos" : "Gerar prévia"}</Button><span className="text-xs text-muted-foreground">Nada é salvo antes da confirmação.</span></div>
         {activeTaskMessage && <div role="status" aria-live="polite" className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950"><Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden="true" /><p>{activeTaskMessage}</p></div>}
-        {flowError && !selectionProblem && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><AlertTitle>{flowError.title}</AlertTitle><AlertDescription><p><strong>Impacto:</strong> {flowError.impact}</p><p><strong>Como resolver:</strong> {flowError.solution}</p>{flowError.detail && <p className="mt-1 break-words text-xs">Detalhe: {flowError.detail}</p>}{flowError.retry === "preview" && <Button className="mt-3" size="sm" variant="outline" disabled={busy} onClick={() => void analyze()}>Tentar gerar a prévia novamente</Button>}</AlertDescription></Alert>}
+        {flowError && !selectionProblem && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><AlertTitle>{flowError.title}</AlertTitle><AlertDescription><p><strong>Impacto:</strong> {flowError.impact}</p><p><strong>Como resolver:</strong> {flowError.solution}</p>{flowError.detail && <p className="mt-1 break-words text-xs">Detalhe: {flowError.detail}</p>}{flowError.needsLocalOcr && <div className="mt-3"><LocalOcrHelp expanded quota={ocrQuota} /></div>}{flowError.retry === "preview" && <Button className="mt-3" size="sm" variant="outline" disabled={busy} onClick={() => void analyze()}>Tentar gerar a prévia novamente</Button>}</AlertDescription></Alert>}
         {unregisteredCnpj && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><div role="alert"><p className="font-medium">Cliente não cadastrado</p><p className="mt-1">O CNPJ {formatCnpj(unregisteredCnpj)} foi identificado nos arquivos. Deseja cadastrar esse cliente agora?</p><p className="mt-1 text-xs">Os arquivos selecionados serão preservados e a prévia continuará automaticamente após o cadastro.</p></div><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setUnregisteredCnpj(null)}>Agora não</Button><Button size="sm" onClick={() => onClientNotFound?.(unregisteredCnpj, [...files])}>Cadastrar cliente</Button></div></div>}
         {result && <div className="space-y-3 rounded-lg border border-green-200 bg-green-50/50 p-4 text-sm"><div role="status" aria-live="polite" className="flex items-start gap-2 text-green-950"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /><div><p className="font-medium">Importação concluída</p><p className="text-xs">Confira abaixo o que foi registrado e o estado dos arquivos originais.</p></div></div><dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Documentos</dt><dd className="font-medium">{String(result.created ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">PDFs vinculados</dt><dd className="font-medium">{String(result.attached ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Criados</dt><dd className="font-medium">{String((result.operational as Record<string, unknown>)?.created ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Atualizados</dt><dd className="font-medium">{String((result.operational as Record<string, unknown>)?.updated ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Vinculados</dt><dd className="font-medium">{String((result.operational as Record<string, unknown>)?.linked ?? 0)}</dd></div><div className="rounded bg-background p-2"><dt className="text-xs text-muted-foreground">Pendências</dt><dd className="font-medium">{String(result.manual_pending_created ?? 0)}</dd></div></dl>{storageSummary && storageSummary.total > 0 && <div className="rounded border bg-background p-3 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">Originais no Google Drive</p><p role="status" aria-live="polite" className="text-xs text-muted-foreground">{storageMessage || (storageSummary.pending ? `${storageSummary.pending} PDF(s) aguardando arquivamento.` : "Todos os originais estão arquivados.")}</p></div><Badge variant={storageSummary.pending ? "outline" : "secondary"}>{storageSummary.archived}/{storageSummary.total} no Drive</Badge></div><Progress className="h-2" value={storageSummary.total ? Math.round(storageSummary.archived * 100 / storageSummary.total) : 0} aria-label={`${storageSummary.archived} de ${storageSummary.total} PDFs arquivados no Google Drive`} />{isAdmin && storageSummary.pending > 0 && <Button size="sm" variant="outline" disabled={busy} onClick={syncDrive}>{syncingStorage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Pausar após o atual</> : <><Upload className="h-4 w-4 mr-2" />Arquivar no Drive</>}</Button>}</div>}<div className="flex flex-wrap gap-2">{clientOptions.length === 0 && <Button size="sm" onClick={startNewImport}>Importar outros arquivos</Button>}<Button size="sm" variant="outline" onClick={() => { setOpen(false); onImportOpenChange?.(false); }}>Fechar</Button><Button variant="ghost" size="sm" onClick={() => download(new Blob([JSON.stringify(result, null, 2)], { type: "application/json" }), "resultado-importacao.json")}>Baixar resultado técnico</Button></div></div>}
         {preview && <>
