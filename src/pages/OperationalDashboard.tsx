@@ -21,7 +21,7 @@ const currency = (value: string) => new Intl.NumberFormat("pt-BR", { style: "cur
 const dateLabel = (value: string) => value.split("-").reverse().join("/");
 
 export default function OperationalDashboard() {
-  const { user, isAdmin } = useAuthStore();
+  const { user } = useAuthStore();
   const dashboard = useQuery({
     queryKey: ["operational-dashboard", user?.id],
     queryFn: async () => (await api.get<Dashboard>("/dashboard/operations/")).data,
@@ -43,7 +43,6 @@ export default function OperationalDashboard() {
         {import.meta.env.MODE === "sandbox" && <Badge variant="outline" className="mt-2">Ambiente de testes</Badge>}
       </div>
       <div className="flex gap-2">
-        {isAdmin && <Button variant="outline" asChild><Link to="/admin-dashboard">Administração</Link></Button>}
         <Button variant="outline" disabled={dashboard.isFetching} onClick={() => { void dashboard.refetch(); void activities.refetch(); }}>
           <RefreshCw className={`mr-2 h-4 w-4 ${dashboard.isFetching ? "animate-spin" : ""}`} />Atualizar
         </Button>

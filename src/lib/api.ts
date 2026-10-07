@@ -1,9 +1,26 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-// Base API configuration following Django REST Framework patterns
+// Keep the known legacy Render hostname compatible during the production cutover.
+const LEGACY_API_BASE_URL = "https://miele-backend-staging.onrender.com/api/v1";
+const PRODUCTION_API_BASE_URL =
+  "https://miele-backend-staging-r8hx.onrender.com/api/v1";
+const configuredApiBaseUrl = String(
+  import.meta.env.VITE_API_BASE_URL || ""
+).replace(/\/+$/, "");
+
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
+  configuredApiBaseUrl === LEGACY_API_BASE_URL
+    ? PRODUCTION_API_BASE_URL
+    : configuredApiBaseUrl ||
+      (import.meta.env.PROD
+        ? PRODUCTION_API_BASE_URL
+        : "http://localhost:8000/api/v1");
+
+export const authCookieSecurity = {
+  sameSite: "strict" as const,
+  secure: typeof window !== "undefined" && window.location.protocol === "https:",
+};
 
 const BACKEND_READY_TIMEOUT_MS = 100000;
 const BACKEND_READY_CACHE_MS = 60000;
@@ -134,9 +151,15 @@ api.interceptors.response.use(
           const { access, refresh: newRefresh } = response.data;
 
           // Store new tokens (refresh token rotation)
-          Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
+          Cookies.set("access_token", access, {
+            expires: 1 / 96,
+            ...authCookieSecurity,
+          }); // 15 minutes
           if (newRefresh) {
-            Cookies.set("refresh_token", newRefresh, { expires: 14 }); // 14 days
+            Cookies.set("refresh_token", newRefresh, {
+              expires: 14,
+              ...authCookieSecurity,
+            }); // 14 days
           }
 
           originalRequest.headers.Authorization = `Bearer ${access}`;

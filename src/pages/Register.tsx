@@ -39,7 +39,7 @@ const registerSchema = z
       ),
     password: z
       .string()
-      .min(6, "Senha deve ter pelo menos 6 caracteres")
+      .min(8, "Senha deve ter pelo menos 8 caracteres")
       .max(100, "Senha deve ter no máximo 100 caracteres"),
     confirmPassword: z.string(),
   })

@@ -3,7 +3,6 @@
 import {
   LogOut,
   User,
-  Settings,
   ChevronRight,
   Briefcase,
   Mail,
@@ -197,20 +196,6 @@ export default function Header() {
                         <p className="text-sm">Meu Perfil</p>
                         <p className="text-xs text-muted-foreground">
                           Gerencie suas informações pessoais
-                        </p>
-                      </div>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    asChild
-                    className="cursor-pointer p-2.5 rounded-md"
-                  >
-                    <Link to="/configuration" className="flex items-center">
-                      <Settings className="mr-3 h-4 w-4 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="text-sm">Configurações</p>
-                        <p className="text-xs text-muted-foreground">
-                          Preferências e configurações do sistema
                         </p>
                       </div>
                     </Link>

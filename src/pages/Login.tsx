@@ -248,12 +248,9 @@ export default function Login() {
                   Lembrar-me
                 </Label>
               </div>
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:text-primary/80 transition-colors"
-              >
-                Esqueceu a senha?
-              </Link>
+              <span className="text-xs text-muted-foreground">
+                Esqueceu a senha? Solicite ajuda ao administrador.
+              </span>
             </div>
 
             <Button

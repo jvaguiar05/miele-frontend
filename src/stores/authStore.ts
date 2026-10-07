@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import api, { ensureBackendReady } from "@/lib/api";
+import api, { authCookieSecurity, ensureBackendReady } from "@/lib/api";
 import Cookies from "js-cookie";
 
 interface User {
@@ -148,8 +148,14 @@ export const useAuthStore = create<AuthState>()(
           const { access, refresh } = response.data;
 
           // Store tokens in cookies
-          Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
-          Cookies.set("refresh_token", refresh, { expires: 14 }); // 14 days
+          Cookies.set("access_token", access, {
+            expires: 1 / 96,
+            ...authCookieSecurity,
+          }); // 15 minutes
+          Cookies.set("refresh_token", refresh, {
+            expires: 14,
+            ...authCookieSecurity,
+          }); // 14 days
 
           // Fetch user data and RBAC information
           set({ loginStage: "loading-profile" });
@@ -190,8 +196,14 @@ export const useAuthStore = create<AuthState>()(
         };
 
         // Set fake tokens for testing
-        Cookies.set("access_token", "test-token", { expires: 1 });
-        Cookies.set("refresh_token", "test-refresh", { expires: 7 });
+        Cookies.set("access_token", "test-token", {
+          expires: 1,
+          ...authCookieSecurity,
+        });
+        Cookies.set("refresh_token", "test-refresh", {
+          expires: 7,
+          ...authCookieSecurity,
+        });
 
         set({
           user: testUser,
@@ -400,9 +412,15 @@ export const useAuthStore = create<AuthState>()(
           const { access, refresh: newRefresh } = response.data;
 
           // Store new tokens (refresh token rotation)
-          Cookies.set("access_token", access, { expires: 1 / 96 }); // 15 minutes
+          Cookies.set("access_token", access, {
+            expires: 1 / 96,
+            ...authCookieSecurity,
+          }); // 15 minutes
           if (newRefresh) {
-            Cookies.set("refresh_token", newRefresh, { expires: 14 }); // 14 days
+            Cookies.set("refresh_token", newRefresh, {
+              expires: 14,
+              ...authCookieSecurity,
+            }); // 14 days
           }
 
           return access;

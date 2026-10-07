@@ -5,12 +5,10 @@ import {
   Shield,
   Key,
   LogOut,
-  Trash2,
   Save,
   Eye,
   EyeOff,
   RefreshCw,
-  AlertTriangle,
   Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,7 +34,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 export default function Profile() {
@@ -76,15 +73,9 @@ export default function Profile() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
 
-  // 2FA state
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [qrCode, setQrCode] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-
   // Confirmation states
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
-  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   // Update form data when user/profile data changes
   useEffect(() => {
@@ -182,48 +173,6 @@ export default function Profile() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast({
-        title: "Conta excluída",
-        description: "Sua conta foi excluída permanentemente.",
-      });
-
-      await signOut();
-      navigate("/login");
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir a conta.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSetup2FA = async () => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setQrCode(
-        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/Miele:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Miele"
-      );
-      setTwoFactorEnabled(true);
-
-      toast({
-        title: "2FA configurado",
-        description: "Autenticação de dois fatores ativada com sucesso.",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível configurar 2FA.",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-8">
       <motion.div
@@ -273,9 +222,13 @@ export default function Profile() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    readOnly
+                    aria-describedby="email-help"
                     placeholder="seu@email.com"
                   />
+                  <p id="email-help" className="text-xs text-muted-foreground">
+                    Para alterar o e-mail, solicite a atualização a um administrador.
+                  </p>
                 </div>
                 <Button
                   onClick={handleSaveProfile}
@@ -422,9 +375,8 @@ export default function Profile() {
                         Confirmar alteração de senha
                       </AlertDialogTitle>
                       <AlertDialogDescription>
-                        Você está prestes a alterar sua senha. Esta ação irá
-                        desconectar você de todos os dispositivos. Tem certeza
-                        de que deseja continuar?
+                        A senha desta conta será alterada. Use a nova senha nos
+                        próximos acessos. Deseja continuar?
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -448,7 +400,8 @@ export default function Profile() {
 
           {/* Security Settings */}
           <div className="space-y-6">
-            {/* Two-Factor Authentication */}
+            {/* Two-factor authentication is not exposed until enrollment and
+                login verification are both fully supported by the backend. */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -460,48 +413,14 @@ export default function Profile() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!twoFactorEnabled ? (
-                  <div className="text-center space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      A autenticação de dois fatores não está configurada
-                    </p>
-                    <Button onClick={handleSetup2FA} className="w-full">
-                      <Shield className="h-4 w-4 mr-2" />
-                      Configurar 2FA
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <p className="text-sm text-green-600 mb-2">
-                        ✓ 2FA ativado
-                      </p>
-                      {qrCode && (
-                        <div className="flex justify-center mb-4">
-                          <img
-                            src={qrCode}
-                            alt="QR Code"
-                            className="border rounded"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="verificationCode">
-                        Código de verificação
-                      </Label>
-                      <Input
-                        id="verificationCode"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value)}
-                        placeholder="Digite o código do app"
-                      />
-                    </div>
-                    <Button variant="outline" className="w-full">
-                      Desativar 2FA
-                    </Button>
-                  </div>
-                )}
+                <p className="text-sm text-muted-foreground">
+                  Este recurso será disponibilizado após a validação completa
+                  do acesso em duas etapas. Nenhuma configuração é necessária agora.
+                </p>
+                <Button type="button" className="w-full" disabled>
+                  <Shield className="h-4 w-4 mr-2" />
+                  2FA ainda não disponível
+                </Button>
               </CardContent>
             </Card>
 
@@ -523,99 +442,6 @@ export default function Profile() {
               </CardContent>
             </Card>
 
-            {/* Danger Zone */}
-            <Card className="border-destructive/50 bg-destructive/5">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
-                  Zona de Perigo
-                </CardTitle>
-                <CardDescription>
-                  Ações irreversíveis que afetarão permanentemente sua conta
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border border-destructive/20 bg-background p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-full bg-destructive/10">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <h4 className="font-semibold text-sm">
-                        Exclusão permanente da conta
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        Esta ação irá excluir permanentemente sua conta e todos
-                        os dados associados. Esta operação não pode ser
-                        desfeita.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="destructive"
-                      className="w-full justify-start"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir conta permanentemente
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="max-w-md">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                        <AlertTriangle className="h-5 w-5" />
-                        Excluir conta permanentemente
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="space-y-3">
-                        <p>
-                          Esta ação é <strong>irreversível</strong> e irá:
-                        </p>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                          <li>Excluir permanentemente sua conta</li>
-                          <li>Remover todos os seus dados</li>
-                          <li>Cancelar assinaturas ativas</li>
-                          <li>Revogar acesso a todos os serviços</li>
-                        </ul>
-                        <p className="pt-2 text-sm font-medium">
-                          Para confirmar, digite{" "}
-                          <span className="font-mono bg-muted px-1 rounded">
-                            EXCLUIR CONTA
-                          </span>{" "}
-                          abaixo:
-                        </p>
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="py-4">
-                      <Input
-                        placeholder="Digite EXCLUIR CONTA"
-                        value={deleteConfirmationText}
-                        onChange={(e) =>
-                          setDeleteConfirmationText(e.target.value)
-                        }
-                        className="font-mono"
-                      />
-                    </div>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel
-                        onClick={() => setDeleteConfirmationText("")}
-                      >
-                        Cancelar
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteAccount}
-                        disabled={deleteConfirmationText !== "EXCLUIR CONTA"}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
-                      >
-                        Confirmar exclusão
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </motion.div>
