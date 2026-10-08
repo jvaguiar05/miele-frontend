@@ -8,6 +8,7 @@ import {
   DollarSign,
   StickyNote,
   Folder,
+  FileSearch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,13 +22,18 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePerdCompStore } from "@/stores/perdcompStore";
-import { useClientStore } from "@/stores/clientStore";
+import { usePerdCompStore, type PerdCompAnnotation } from "@/stores/perdcompStore";
+import { useClientStore, type Client } from "@/stores/clientStore";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import PerdCompFileManager from "./PerdCompFileManager";
 import AddPerdCompAnnotationForm from "./AddPerdCompAnnotationForm";
 import DeadlineHistory from "./DeadlineHistory";
+import {
+  PerdcompDocumentaryDetails,
+  PerdcompImportedFiles,
+} from "./PerdcompDocumentary";
+import usePerdcompDocumentary from "./usePerdcompDocumentary";
 
 interface PerdCompDetailProps {
   perdcompId: string;
@@ -43,11 +49,12 @@ export default function PerdCompDetail({
   const { selectedPerdComp, fetchPerdCompById, deleteAnnotation } =
     usePerdCompStore();
   const { fetchClientById, clients, fetchClients } = useClientStore();
-  const [client, setClient] = useState<any>(null);
+  const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddAnnotationForm, setShowAddAnnotationForm] = useState(false);
-  const [editingAnnotation, setEditingAnnotation] = useState<any>(null);
+  const [editingAnnotation, setEditingAnnotation] = useState<PerdCompAnnotation | null>(null);
   const [activeTab, setActiveTab] = useState("info");
+  const documentaryState = usePerdcompDocumentary(perdcompId);
 
   // Tab options
   const tabOptions = [
@@ -92,6 +99,16 @@ export default function PerdCompDetail({
       ),
       icon: "📁",
     },
+    {
+      value: "more",
+      label: (
+        <div className="flex items-center">
+          <FileSearch className="w-4 h-4 mr-2" />
+          Mais detalhes
+        </div>
+      ),
+      icon: "",
+    },
   ];
 
   const handleDeleteAnnotation = async (annotationId: string) => {
@@ -105,7 +122,7 @@ export default function PerdCompDetail({
     }
   };
 
-  const handleEditAnnotation = (annotation: any) => {
+  const handleEditAnnotation = (annotation: PerdCompAnnotation) => {
     setEditingAnnotation(annotation);
     setShowAddAnnotationForm(true);
   };
@@ -183,10 +200,16 @@ export default function PerdCompDetail({
             </p>
           </div>
         </div>
-        <Button onClick={() => onEdit()} className="w-full sm:w-auto" size="sm">
-          <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          Editar
-        </Button>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Button onClick={() => setActiveTab("more")} className="flex-1 sm:flex-none" size="sm" variant="outline">
+            <FileSearch className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            Mais detalhes
+          </Button>
+          <Button onClick={() => onEdit()} className="flex-1 sm:flex-none" size="sm">
+            <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            Editar
+          </Button>
+        </div>
       </div>
 
       {/* Mobile Navigation Dropdown */}
@@ -210,7 +233,7 @@ export default function PerdCompDetail({
 
       {/* Desktop Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0 max-w-full">
-        <TabsList className="hidden sm:grid h-auto w-full min-w-0 grid-cols-5 gap-1">
+        <TabsList className="hidden sm:grid h-auto w-full min-w-0 grid-cols-6 gap-1">
           <TabsTrigger value="deadlines" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">Vencimentos</TabsTrigger>
           <TabsTrigger value="info" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
             <FileText className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
@@ -227,6 +250,10 @@ export default function PerdCompDetail({
           <TabsTrigger value="files" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
             <Folder className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
             Arquivos
+          </TabsTrigger>
+          <TabsTrigger value="more" className="min-w-0 px-1.5 py-2 text-xs md:px-2 md:text-sm">
+            <FileSearch className="hidden lg:block w-4 h-4 mr-2 shrink-0" />
+            Mais detalhes
           </TabsTrigger>
         </TabsList>
 
@@ -578,7 +605,12 @@ export default function PerdCompDetail({
         </TabsContent>
 
         <TabsContent value="files" className="space-y-3 sm:space-y-4">
+          <PerdcompImportedFiles state={documentaryState} />
           <PerdCompFileManager perdcompId={selectedPerdComp.id.toString()} />
+        </TabsContent>
+
+        <TabsContent value="more" className="space-y-3 sm:space-y-4">
+          <PerdcompDocumentaryDetails state={documentaryState} perdcompId={perdcompId} />
         </TabsContent>
       </Tabs>
     </div>
