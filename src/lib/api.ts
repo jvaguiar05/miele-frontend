@@ -24,6 +24,7 @@ export const authCookieSecurity = {
 
 const BACKEND_READY_TIMEOUT_MS = 100000;
 const BACKEND_READY_CACHE_MS = 60000;
+const LOGIN_PREPARE_GRACE_MS = 8000;
 let backendReadyAt = 0;
 let backendReadinessRequest: Promise<void> | null = null;
 
@@ -91,6 +92,18 @@ export const ensureBackendReady = async () => {
     });
 
   return backendReadinessRequest;
+};
+
+/**
+ * Give the Render warm-up a short head start, but never make the health probe
+ * a hard gate for authentication. Some browsers or network filters can block
+ * the probe even while the login endpoint itself is reachable.
+ */
+export const prepareBackendForLogin = async () => {
+  await Promise.race([
+    ensureBackendReady().catch(() => undefined),
+    wait(LOGIN_PREPARE_GRACE_MS),
+  ]);
 };
 
 // Create axios instance with Django REST API configuration

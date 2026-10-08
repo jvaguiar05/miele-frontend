@@ -192,8 +192,8 @@ export default function Login() {
               role="alert"
               className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
             >
-              O servidor demorou para responder. Ao clicar em Entrar, faremos
-              uma nova verificação antes de enviar sua senha.
+              A verificação automática demorou para responder. Você ainda pode
+              clicar em Entrar: o sistema tentará o acesso diretamente uma única vez.
             </div>
           )}
 

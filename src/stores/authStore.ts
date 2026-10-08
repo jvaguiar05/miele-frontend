@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import api, { authCookieSecurity, ensureBackendReady } from "@/lib/api";
+import api, { authCookieSecurity, prepareBackendForLogin } from "@/lib/api";
 import Cookies from "js-cookie";
 
 interface User {
@@ -134,7 +134,7 @@ export const useAuthStore = create<AuthState>()(
           // Wake the free Render service without sending credentials. Never
           // retry the login POST automatically because failed attempts are
           // intentionally throttled by the backend.
-          await ensureBackendReady();
+          await prepareBackendForLogin();
           set({ loginStage: "authenticating" });
 
           Cookies.remove("access_token");
@@ -142,7 +142,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await api.post(
             "/auth/login/",
             { username, password },
-            { timeout: 45000 }
+            { timeout: 75000 }
           );
 
           const { access, refresh } = response.data;
@@ -169,6 +169,11 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false, loginStage: "idle" });
         } catch (error: any) {
           set({ isLoading: false, loginStage: "idle" });
+          if (error?.code === "ECONNABORTED") {
+            throw new Error(
+              "O servidor ainda está iniciando e não concluiu o acesso a tempo. Aguarde alguns segundos e tente novamente."
+            );
+          }
           const errorData = error.response?.data;
           if (errorData?.detail) {
             throw new Error(errorData.detail);
