@@ -3,13 +3,14 @@ import App from "./App.tsx";
 import "./index.css";
 
 const CANONICAL_PRODUCTION_HOST = "miele-frontend-staging.vercel.app";
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const currentHost = window.location.hostname.toLowerCase();
-const isTemporaryVercelDeployment =
+const isNonCanonicalProductionHost =
   import.meta.env.PROD &&
-  currentHost.startsWith("miele-frontend-staging-") &&
-  currentHost.endsWith(".vercel.app");
+  currentHost !== CANONICAL_PRODUCTION_HOST &&
+  !LOCAL_HOSTS.has(currentHost);
 
-if (isTemporaryVercelDeployment) {
+if (isNonCanonicalProductionHost) {
   const canonicalUrl = new URL(window.location.href);
   canonicalUrl.protocol = "https:";
   canonicalUrl.host = CANONICAL_PRODUCTION_HOST;
